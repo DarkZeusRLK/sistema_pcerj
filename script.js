@@ -3,6 +3,7 @@
 // ==========================================
 const CONFIG = {
   // URL do seu site (igual no Discord Developer Portal)
+  CLIENT_ID: "1448696847408431176",
   REDIRECT_URI: "https://sistema-emissao.vercel.app/",
 };
 
