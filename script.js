@@ -155,42 +155,80 @@ const POSICOES = {
   validade: { x: 400, y: 300 },
 };
 
-// --- EMISSÃO DE PORTE ---
 window.gerarPreviewPorte = function () {
+  console.log("--- INICIANDO PROCESSO DE PRÉVIA ---");
+
+  // 1. Pega os elementos do HTML
+  const container = document.getElementById("preview-porte-container");
+  const canvas = document.getElementById("canvas-porte");
+
+  // Inputs
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
   const rg = document.getElementById("porte-rg").value;
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
 
-  if (!nome || !id) return alert("Preencha os dados.");
+  // Validação básica
+  if (!container || !canvas) {
+    return alert(
+      "ERRO: Não encontrei a 'div' ou o 'canvas' no HTML. Verifique os IDs."
+    );
+  }
 
-  const canvas = document.getElementById("canvas-porte");
+  if (!nome || !id) {
+    return alert("Por favor, preencha Nome e Passaporte/ID.");
+  }
+
+  // 2. Prepara o Canvas
   const ctx = canvas.getContext("2d");
   const img = new Image();
 
-  // Define imagem base
+  // 3. Define a Imagem (CUIDADO COM MAIÚSCULAS/MINÚSCULAS NA VERCEL!)
+  // O nome do arquivo tem que ser exato. Se for .PNG ou .png faz diferença.
   if (arma === "GLOCK") img.src = "assets/porte_glock.png";
   else if (arma === "MP5") img.src = "assets/porte_mp5.png";
   else img.src = "assets/porte_taser.png";
 
+  console.log("Carregando imagem:", img.src);
+
+  // 4. Quando a imagem carregar
   img.onload = function () {
+    console.log("Imagem carregada! Desenhando...");
+
+    // Ajusta o tamanho
     canvas.width = img.width;
     canvas.height = img.height;
+
+    // Desenha o fundo
     ctx.drawImage(img, 0, 0);
 
-    ctx.font = "bold 22px Arial";
-    ctx.fillStyle = "#000";
-    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
-    ctx.fillText(`ID: ${id}`, POSICOES.id.x, POSICOES.id.y);
-    ctx.fillText(`RG: ${rg}`, POSICOES.rg.x, POSICOES.rg.y);
-    ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
+    // Configura texto
+    ctx.font = "bold 22px Arial"; // Ajuste o tamanho da fonte se ficar pequeno
+    ctx.fillStyle = "#000000"; // Cor do texto (Preto)
 
-    document
-      .getElementById("preview-porte-container")
-      .classList.remove("hidden");
+    // Escreve os dados (Ajuste X e Y conforme sua imagem de fundo)
+    // Exemplo: ctx.fillText(TEXTO, POSICAO_X, POSICAO_Y)
+    ctx.fillText(nome.toUpperCase(), 50, 190);
+    ctx.fillText(`ID: ${id}`, 50, 240);
+    ctx.fillText(`RG: ${rg}`, 250, 240);
+    ctx.fillText(validade, 400, 300);
+
+    // 5. O SEGREDO: Força a div a aparecer
+    container.classList.remove("hidden");
+    container.style.display = "block"; // <--- ISSO GARANTE QUE APARECE
+
+    // Rola a tela até a prévia
+    container.scrollIntoView({ behavior: "smooth", block: "center" });
   };
-  img.onerror = () => alert("Erro ao carregar imagem base na pasta assets.");
+
+  // 5. Se der erro (Imagem não encontrada)
+  img.onerror = function () {
+    console.error("ERRO: Imagem não encontrada ->", img.src);
+    alert(
+      `ERRO: O arquivo '${img.src}' não existe na pasta 'assets' ou o nome está errado (Maiúscula/Minúscula importa!).`
+    );
+  };
 };
 
 // Botão de Envio Final (Emitir)
