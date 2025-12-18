@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Emissão de Documentos - Polícia Civil</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="shortcut icon" href="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" type="image/x-icon">
+</head>
+
+<body>
+  <style>
+    /* Esconde tudo até o JS validar o login */
+    body {
+      display: none;
+    }
+  </style>
+  <div class="app-container">
+    <nav class="sidebar">
+      <div class="brand">
+        <img src="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" alt="PC" class="brand-logo" onerror="this.src='https://via.placeholder.com/50'">
+        <div class="brand-text">
+          <h2>POLÍCIA CIVIL</h2>
+          <span>Sistema Integrado</span>
+        </div>
+      </div>
+
+      <ul class="nav-links">
+        <li class="active" onclick="navegar('dashboard')">
+          <i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span>
+        </li>
+        <li onclick="navegar('limpeza')">
+          <i class="fa-solid fa-eraser"></i> <span>Limpeza de Ficha</span>
+        </li>
+        <li onclick="navegar('emissao')">
+          <i class="fa-solid fa-id-card"></i> <span>Emitir Porte</span>
+        </li>
+        <li onclick="navegar('renovacao')">
+          <i class="fa-solid fa-clock-rotate-left"></i> <span>Renovação</span>
+        </li>
+        <li onclick="navegar('revogacao')">
+          <i class="fa-solid fa-ban"></i> <span>Revogação</span>
+        </li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="avatar-circle"><i class="fa-solid fa-user-shield"></i></div>
+        <div class="user-info">
+          <p>Delegado(a)</p>
+          <small>Status: Online</small>
+        </div>
+      </div>
+    </nav>
+
+    <main class="content-area">
+      <header>
+        <h1 id="page-title">Dashboard</h1>
+        <div class="date-display" id="data-atual">--/--/----</div>
+      </header>
+
+      <section id="sec-dashboard" class="screen active">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon bg-blue"><i class="fa-solid fa-users"></i></div>
+            <div class="stat-info">
+              <h3>Portes Ativos</h3>
+              <p id="counter-ativos">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-gold"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="stat-info">
+              <h3>Limpezas (Hoje)</h3>
+              <p id="counter-limpezas">R$ 0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="stat-info">
+              <h3>Revogados</h3>
+              <p id="counter-revogados">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="welcome-banner">
+          <h3>Bem-vindo ao Sistema de Inteligência</h3>
+          <p>Utilize o menu lateral para gerenciar documentos oficiais.</p>
+        </div>
+      </section>
+
+      <section id="sec-limpeza" class="screen hidden">
+        <div class="form-container">
+          <div class="form-header">
+            <h2><i class="fa-solid fa-eraser"></i> Limpeza de Ficha Criminal</h2>
+          </div>
+          <div class="input-grid">
+            <div class="form-group">
+              <label>Nome do Cidadão</label>
+              <input type="text" id="limp-nome" placeholder="Nome Completo">
+            </div>
+            <div class="form-group">
+              <label>Passaporte (ID)</label>
+              <input type="number" id="limp-id" placeholder="Ex: 5520">
+            </div>
+            <div class="form-group">
+              <label>RG</label>
+              <input type="text" id="limp-rg" placeholder="00.000.000-0">
+            </div>
+            <div class="form-group">
+              <label>Valor da Limpeza (R$)</label>
+              <input type="number" id="limp-valor" placeholder="150000">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-success" onclick="processarLimpeza()">
+              <i class="fa-solid fa-print"></i> Gerar e Emitir Limpeza
+            </button>
+          </div>
+          <canvas id="canvas-limpeza" class="hidden"></canvas>
+        </div>
+      </section>
+
+      <section id="sec-emissao" class="screen hidden">
+        <div class="form-container">
+          <div class="form-header">
+            <h2><i class="fa-solid fa-gun"></i> Novo Porte de Armas</h2>
+          </div>
+          <div class="input-grid">
+            <div class="form-group">
+              <label>Nome Completo</label>
+              <input type="text" id="porte-nome">
+            </div>
+            <div class="form-group">
+              <label>Passaporte (ID)</label>
+              <input type="number" id="porte-id">
+            </div>
+            <div class="form-group">
+              <label>RG</label>
+              <input type="text" id="porte-rg">
+            </div>
+            <div class="form-group">
+              <label>Armamento</label>
+              <select id="porte-arma">
+                <option value="GLOCK">Glock (Pistola)</option>
+                <option value="MP5">Submetralhadora MP5</option>
+                <option value="TASER">Taser (Não Letal)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Validade (+30 Dias)</label>
+              <input type="text" id="porte-validade" readonly style="background: #2a2a2e; color: #aaa;">
+            </div>
+          </div>
+
+          <div class="radio-section">
+            <div class="radio-group">
+              <span>Oficial de Polícia? (15% Desc.)</span>
+              <label><input type="radio" name="isPolice" value="sim"> Sim</label>
+              <label><input type="radio" name="isPolice" value="nao" checked> Não</label>
+            </div>
+            <div class="radio-group">
+              <span>Incluir Munição?</span>
+              <label><input type="radio" name="hasAmmo" value="sim"> Sim</label>
+              <label><input type="radio" name="hasAmmo" value="nao" checked> Não</label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-primary" onclick="gerarPreviewPorte()">
+              <i class="fa-solid fa-eye"></i> Gerar Prévia
+            </button>
+          </div>
+        </div>
+
+        <div id="preview-porte-container" class="preview-box hidden">
+          <h3>Documento Gerado</h3>
+          <div class="canvas-wrapper">
+            <canvas id="canvas-porte"></canvas>
+            <img id="img-porte-final" src="">
+          </div>
+          <button class="btn-success" id="btn-emitir-final">
+            <i class="fa-solid fa-paper-plane"></i> Confirmar Emissão
+          </button>
+        </div>
+      </section>
+
+      <section id="sec-renovacao" class="screen hidden">
+        <div class="search-area">
+          <input type="text" id="search-renovacao" placeholder="Pesquisar por Nome ou ID..." onkeyup="filtrarRenovacao()">
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Cidadão</th>
+                <th>ID</th>
+                <th>Arma</th>
+                <th>Vencimento</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="lista-renovacao">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sec-revogacao" class="screen hidden">
+        <div class="alert-warning">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span>Atenção: A revogação gera um registro criminal irreversível.</span>
+        </div>
+        <div class="search-area">
+          <input type="text" id="search-revogacao" placeholder="Pesquisar para Revogar..." onkeyup="filtrarRevogacao()">
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Cidadão</th>
+                <th>ID</th>
+                <th>Arma</th>
+                <th>Status</th>
+                <th>Revogar</th>
+              </tr>
+            </thead>
+            <tbody id="lista-revogacao">
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

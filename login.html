@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Polícia Civil</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="shortcut icon" href="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" type="image/x-icon">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: radial-gradient(circle at center, #202024 0%, #121214 100%);
+    }
+
+    .login-card {
+      background: var(--bg-panel);
+      padding: 40px;
+      border-radius: 12px;
+      width: 400px;
+      text-align: center;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-logo {
+      width: 100px;
+      margin-bottom: 20px;
+    }
+
+    .login-title {
+      color: var(--gold-accent);
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .login-desc {
+      color: var(--text-secondary);
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+
+    .btn-discord {
+      background: #5865F2;
+      color: white;
+      padding: 12px;
+      width: 100%;
+      border-radius: 6px;
+      text-decoration: none;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    .btn-discord:hover {
+      background: #4752c4;
+      transform: translateY(-2px);
+    }
+
+    .error-msg {
+      color: var(--red-accent);
+      background: rgba(229, 46, 77, 0.1);
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      display: none;
+      /* Só aparece se der erro */
+      border: 1px solid var(--red-accent);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="login-card">
+    <img src="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" alt="Logo PC" class="login-logo">
+    <h2 class="login-title">ACESSO RESTRITO</h2>
+    <p class="login-desc">Sistema Integrado da Polícia Civil.<br>Apenas oficiais autorizados.</p>
+
+    <div id="error-area" class="error-msg">
+      <i class="fa-solid fa-triangle-exclamation"></i> Acesso Negado: Você não possui a tag da PCERJ.
+    </div>
+
+    <a href="https://discord.com/oauth2/authorize?client_id=1448803985640394752&response_type=code&redirect_uri=file%3A%2F%2F%2FC%3A%2FUsers%2FCliente%2FDesktop%2FPorte%2520de%2520Armas%2Findex.html&scope=identify" class="btn-discord">
+      <i class="fa-brands fa-discord"></i> Entrar com Discord
+    </a>
+  </div>
+
+  <script>
+    // Verifica se voltou com erro de permissão
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'access_denied') {
+      document.getElementById('error-area').style.display = 'block';
+    }
+  </script>
+</body>
+
+</html>
