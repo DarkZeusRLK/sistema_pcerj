@@ -9,9 +9,28 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link rel="shortcut icon" href="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" type="image/x-icon">
+  <script>
+    (function () {
+      // 1. Verifica se o usuário está voltando do Discord com o token na URL
+      const hash = window.location.hash;
+      if (hash.includes("access_token")) {
+        return; // Deixa passar, o script.js vai processar o login
+      }
+
+      // 2. Verifica se já existe uma sessão salva no navegador
+      // IMPORTANTE: O nome "pc_session" deve ser o mesmo que você usa no script.js ao salvar
+      const session = localStorage.getItem("pc_session");
+
+      if (!session) {
+        // 3. Se não tem token na URL e não tem sessão salva, chuta para o login
+        window.location.href = "login.html";
+      }
+    })();
+  </script>
 </head>
 
 <body>
+
   <style>
     /* Esconde tudo até o JS validar o login */
     body {
