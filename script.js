@@ -327,17 +327,32 @@ function gerarBlobRevogacao(p) {
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
-
       ctx.font = POSICOES.fonte;
       ctx.fillStyle = POSICOES.corTexto;
-      ctx.fillText(
-        (p.nome || "").toUpperCase(),
-        POSICOES.nome.x,
-        POSICOES.nome.y
-      );
-      ctx.fillText(p.id || "", POSICOES.id.x, POSICOES.id.y);
+      ctx.textAlign = "left";
 
-      canvas.toBlob((b) => resolve(b), "image/png");
+      // Dados principais
+      ctx.fillText(
+        p.nome.toUpperCase(),
+        POSICOES.nome.x,
+        POSICOES.nome.y,
+        POSICOES.nome.max
+      );
+      ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
+      ctx.fillText(p.rg || "N/A", POSICOES.rg.x, POSICOES.rg.y);
+
+      // 👇 CORREÇÃO AQUI: Garantir que datas apareçam
+      // Se não tiver expedição salva, usa a data de hoje como fallback
+      const dataHoje = new Date().toLocaleDateString("pt-BR");
+      const dataExp =
+        p.expedicao && p.expedicao !== "N/A" ? p.expedicao : dataHoje;
+      const dataVal =
+        p.validade && p.validade !== "N/A" ? p.validade : "Indeterminado";
+
+      ctx.fillText(dataExp, POSICOES.expedicao.x, POSICOES.expedicao.y);
+      ctx.fillText(dataVal, POSICOES.validade.x, POSICOES.validade.y);
+
+      canvas.toBlob((blob) => resolve(blob), "image/png");
     };
     img.onerror = () => reject(new Error("Imagem base não encontrada"));
   });
