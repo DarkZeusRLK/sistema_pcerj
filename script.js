@@ -1,5 +1,5 @@
 // ==========================================
-// ⚙️ CONFIGURAÇÕES
+// ⚙️ CONFIGURAÇÕES E DADOS GLOBAIS
 // ==========================================
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
@@ -16,7 +16,6 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
-// 👇 SUAS COORDENADAS DE LIMPEZA (Atualizadas)
 const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
   id: { x: 550, y: 380 },
@@ -26,7 +25,7 @@ const POSICOES_LIMPEZA = {
   fonte: "bold 30px 'Arial'",
 };
 
-// 👇 NOVO: TABELA DE PREÇOS
+// TABELA DE PREÇOS
 const PRECOS = {
   GLOCK: { arma: 400000, laudo: 250000, municao: 100000 },
   MP5: { arma: 600000, laudo: 300000, municao: 100000 },
@@ -44,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   try {
     configurarBotoes();
     ativarFormatacaoDinheiro();
-    atualizarValoresPorte(); // <--- Inicializa os valores na tela
+    atualizarValoresPorte(); // Inicializa valores na tela de emissão
   } catch (e) {
     console.error("Erro config:", e);
   }
@@ -53,6 +52,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   const isLoginPage = window.location.pathname.includes("login.html");
   const sessao = localStorage.getItem("pc_session");
 
+  // 1. Retorno do Discord (Callback)
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     return;
   }
 
+  // 2. Verificação de Sessão
   if (sessao) {
     if (isLoginPage) {
       window.location.href = "index.html";
@@ -78,6 +79,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
     }
   } else {
+    // Se não tem sessão
     if (!isLoginPage) {
       window.location.href = "login.html";
     } else {
@@ -89,12 +91,36 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ==========================================
-// 💲 CÁLCULO DE VALORES (ATUALIZADO COM DESCONTO)
+// 📅 UTILITÁRIOS DE DATA (NOVO)
+// ==========================================
+function parseData(dataStr) {
+  // Converte DD/MM/AAAA para Objeto Date
+  if (!dataStr) return new Date();
+  const partes = dataStr.split("/");
+  return new Date(partes[2], partes[1] - 1, partes[0]);
+}
+
+function calcularDiasCorridos(dataExpedicaoStr) {
+  // Retorna quantos dias se passaram desde a expedição
+  const hoje = new Date();
+  // Zera horas para comparação justa
+  hoje.setHours(0, 0, 0, 0);
+
+  const expedicao = parseData(dataExpedicaoStr);
+  expedicao.setHours(0, 0, 0, 0);
+
+  const diffTime = Math.abs(hoje - expedicao);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+// ==========================================
+// 💲 CÁLCULO DE VALORES (EMISSÃO)
 // ==========================================
 window.atualizarValoresPorte = function () {
   const selectArma = document.getElementById("porte-arma");
   const checkMunicao = document.getElementById("check-municao");
-  const checkDesconto = document.getElementById("check-desconto"); // <--- NOVO
+  const checkDesconto = document.getElementById("check-desconto");
   const painel = document.getElementById("painel-valores");
 
   if (!selectArma || !painel) return;
@@ -111,7 +137,6 @@ window.atualizarValoresPorte = function () {
     checkMunicao.disabled = false;
   }
 
-  // 1. Soma dos itens
   const valorArma = regras.arma;
   const valorLaudo = regras.laudo;
   const valorMunicao =
@@ -119,46 +144,81 @@ window.atualizarValoresPorte = function () {
 
   const subtotal = valorArma + valorLaudo + valorMunicao;
 
-  // 2. Cálculo do Desconto (15%)
   let valorDesconto = 0;
   if (checkDesconto && checkDesconto.checked) {
-    valorDesconto = subtotal * 0.15;
+    valorDesconto = subtotal * 0.15; // 15%
   }
 
-  // 3. Total Final
   const totalFinal = subtotal - valorDesconto;
 
-  // Formatador
   const fmt = (v) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Atualiza HTML
-  document.getElementById("val-arma").innerText = fmt(valorArma);
-  document.getElementById("val-laudo").innerText = fmt(valorLaudo);
-  document.getElementById("val-municao").innerText = fmt(valorMunicao);
-
-  // Atualiza linha de desconto
+  // Atualiza Tela
+  const elArma = document.getElementById("val-arma");
+  const elLaudo = document.getElementById("val-laudo");
+  const elMunicao = document.getElementById("val-municao");
   const rowDesconto = document.getElementById("row-desconto");
-  const valDesconto = document.getElementById("val-desconto");
+  const elDesconto = document.getElementById("val-desconto");
+  const elTotal = document.getElementById("val-total");
+
+  if (elArma) elArma.innerText = fmt(valorArma);
+  if (elLaudo) elLaudo.innerText = fmt(valorLaudo);
+  if (elMunicao) elMunicao.innerText = fmt(valorMunicao);
+
   if (valorDesconto > 0) {
     rowDesconto.style.display = "flex";
-    valDesconto.innerText = "- " + fmt(valorDesconto);
+    elDesconto.innerText = "- " + fmt(valorDesconto);
   } else {
     rowDesconto.style.display = "none";
   }
 
-  document.getElementById("val-total").innerText = fmt(totalFinal);
+  if (elTotal) elTotal.innerText = fmt(totalFinal);
 
-  // Salva no dataset para o envio pegar depois
+  // Salva metadados
   painel.dataset.total = totalFinal;
-  painel.dataset.subtotal = subtotal; // Guardamos o valor sem desconto
   painel.dataset.desconto = valorDesconto;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
   painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
 };
 
 // ==========================================
-// 📨 EMISSÃO COM DETALHES DE DESCONTO
+// 🔘 BOTÕES E EVENTOS
+// ==========================================
+function configurarBotoes() {
+  const btnPreview = document.getElementById("btn-gerar-previa");
+  if (btnPreview) {
+    const novoBtn = btnPreview.cloneNode(true);
+    btnPreview.parentNode.replaceChild(novoBtn, btnPreview);
+    novoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.gerarPreviewPorte();
+    });
+  }
+
+  const btnEmitir = document.getElementById("btn-emitir-final");
+  if (btnEmitir) {
+    const novoBtnEmitir = btnEmitir.cloneNode(true);
+    btnEmitir.parentNode.replaceChild(novoBtnEmitir, btnEmitir);
+    novoBtnEmitir.addEventListener("click", async () => {
+      await processarEmissao();
+    });
+  }
+}
+
+function ativarFormatacaoDinheiro() {
+  const inputValor = document.getElementById("input-valor-limpeza");
+  if (inputValor) {
+    inputValor.addEventListener("input", function (e) {
+      let value = e.target.value.replace(/\D/g, "");
+      value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      e.target.value = value;
+    });
+  }
+}
+
+// ==========================================
+// 📨 LÓGICA DE EMISSÃO
 // ==========================================
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
@@ -168,10 +228,7 @@ async function processarEmissao() {
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
 
-  // DADOS FINANCEIROS
   const painel = document.getElementById("painel-valores");
-
-  // Valores padrões caso algo falhe
   const total = painel ? painel.dataset.total || "0" : "0";
   const desconto = painel ? painel.dataset.desconto || "0" : "0";
   const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
@@ -195,20 +252,16 @@ async function processarEmissao() {
   canvas.toBlob(async (blob) => {
     const nomeArquivo = `porte_${id}.png`;
 
-    // Monta o texto dos valores
     let textoValores = `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
       regras.laudo
     )}\`\nMunição: \`${
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
-
-    // Se teve desconto, adiciona na lista
     if (ehPolicial === "Sim") {
       textoValores += `\nDesconto Policial (15%): \`-${fmt(
         parseFloat(desconto)
       )}\``;
     }
-
     textoValores += `\n**TOTAL: \`${parseInt(total).toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",
@@ -249,6 +302,7 @@ async function processarEmissao() {
     );
     if (sucesso) {
       await mostrarAlerta("Sucesso", "Porte emitido!", "success");
+      // Atualiza lista local
       dbPortes.push({
         nome,
         id,
@@ -261,81 +315,18 @@ async function processarEmissao() {
       renderTables();
       atualizarStats();
       window.navegar("dashboard");
+      // Limpeza
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
-      document.getElementById("check-desconto").checked = false; // Reseta o checkbox
+      document.getElementById("check-desconto").checked = false;
       atualizarValoresPorte();
     }
   });
 }
-// Converte "DD/MM/YYYY" para objeto Date
-function parseData(dataStr) {
-  const partes = dataStr.split("/");
-  // Mês em JS começa em 0, por isso -1
-  return new Date(partes[2], partes[1] - 1, partes[0]);
-}
-
-// Calcula diferença em dias entre hoje e a data string
-function calcularDiasCorridos(dataExpedicaoStr) {
-  const hoje = new Date();
-  const expedicao = parseData(dataExpedicaoStr);
-  const diffTime = Math.abs(hoje - expedicao);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-}
-
-// Soma dias a uma data e retorna string formatada
-function somarDiasData(dataStr, dias) {
-  const data = parseData(dataStr);
-  data.setDate(data.getDate() + dias);
-  return data.toLocaleDateString("pt-BR");
-}
-// ==========================================
-// 🔘 CONFIGURAÇÃO DOS BOTÕES
-// ==========================================
-function configurarBotoes() {
-  // 1. Botão de Gerar Prévia
-  const btnPreview = document.getElementById("btn-gerar-previa");
-
-  if (btnPreview) {
-    const novoBtn = btnPreview.cloneNode(true);
-    btnPreview.parentNode.replaceChild(novoBtn, btnPreview);
-
-    novoBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.gerarPreviewPorte();
-    });
-  }
-
-  // 2. Botão de Emitir Final (que aparece depois da prévia)
-  const btnEmitir = document.getElementById("btn-emitir-final");
-  if (btnEmitir) {
-    const novoBtnEmitir = btnEmitir.cloneNode(true);
-    btnEmitir.parentNode.replaceChild(novoBtnEmitir, btnEmitir);
-
-    novoBtnEmitir.addEventListener("click", async () => {
-      await processarEmissao();
-    });
-  }
-}
 
 // ==========================================
-// 💰 FORMATAÇÃO DE DINHEIRO INPUT
-// ==========================================
-function ativarFormatacaoDinheiro() {
-  const inputValor = document.getElementById("input-valor-limpeza");
-  if (inputValor) {
-    inputValor.addEventListener("input", function (e) {
-      let value = e.target.value.replace(/\D/g, "");
-      value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      e.target.value = value;
-    });
-  }
-}
-
-// ==========================================
-// 🧼 AÇÃO DE LIMPEZA
+// 🧼 LÓGICA DE LIMPEZA
 // ==========================================
 window.processarLimpeza = async function () {
   const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
@@ -345,13 +336,12 @@ window.processarLimpeza = async function () {
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
 
-  if (!nome || !id) {
+  if (!nome || !id)
     return mostrarAlerta(
       "Dados Incompletos",
-      "Preencha os campos NOME e PASSAPORTE.",
+      "Preencha NOME e PASSAPORTE.",
       "warning"
     );
-  }
 
   const confirmou = await confirmarAcao(
     "Limpar Ficha?",
@@ -423,7 +413,7 @@ function gerarBlobLimpeza(nome, id, rg) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
-    img.src = "assets/bg_limpeza.png";
+    img.src = "assets/bg_limpeza.png"; // Certifique-se que o arquivo existe
 
     img.onload = () => {
       canvas.width = img.width;
@@ -440,34 +430,21 @@ function gerarBlobLimpeza(nome, id, rg) {
       );
       ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
       ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
-
-      const dataHoje = new Date().toLocaleDateString("pt-BR");
-      ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
+      ctx.fillText(
+        new Date().toLocaleDateString("pt-BR"),
+        POSICOES_LIMPEZA.data.x,
+        POSICOES_LIMPEZA.data.y
+      );
 
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
-    img.onerror = () => reject(new Error("Imagem da limpeza não encontrada."));
+    img.onerror = () =>
+      reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
   });
 }
 
 // ==========================================
-// ☁️ BUSCAR DADOS DO DISCORD
-// ==========================================
-async function carregarPortesDoDiscord() {
-  try {
-    const res = await fetch("/api/listar");
-    if (!res.ok) throw new Error(`Erro API: ${res.status}`);
-    const dados = await res.json();
-    dbPortes = dados;
-    renderTables();
-    atualizarStats();
-  } catch (erro) {
-    console.error("Erro ao listar:", erro);
-  }
-}
-
-// ==========================================
-// 👁️ GERAR PREVIEW DO PORTE
+// 👁️ PREVIEW (VISUAL)
 // ==========================================
 window.gerarPreviewPorte = function () {
   const container = document.getElementById("preview-porte-container");
@@ -518,106 +495,192 @@ window.gerarPreviewPorte = function () {
 };
 
 // ==========================================
-// 📨 EMISSÃO COM PREÇOS ATUALIZADOS
+// ☁️ DADOS E TABELAS (ATUALIZADO COM RENOVAÇÃO)
 // ==========================================
-async function processarEmissao() {
-  const nome = document.getElementById("porte-nome").value;
-  const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value;
-  const arma = document.getElementById("porte-arma").value;
-  const validade = document.getElementById("porte-validade").value;
-  const expedicao = document.getElementById("porte-expedicao").value;
+async function carregarPortesDoDiscord() {
+  try {
+    const res = await fetch("/api/listar");
+    if (!res.ok) throw new Error(`Erro API: ${res.status}`);
+    const dados = await res.json();
+    dbPortes = dados;
+    renderTables();
+    atualizarStats();
+  } catch (erro) {
+    console.error("Erro ao listar:", erro);
+  }
+}
 
-  // DADOS FINANCEIROS
-  const painel = document.getElementById("painel-valores");
-  const totalCalculado = painel ? painel.dataset.total || "0" : "0";
-  const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
-  const regras = PRECOS[arma];
-  const fmt = (v) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+// LÓGICA PRINCIPAL DAS TABELAS (Revogação e Renovação)
+window.renderTables = function () {
+  const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
+  const tbodyRenovacao = document.getElementById("lista-renovacao"); // Nova tabela
+  const filtro = document.getElementById("input-busca")
+    ? document.getElementById("input-busca").value.toLowerCase()
+    : "";
 
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
+  if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
+  if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
 
-  mostrarAlerta("Aguarde", "Gerando documento...", "warning");
+  dbPortes
+    .slice()
+    .reverse()
+    .forEach((porte, index) => {
+      // slice para não mutar o original
+      // Ignora Revogados
+      if (porte.status === "Revogado") return;
+
+      // Filtro de Busca
+      if (
+        filtro &&
+        !porte.nome.toLowerCase().includes(filtro) &&
+        !porte.id.includes(filtro)
+      )
+        return;
+
+      // Cálculo de Dias
+      const diasCorridos = calcularDiasCorridos(porte.expedicao);
+
+      // 1. LÓGICA DE RENOVAÇÃO (Somente entre 30 e 33 dias)
+      if (diasCorridos >= 30 && diasCorridos <= 33) {
+        if (tbodyRenovacao) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+                <td>${porte.nome}</td>
+                <td>${porte.id}</td>
+                <td>${porte.expedicao}</td>
+                <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
+                <td>
+                    <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
+                        <i class="fa-solid fa-arrows-rotate"></i> Renovar
+                    </button>
+                </td>
+            `;
+          tbodyRenovacao.appendChild(tr);
+        }
+      }
+
+      // 2. LÓGICA DE REVOGAÇÃO (Todos ativos aparecem)
+      if (tbodyRevogacao) {
+        const trRev = document.createElement("tr");
+        let validadeHTML = porte.validade || "N/A";
+
+        // ALERTA: Passou de 33 dias? PRIORIDADE.
+        if (diasCorridos > 33) {
+          validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
+        } else if (diasCorridos >= 30) {
+          validadeHTML = `<span class="badge-warning" style="color:orange">Período de Graça</span>`;
+        }
+
+        trRev.innerHTML = `
+            <td>${porte.nome}</td>
+            <td>${porte.id}</td>
+            <td>${porte.arma}</td>
+            <td>${validadeHTML}</td>
+            <td>
+                <button class="btn-danger" onclick="revogar('${porte.id}')">
+                    <i class="fa-solid fa-ban"></i>
+                </button>
+            </td>
+        `;
+        tbodyRevogacao.appendChild(trRev);
+      }
+    });
+
+  // Renderiza a tabela de "Já Revogados" separadamente se necessário
+  renderRevogadosHistorico();
+  atualizarStats();
+};
+
+function renderRevogadosHistorico() {
+  const tbodyJaRevogados = document.getElementById("lista-ja-revogados");
+  if (!tbodyJaRevogados) return;
+  tbodyJaRevogados.innerHTML = "";
+
+  dbPortes
+    .filter((p) => p.status === "Revogado")
+    .forEach((p) => {
+      tbodyJaRevogados.innerHTML += `
+            <tr style="opacity:0.7">
+                <td>${p.nome}</td>
+                <td>${p.id}</td>
+                <td>${p.expedicao || "N/A"}</td>
+                <td><span class="badge revogado">REVOGADO</span></td>
+            </tr>`;
+    });
+}
+
+// ==========================================
+// 🔄 AÇÃO DE RENOVAR
+// ==========================================
+window.renovarPorte = async function (idPorte) {
+  const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
+  if (!porte) return;
+
+  if (
+    !(await confirmarAcao(
+      "Renovar?",
+      `Renovar porte de ${porte.nome} por +30 dias?`
+    ))
+  )
+    return;
+
+  mostrarAlerta("Processando", "Renovando porte...", "warning");
+
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
   const mencaoOficial = sessao.id
     ? `<@${sessao.id}>`
-    : `**${sessao.username || "Oficial"}**`;
-  const msg = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
+    : `**${sessao.username}**`;
 
-  const canvas = document.getElementById("canvas-porte");
-  canvas.toBlob(async (blob) => {
-    const nomeArquivo = `porte_${id}.png`;
-    const embedData = {
-      title: `📄 EMISSÃO DE PORTE: ${arma}`,
-      description: `Documento oficial registrado.`,
-      color: 3447003,
-      fields: [
-        {
-          name: "👤 Cidadão",
-          value: `**${nome.toUpperCase()}**`,
-          inline: true,
-        },
-        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "👮 Oficial", value: mencaoOficial, inline: true }, // <--- CAMPO DO OFICIAL
-        { name: "🔫 Armamento", value: arma, inline: true },
-        { name: "📦 Munição", value: temMunicao, inline: true },
-        { name: "📅 Validade", value: `\`${validade}\``, inline: true },
-        // <--- CAMPO FINANCEIRO DETALHADO
-        {
-          name: "💰 Valores",
-          value: `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
-            regras.laudo
-          )}\`\nMunição: \`${
-            temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
-          }\`\n**TOTAL: \`${parseInt(totalCalculado).toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          })}\`**`,
-          inline: false,
-        },
-      ],
-      image: { url: `attachment://${nomeArquivo}` },
-      footer: {
-        text: "Polícia Civil",
-        icon_url: sessao.avatar
-          ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
-          : "",
+  // Nova Validade = Hoje + 30 dias
+  const hoje = new Date();
+  const novaValidade = new Date();
+  novaValidade.setDate(hoje.getDate() + 30);
+  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
+
+  const embedData = {
+    title: `🔄 RENOVAÇÃO DE PORTE`,
+    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
+    color: 16776960, // Amarelo
+    fields: [
+      { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
+      { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
+      { name: "👮 Renovado por", value: mencaoOficial, inline: true },
+      { name: "🔫 Arma", value: porte.arma, inline: true },
+      {
+        name: "📅 Nova Validade",
+        value: `\`${novaValidadeStr}\``,
+        inline: true,
       },
-    };
+    ],
+    footer: { text: "Sistema Integrado - Polícia Civil" },
+  };
 
-    const sucesso = await enviarParaAPI(
-      blob,
-      nomeArquivo,
-      "porte",
-      embedData,
-      msg
-    );
-    if (sucesso) {
-      await mostrarAlerta("Sucesso", "Porte emitido!", "success");
-      dbPortes.push({
-        nome,
-        id,
-        rg,
-        arma,
-        validade,
-        expedicao,
-        status: "Ativo",
-      });
-      renderTables();
-      atualizarStats();
-      window.navegar("dashboard");
-      document.getElementById("preview-porte-container").style.display = "none";
-      document.getElementById("porte-nome").value = "";
-      document.getElementById("porte-id").value = "";
-      atualizarValoresPorte(); // Reseta os valores
-    }
-  });
-}
+  // Blob Vazio (a API espera file, mandamos um txt vazio pois renovação é só Log)
+  const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
 
-// ... (FUNÇÕES DE REVOGAÇÃO E AUXILIARES PERMANECEM IGUAIS) ...
+  // Usa tipo 'renovacao' (ou crie um canal específico para isso se quiser)
+  // Aqui vou mandar para o canal de revogacao/manutenção para logs
+  const sucesso = await enviarParaAPI(
+    blob,
+    "renovacao_log.txt",
+    "revogacao",
+    embedData,
+    `🔄 **PORTE RENOVADO:** ${porte.id}`
+  );
 
+  if (sucesso) {
+    porte.validade = novaValidadeStr;
+    porte.expedicao = new Date().toLocaleDateString("pt-BR"); // Reseta ciclo
+    renderTables();
+    mostrarAlerta("Sucesso", "Porte renovado!", "success");
+  } else {
+    mostrarAlerta("Erro", "Falha ao registrar renovação.", "error");
+  }
+};
+
+// ==========================================
+// 🚫 AÇÃO DE REVOGAR
+// ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
@@ -652,11 +715,16 @@ window.revogar = async function (id) {
       )
     ) {
       if (p.message_id) {
-        await fetch("/api/deletar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message_id: p.message_id }),
-        });
+        // Tenta deletar mensagem original se tiver ID salvo
+        try {
+          await fetch("/api/deletar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message_id: p.message_id }),
+          });
+        } catch (e) {
+          console.log("Msg original não deletada ou não encontrada");
+        }
       }
       p.status = "Revogado";
       renderTables();
@@ -702,6 +770,9 @@ function gerarBlobRevogacao(p) {
   });
 }
 
+// ==========================================
+// 🔌 COMUNICAÇÃO API
+// ==========================================
 async function enviarParaAPI(blob, filename, tipo, embed, content) {
   const form = new FormData();
   form.append("file", blob, filename);
@@ -715,46 +786,27 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
     return true;
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha API", "error");
+    mostrarAlerta("Erro", "Falha API (Verifique permissões do Bot)", "error");
     return false;
   }
 }
 
-window.renderTables = function () {
-  const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
-  const tbodyRev = document.getElementById("lista-ja-revogados");
-  const busca =
-    document.getElementById("input-busca")?.value.toLowerCase() || "";
-  if (tbodyAtivos) tbodyAtivos.innerHTML = "";
-  if (tbodyRev) tbodyRev.innerHTML = "";
+async function validarLoginNaAPI(token) {
+  try {
+    const res = await fetch("/api/auth", { headers: { Authorization: token } });
+    const data = await res.json();
+    if (res.ok && data.authorized) {
+      localStorage.setItem("pc_session", JSON.stringify({ ...data, token }));
+      window.location.href = "index.html";
+    } else window.location.href = "login.html?error=unauthorized";
+  } catch (e) {
+    console.error(e);
+  }
+}
 
-  const lista = dbPortes
-    .filter(
-      (p) =>
-        !busca || p.nome.toLowerCase().includes(busca) || p.id.includes(busca)
-    )
-    .reverse();
-
-  lista.forEach((p) => {
-    if (p.status === "Ativo" && tbodyAtivos) {
-      tbodyAtivos.innerHTML += `<tr><td>${p.nome}</td><td>${p.id}</td><td>${
-        p.arma
-      }</td><td>${
-        p.validade || "N/A"
-      }</td><td><button class="btn-danger" onclick="revogar('${
-        p.id
-      }')"><i class="fa-solid fa-ban"></i></button></td></tr>`;
-    } else if (p.status === "Revogado" && tbodyRev) {
-      tbodyRev.innerHTML += `<tr style="opacity:0.7"><td>${p.nome}</td><td>${
-        p.id
-      }</td><td>${
-        p.expedicao || "Hoje"
-      }</td><td><span class="badge revogado">REVOGADO</span></td></tr>`;
-    }
-  });
-  atualizarStats();
-};
-
+// ==========================================
+// 🛠️ FUNÇÕES DE SISTEMA (UX/UI)
+// ==========================================
 function atualizarStats() {
   const elA = document.getElementById("counter-ativos");
   const elR = document.getElementById("counter-revogados");
@@ -777,19 +829,6 @@ function configurarDatasAutomaticas() {
   if (dt) dt.innerText = hoje.toLocaleDateString("pt-BR");
 }
 
-async function validarLoginNaAPI(token) {
-  try {
-    const res = await fetch("/api/auth", { headers: { Authorization: token } });
-    const data = await res.json();
-    if (res.ok && data.authorized) {
-      localStorage.setItem("pc_session", JSON.stringify({ ...data, token }));
-      window.location.href = "index.html";
-    } else window.location.href = "login.html?error=unauthorized";
-  } catch (e) {
-    console.error(e);
-  }
-}
-
 function iniciarSistema(user) {
   const div = document.querySelector(".user-profile");
   if (div) {
@@ -799,10 +838,12 @@ function iniciarSistema(user) {
     div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
   }
 }
+
 window.logout = () => {
   localStorage.removeItem("pc_session");
   window.location.href = "login.html";
 };
+
 window.navegar = (t) => {
   document
     .querySelectorAll(".screen")
@@ -810,12 +851,16 @@ window.navegar = (t) => {
   document
     .querySelectorAll(".nav-links li")
     .forEach((l) => l.classList.remove("active"));
+
   const sec = document.getElementById(`sec-${t}`);
   if (sec) sec.classList.remove("hidden");
+
   const menu = document.getElementById(`menu-${t}`);
   if (menu) menu.classList.add("active");
+
   if (t === "emissao") configurarDatasAutomaticas();
 };
+
 window.mostrarAlerta = (t, m, type) => {
   return new Promise((r) => {
     const modal = document.getElementById("custom-modal");
@@ -833,4 +878,5 @@ window.mostrarAlerta = (t, m, type) => {
     }
   });
 };
+
 window.confirmarAcao = (t, m) => new Promise((r) => r(confirm(`${t}\n${m}`)));
