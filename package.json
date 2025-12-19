@@ -1,13 +1,12 @@
 {
   "name": "sistema-policia",
   "version": "1.0.0",
-  "type": "module",
   "engines": {
-    "node": "24.x"
+    "node": "18.x"
   },
   "dependencies": {
     "busboy": "^1.6.0",
     "form-data": "^4.0.0",
-    "node-fetch": "^3.3.0"
+    "node-fetch": "^2.6.7"
   }
 }

@@ -1,6 +1,7 @@
-import fetch from "node-fetch";
+// api/listar.js
+const fetch = require("node-fetch");
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   const token = process.env.Discord_Bot_Token;
   const channelId = process.env.CHANNEL_PORTE_ID;
 
@@ -24,7 +25,6 @@ export default async function handler(req, res) {
         const e = m.embeds[0];
         const fields = e.fields || [];
 
-        // Busca valor procurando parte do nome (ex: "Cidadão" acha "Nome do Cidadão")
         const find = (key) => {
           const f = fields.find((field) =>
             field.name.toLowerCase().includes(key.toLowerCase())
@@ -48,8 +48,9 @@ export default async function handler(req, res) {
       })
       .filter((i) => i !== null);
 
-    res.json(lista);
+    res.status(200).json(lista);
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
-}
+};
