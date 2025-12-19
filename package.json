@@ -1,5 +1,10 @@
 {
-  "name": "app-policia",
+  "name": "sistema-policia",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "busboy": "^1.6.0",
     "form-data": "^4.0.0",
