@@ -209,30 +209,41 @@ window.gerarPreviewPorte = function () {
 };
 
 // ==========================================
-// 📨 ENVIO PARA O DISCORD
+// 📨 ENVIO PARA O DISCORD (EMBED ATUALIZADO)
 // ==========================================
 const btnEmitir = document.getElementById("btn-emitir-final");
 
 if (btnEmitir) {
   btnEmitir.addEventListener("click", () => {
+    // 1. Pega os dados do formulário
     const nome = document.getElementById("porte-nome").value;
     const id = document.getElementById("porte-id").value;
     const rg = document.getElementById("porte-rg").value;
     const arma = document.getElementById("porte-arma").value;
     const validade = document.getElementById("porte-validade").value;
-    const expedicao = document.getElementById("porte-expedicao").value; // <--- Novo
+    const expedicao = document.getElementById("porte-expedicao").value;
 
+    // 2. Pega a sessão do usuário logado (para pegar o ID do Discord)
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
+    // Verifica se tem ID, senão usa o nome como texto simples
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
+
     const canvas = document.getElementById("canvas-porte");
+
     canvas.toBlob(async (blob) => {
       const nomeArquivo = `porte_${id}.png`;
 
-      // --- EMBED DISCORD ---
+      // --- CONFIGURAÇÃO DO EMBED ---
       const embedData = {
         title: `📄 EMISSÃO DE PORTE: ${arma}`,
-        description: `Documento oficial emitido pela **Polícia Civil**.`,
-        color: 3447003,
+
+        // AQUI ESTÁ A MUDANÇA QUE VOCÊ PEDIU:
+        description: `Emitido por ${mencaoOficial} oficial da Polícia Civil.`,
+
+        color: 3447003, // Azul PCERJ
         fields: [
           {
             name: "👤 Cidadão",
@@ -242,7 +253,6 @@ if (btnEmitir) {
           { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
           { name: "🪪 RG", value: rg, inline: true },
 
-          // Linha de datas
           { name: "📅 Expedição", value: `\`${expedicao}\``, inline: true },
           { name: "📅 Validade", value: `\`${validade}\``, inline: true },
 
@@ -250,7 +260,7 @@ if (btnEmitir) {
         ],
         image: { url: `attachment://${nomeArquivo}` },
         footer: {
-          text: `Emissor: ${sessao.username || "Oficial"} • Sistema Integrado`,
+          text: `Sistema Integrado • Polícia Civil`,
           icon_url: sessao.avatar
             ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
             : "",
@@ -258,6 +268,7 @@ if (btnEmitir) {
         timestamp: new Date().toISOString(),
       };
 
+      // Envia para API
       const sucesso = await enviarParaAPI(
         blob,
         nomeArquivo,
@@ -266,11 +277,14 @@ if (btnEmitir) {
       );
 
       if (sucesso) {
-        alert("✅ Porte emitido com sucesso!");
+        alert("✅ Porte emitido e enviado para o Discord!");
+
+        // Adiciona ao histórico local e limpa a tela
         dbPortes.push({ nome, id, rg, arma, validade, status: "Ativo" });
         renderTables();
         atualizarStats();
         window.navegar("dashboard");
+
         document.getElementById("preview-porte-container").style.display =
           "none";
         document.getElementById("porte-nome").value = "";
