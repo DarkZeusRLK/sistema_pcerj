@@ -408,6 +408,7 @@ window.renderTables = function () {
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
                 <td>${p.arma}</td>
+                <td>${p.validade}</td>
                 <td><button class="btn-danger" onclick="revogar('${p.id}')"><i class="fa-solid fa-ban"></i></button></td>
             </tr>`;
     } else if (p.status === "Revogado" && tbodyRevogados) {
