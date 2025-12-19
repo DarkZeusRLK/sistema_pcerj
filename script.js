@@ -20,7 +20,7 @@ const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
   id: { x: 550, y: 380 },
   rg: { x: 180, y: 440 },
-  data: { x: 670, y: 380 },
+  data: { x: 680, y: 380 },
   corTexto: "#000000",
   fonte: "bold 30px 'Arial'",
 };
@@ -136,10 +136,10 @@ window.processarLimpeza = async function () {
       : "";
 
     // MENSAGEM EXTERNA (QRA AQUI)
-    const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
+      title: `CERTIFICADO DE BONS ANTECEDENTES`,
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
