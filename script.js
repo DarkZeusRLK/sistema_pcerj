@@ -208,6 +208,49 @@ async function processarEmissao() {
     }
   });
 }
+
+// 🧼 GERADOR DE IMAGEM LIMPEZA DE FICHA
+// ==========================================
+function gerarBlobLimpeza(nome, id, rg) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    // ⚠️ CERTIFIQUE-SE DE QUE ESTA IMAGEM EXISTE NA PASTA ASSETS
+    img.src = "assets/bg_limpeza.png";
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Configura fonte e cor baseadas na nova constante
+      ctx.font = POSICOES_LIMPEZA.fonte;
+      ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
+      ctx.textAlign = "left";
+
+      // Preenche os dados usando as NOVAS coordenadas
+      ctx.fillText(
+        nome.toUpperCase(),
+        POSICOES_LIMPEZA.nome.x,
+        POSICOES_LIMPEZA.nome.y,
+        POSICOES_LIMPEZA.nome.max
+      );
+      ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
+      ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
+
+      // Data de hoje
+      const dataHoje = new Date().toLocaleDateString("pt-BR");
+      ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
+
+      canvas.toBlob((blob) => resolve(blob), "image/png");
+    };
+
+    img.onerror = () =>
+      reject(new Error("Imagem 'assets/limpeza.png' não encontrada."));
+  });
+}
 // ==========================================
 // 🧼 AÇÃO DE LIMPEZA DE FICHA
 // ==========================================
@@ -300,48 +343,6 @@ window.processarLimpeza = async function () {
     );
   }
 };
-// 🧼 GERADOR DE IMAGEM LIMPEZA DE FICHA
-// ==========================================
-function gerarBlobLimpeza(nome, id, rg) {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-
-    // ⚠️ CERTIFIQUE-SE DE QUE ESTA IMAGEM EXISTE NA PASTA ASSETS
-    img.src = "assets/bg_limpeza.png";
-
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      // Configura fonte e cor baseadas na nova constante
-      ctx.font = POSICOES_LIMPEZA.fonte;
-      ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
-      ctx.textAlign = "left";
-
-      // Preenche os dados usando as NOVAS coordenadas
-      ctx.fillText(
-        nome.toUpperCase(),
-        POSICOES_LIMPEZA.nome.x,
-        POSICOES_LIMPEZA.nome.y,
-        POSICOES_LIMPEZA.nome.max
-      );
-      ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
-      ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
-
-      // Data de hoje
-      const dataHoje = new Date().toLocaleDateString("pt-BR");
-      ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
-
-      canvas.toBlob((blob) => resolve(blob), "image/png");
-    };
-
-    img.onerror = () =>
-      reject(new Error("Imagem 'assets/limpeza.png' não encontrada."));
-  });
-}
 // ==========================================
 // 🚫 REVOGAÇÃO
 // ==========================================
