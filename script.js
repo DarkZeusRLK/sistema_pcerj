@@ -84,28 +84,27 @@ document.addEventListener("DOMContentLoaded", async function () {
 // 🔘 CONFIGURAÇÃO DOS BOTÕES (CORRIGIDO)
 // ==========================================
 function configurarBotoes() {
-  // 1. Configura o botão de Gerar Prévia (Porte)
-  // Tenta achar pelo ID padrão ou variantes comuns
-  const btnPreview =
-    document.getElementById("btn-gerar-previa") ||
-    document.getElementById("btn-gerar-porte");
+  console.log("🔧 Configurando botões...");
+
+  // 1. Botão de Gerar Prévia
+  const btnPreview = document.getElementById("btn-gerar-previa");
 
   if (btnPreview) {
-    // Remove listeners antigos para não duplicar
-    const novoBtnPreview = btnPreview.cloneNode(true);
-    btnPreview.parentNode.replaceChild(novoBtnPreview, btnPreview);
+    // Clona para remover eventos antigos (limpa a memória do botão)
+    const novoBtn = btnPreview.cloneNode(true);
+    btnPreview.parentNode.replaceChild(novoBtn, btnPreview);
 
-    // Adiciona o evento de clique
-    novoBtnPreview.addEventListener("click", (e) => {
-      e.preventDefault(); // Evita recarregar a página
+    novoBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      console.log("🖱️ Botão Prévia Clicado");
       window.gerarPreviewPorte();
     });
-    console.log("✅ Botão de Prévia configurado com sucesso.");
+    console.log("✅ Botão de Prévia encontrado e configurado.");
   } else {
-    console.warn("⚠️ Botão de gerar prévia não encontrado no HTML.");
+    console.error("❌ ERRO: Botão 'btn-gerar-previa' não achado no HTML.");
   }
 
-  // 2. Configura o botão de Emitir Final (dentro da prévia)
+  // 2. Botão de Emitir Final (que aparece depois da prévia)
   const btnEmitir = document.getElementById("btn-emitir-final");
   if (btnEmitir) {
     const novoBtnEmitir = btnEmitir.cloneNode(true);
@@ -116,7 +115,6 @@ function configurarBotoes() {
     });
   }
 }
-
 // ==========================================
 // 💰 FORMATAÇÃO DE DINHEIRO
 // ==========================================
@@ -274,13 +272,17 @@ async function carregarPortesDoDiscord() {
 }
 
 // ==========================================
-// 👁️ GERAR PREVIEW DO PORTE
+// 👁️ GERAR PREVIEW DO PORTE (VISUAL CORRIGIDO)
 // ==========================================
 window.gerarPreviewPorte = function () {
-  console.log("📸 Gerando preview..."); // Debug
+  console.log("📸 Iniciando geração de preview...");
 
+  // Pega os elementos
   const container = document.getElementById("preview-porte-container");
   const canvas = document.getElementById("canvas-porte");
+  const imgPreview = document.getElementById("img-porte-final"); // A tag <img> onde vamos mostrar
+
+  // Pega os dados
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
   const arma = document.getElementById("porte-arma").value;
@@ -288,42 +290,63 @@ window.gerarPreviewPorte = function () {
   const expedicao = document.getElementById("porte-expedicao").value;
   const validade = document.getElementById("porte-validade").value;
 
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte", "warning");
+  if (!nome || !id) {
+    return mostrarAlerta(
+      "Dados Faltando",
+      "Preencha pelo menos o Nome e o Passaporte.",
+      "warning"
+    );
+  }
 
   const ctx = canvas.getContext("2d");
-  const img = new Image();
+  const imgBase = new Image();
 
-  // Define qual imagem usar
-  if (arma === "GLOCK") img.src = "assets/porte_glock.png";
-  else if (arma === "MP5") img.src = "assets/porte_mp5.png";
-  else img.src = "assets/porte_taser.png";
+  // Seleciona a base correta
+  if (arma === "GLOCK") imgBase.src = "assets/porte_glock.png";
+  else if (arma === "MP5") imgBase.src = "assets/porte_mp5.png";
+  else imgBase.src = "assets/porte_taser.png";
 
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+  imgBase.onload = () => {
+    // 1. Ajusta o tamanho do canvas ao da imagem
+    canvas.width = imgBase.width;
+    canvas.height = imgBase.height;
+
+    // 2. Desenha a base
+    ctx.drawImage(imgBase, 0, 0);
+
+    // 3. Configura o texto
     ctx.font = POSICOES.fonte;
     ctx.fillStyle = POSICOES.corTexto;
 
-    // Desenha os textos
-    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
+    // 4. Escreve os dados nas coordenadas (POSICOES definido no início do arquivo)
+    ctx.fillText(
+      nome.toUpperCase(),
+      POSICOES.nome.x,
+      POSICOES.nome.y,
+      POSICOES.nome.max
+    );
     ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
     ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
     ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
     ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
 
-    // Mostra o container
+    // 5. MÁGICA: Transfere do Canvas para a Imagem visível
+    const dataUrl = canvas.toDataURL("image/png");
+    imgPreview.src = dataUrl;
+    imgPreview.style.display = "block"; // Garante que a imagem apareça
+
+    // 6. Mostra o container cinza
+    container.classList.remove("hidden");
     container.style.display = "block";
 
-    // Reconfigura o botão de confirmar que acabou de aparecer
+    // Reconfigura o botão de confirmar que estava escondido
     configurarBotoes();
   };
 
-  img.onerror = () => {
+  imgBase.onerror = () => {
     mostrarAlerta(
-      "Erro",
-      "Imagem do porte não encontrada na pasta assets.",
+      "Erro de Arquivo",
+      `Não foi possível carregar a imagem: ${imgBase.src}. Verifique a pasta assets.`,
       "error"
     );
   };
