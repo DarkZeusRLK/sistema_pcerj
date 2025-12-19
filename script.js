@@ -17,10 +17,10 @@ const POSICOES = {
 };
 
 const POSICOES_LIMPEZA = {
-  nome: { x: 200, y: 390 },
-  id: { x: 600, y: 390 },
+  nome: { x: 180, y: 400 },
+  id: { x: 400, y: 400 },
   rg: { x: 200, y: 440 },
-  data: { x: 700, y: 390 },
+  data: { x: 700, y: 400 },
   corTexto: "#000000",
   fonte: "bold 30px 'Arial'",
 };
