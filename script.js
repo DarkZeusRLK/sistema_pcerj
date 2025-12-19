@@ -13,13 +13,13 @@ const POSICOES = {
   // X = Horizontal (Esquerda/Direita)
   // Y = Vertical (Cima/Baixo)
 
-  nome: { x: 240, y: 310, max: 400 },
-  id: { x: 740, y: 310 },
+  nome: { x: 458, y: 239 },
+  id: { x: 754, y: 423 },
 
   // Linha de baixo
-  rg: { x: 240, y: 440 },
-  expedicao: { x: 500, y: 440 }, // <--- NOVA POSIÇÃO (Ajuste se ficar em cima de outro)
-  validade: { x: 740, y: 440 },
+  rg: { x: 576, y: 423 },
+  expedicao: { x: 182, y: 420 }, // <--- NOVA POSIÇÃO (Ajuste se ficar em cima de outro)
+  validade: { x: 364, y: 421 },
 
   // Estilo da Fonte
   corTexto: "#000000",
