@@ -13,7 +13,7 @@ const POSICOES = {
   // X = Horizontal (Esquerda/Direita)
   // Y = Vertical (Cima/Baixo)
 
-  nome: { x: 428, y: 250 },
+  nome: { x: 400, y: 250 },
   id: { x: 754, y: 433 },
 
   // Linha de baixo
