@@ -168,9 +168,14 @@
                 </select>
               </div>
 
-              <div class="checkbox-group" style="margin: 15px 0;">
+              <div class="checkbox-group" style="margin: 15px 0 5px 0;">
                 <input type="checkbox" id="check-municao" checked onchange="atualizarValoresPorte()">
                 <label for="check-municao">Incluir Kit Munição (+ R$ 100.000)</label>
+              </div>
+
+              <div class="checkbox-group" style="margin-bottom: 20px;">
+                <input type="checkbox" id="check-desconto" onchange="atualizarValoresPorte()">
+                <label for="check-desconto" style="color: #66b2ff;">Aplicar Desconto Policial (-15%)</label>
               </div>
 
               <div id="painel-valores" class="price-box hidden">
@@ -183,6 +188,9 @@
                 <div class="price-row">
                   <span>Munição:</span> <span id="val-municao">R$ 0</span>
                 </div>
+                <div class="price-row" id="row-desconto" style="display: none; color: #e52e4d;">
+                  <span>Desconto (15%):</span> <span id="val-desconto">- R$ 0</span>
+                </div>
                 <div class="price-total">
                   <span>TOTAL:</span> <span id="val-total">R$ 0</span>
                 </div>
@@ -194,19 +202,6 @@
               <div class="form-group">
                 <label>Validade (+30 Dias)</label>
                 <input type="text" id="porte-validade" readonly style="background: #2a2a2e; color: #aaa;">
-              </div>
-            </div>
-
-            <div class="radio-section">
-              <div class="radio-group">
-                <span>Oficial de Polícia? (15% Desc.)</span>
-                <label><input type="radio" name="isPolice" value="sim"> Sim</label>
-                <label><input type="radio" name="isPolice" value="nao" checked> Não</label>
-              </div>
-              <div class="radio-group">
-                <span>Incluir Munição?</span>
-                <label><input type="radio" name="hasAmmo" value="sim"> Sim</label>
-                <label><input type="radio" name="hasAmmo" value="nao" checked> Não</label>
               </div>
             </div>
 

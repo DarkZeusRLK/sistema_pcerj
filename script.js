@@ -89,21 +89,21 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ==========================================
-// 💲 CÁLCULO DE VALORES (NOVO)
+// 💲 CÁLCULO DE VALORES (ATUALIZADO COM DESCONTO)
 // ==========================================
 window.atualizarValoresPorte = function () {
   const selectArma = document.getElementById("porte-arma");
   const checkMunicao = document.getElementById("check-municao");
+  const checkDesconto = document.getElementById("check-desconto"); // <--- NOVO
   const painel = document.getElementById("painel-valores");
 
-  // Se não estiver na tela de emissão, sai da função
   if (!selectArma || !painel) return;
 
   painel.classList.remove("hidden");
-  const armaSelecionada = selectArma.value; // GLOCK, MP5 ou TASER
+  const armaSelecionada = selectArma.value;
   const regras = PRECOS[armaSelecionada];
 
-  // Lógica do Taser (Bloqueia munição e desmarca)
+  // Lógica do Taser (Bloqueia munição)
   if (armaSelecionada === "TASER") {
     checkMunicao.checked = false;
     checkMunicao.disabled = true;
@@ -111,34 +111,164 @@ window.atualizarValoresPorte = function () {
     checkMunicao.disabled = false;
   }
 
-  // Cálculos
+  // 1. Soma dos itens
   const valorArma = regras.arma;
   const valorLaudo = regras.laudo;
-  // Se estiver marcado E não for taser, cobra munição.
   const valorMunicao =
     checkMunicao.checked && armaSelecionada !== "TASER" ? regras.municao : 0;
-  const total = valorArma + valorLaudo + valorMunicao;
 
-  // Função auxiliar para formatar dinheiro
+  const subtotal = valorArma + valorLaudo + valorMunicao;
+
+  // 2. Cálculo do Desconto (15%)
+  let valorDesconto = 0;
+  if (checkDesconto && checkDesconto.checked) {
+    valorDesconto = subtotal * 0.15;
+  }
+
+  // 3. Total Final
+  const totalFinal = subtotal - valorDesconto;
+
+  // Formatador
   const fmt = (v) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   // Atualiza HTML
-  const elArma = document.getElementById("val-arma");
-  const elLaudo = document.getElementById("val-laudo");
-  const elMunicao = document.getElementById("val-municao");
-  const elTotal = document.getElementById("val-total");
+  document.getElementById("val-arma").innerText = fmt(valorArma);
+  document.getElementById("val-laudo").innerText = fmt(valorLaudo);
+  document.getElementById("val-municao").innerText = fmt(valorMunicao);
 
-  if (elArma) elArma.innerText = fmt(valorArma);
-  if (elLaudo) elLaudo.innerText = fmt(valorLaudo);
-  if (elMunicao) elMunicao.innerText = fmt(valorMunicao);
-  if (elTotal) elTotal.innerText = fmt(total);
+  // Atualiza linha de desconto
+  const rowDesconto = document.getElementById("row-desconto");
+  const valDesconto = document.getElementById("val-desconto");
+  if (valorDesconto > 0) {
+    rowDesconto.style.display = "flex";
+    valDesconto.innerText = "- " + fmt(valorDesconto);
+  } else {
+    rowDesconto.style.display = "none";
+  }
+
+  document.getElementById("val-total").innerText = fmt(totalFinal);
 
   // Salva no dataset para o envio pegar depois
-  painel.dataset.total = total;
+  painel.dataset.total = totalFinal;
+  painel.dataset.subtotal = subtotal; // Guardamos o valor sem desconto
+  painel.dataset.desconto = valorDesconto;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
+  painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
 };
 
+// ==========================================
+// 📨 EMISSÃO COM DETALHES DE DESCONTO
+// ==========================================
+async function processarEmissao() {
+  const nome = document.getElementById("porte-nome").value;
+  const id = document.getElementById("porte-id").value;
+  const rg = document.getElementById("porte-rg").value;
+  const arma = document.getElementById("porte-arma").value;
+  const validade = document.getElementById("porte-validade").value;
+  const expedicao = document.getElementById("porte-expedicao").value;
+
+  // DADOS FINANCEIROS
+  const painel = document.getElementById("painel-valores");
+
+  // Valores padrões caso algo falhe
+  const total = painel ? painel.dataset.total || "0" : "0";
+  const desconto = painel ? painel.dataset.desconto || "0" : "0";
+  const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
+  const ehPolicial = painel ? painel.dataset.ehPolicial || "Não" : "Não";
+
+  const regras = PRECOS[arma];
+  const fmt = (v) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  if (!nome || !id)
+    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
+
+  mostrarAlerta("Aguarde", "Gerando documento...", "warning");
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  const mencaoOficial = sessao.id
+    ? `<@${sessao.id}>`
+    : `**${sessao.username || "Oficial"}**`;
+  const msg = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
+
+  const canvas = document.getElementById("canvas-porte");
+  canvas.toBlob(async (blob) => {
+    const nomeArquivo = `porte_${id}.png`;
+
+    // Monta o texto dos valores
+    let textoValores = `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
+      regras.laudo
+    )}\`\nMunição: \`${
+      temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
+    }\``;
+
+    // Se teve desconto, adiciona na lista
+    if (ehPolicial === "Sim") {
+      textoValores += `\nDesconto Policial (15%): \`-${fmt(
+        parseFloat(desconto)
+      )}\``;
+    }
+
+    textoValores += `\n**TOTAL: \`${parseInt(total).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })}\`**`;
+
+    const embedData = {
+      title: `📄 EMISSÃO DE PORTE: ${arma}`,
+      description: `Documento oficial registrado.`,
+      color: 3447003,
+      fields: [
+        {
+          name: "👤 Cidadão",
+          value: `**${nome.toUpperCase()}**`,
+          inline: true,
+        },
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true },
+        { name: "🔫 Armamento", value: arma, inline: true },
+        { name: "📦 Munição", value: temMunicao, inline: true },
+        { name: "📅 Validade", value: `\`${validade}\``, inline: true },
+        { name: "💰 Valores", value: textoValores, inline: false },
+      ],
+      image: { url: `attachment://${nomeArquivo}` },
+      footer: {
+        text: "Polícia Civil",
+        icon_url: sessao.avatar
+          ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
+          : "",
+      },
+    };
+
+    const sucesso = await enviarParaAPI(
+      blob,
+      nomeArquivo,
+      "porte",
+      embedData,
+      msg
+    );
+    if (sucesso) {
+      await mostrarAlerta("Sucesso", "Porte emitido!", "success");
+      dbPortes.push({
+        nome,
+        id,
+        rg,
+        arma,
+        validade,
+        expedicao,
+        status: "Ativo",
+      });
+      renderTables();
+      atualizarStats();
+      window.navegar("dashboard");
+      document.getElementById("preview-porte-container").style.display = "none";
+      document.getElementById("porte-nome").value = "";
+      document.getElementById("porte-id").value = "";
+      document.getElementById("check-desconto").checked = false; // Reseta o checkbox
+      atualizarValoresPorte();
+    }
+  });
+}
 // ==========================================
 // 🔘 CONFIGURAÇÃO DOS BOTÕES
 // ==========================================
