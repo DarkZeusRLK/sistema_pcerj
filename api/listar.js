@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
         const e = m.embeds[0];
         const fields = e.fields || [];
 
+        // Função auxiliar de busca
         const find = (key) => {
           const f = fields.find((field) =>
             field.name.toLowerCase().includes(key.toLowerCase())
@@ -40,6 +41,9 @@ module.exports = async (req, res) => {
             message_id: m.id,
             nome,
             id,
+            // 👇 AQUI ESTÃO AS LINHAS QUE FALTAVAM:
+            validade: find("Validade") || find("Vencimento") || "N/A",
+            rg: find("RG") || "N/A",
             arma: find("Armamento") || find("Arma") || "N/A",
             status: "Ativo",
           };
