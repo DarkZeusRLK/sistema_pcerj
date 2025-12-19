@@ -3,7 +3,15 @@
 // ==========================================
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
-  REDIRECT_URI: "https://sistema-emissao.vercel.app/",
+  // Link direto para o brasão (necessário para o Discord conseguir carregar no footer)
+  BRASAO_URL:
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png/120px-Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png",
+};
+
+// 👇 RODAPÉ PADRÃO PARA TODOS OS EMBEDS 👇
+const FOOTER_PADRAO = {
+  text: "Sistema Policial",
+  icon_url: CONFIG.BRASAO_URL,
 };
 
 const POSICOES = {
@@ -273,12 +281,7 @@ async function processarEmissao() {
         { name: "💰 Valores", value: textoValores, inline: false },
       ],
       image: { url: `attachment://${nomeArquivo}` },
-      footer: {
-        text: "Polícia Civil",
-        icon_url: sessao.avatar
-          ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
-          : "",
-      },
+      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
     };
 
     const sucesso = await enviarParaAPI(
@@ -345,9 +348,6 @@ window.processarLimpeza = async function () {
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username || "Oficial"}**`;
-    const avatarUrl = sessao.avatar
-      ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
-      : "";
 
     const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
@@ -370,7 +370,7 @@ window.processarLimpeza = async function () {
         },
       ],
       image: { url: `attachment://${nomeArquivo}` },
-      footer: { text: `Departamento de Justiça`, icon_url: avatarUrl },
+      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
       timestamp: new Date().toISOString(),
     };
 
@@ -545,7 +545,6 @@ window.renderTables = function () {
         const trRev = document.createElement("tr");
         let validadeHTML = porte.validade || "N/A";
 
-        // ALERTA DE PRIORIDADE
         if (diasCorridos > 33) {
           validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
         } else if (diasCorridos >= 30) {
@@ -631,7 +630,7 @@ window.renovarPorte = async function (idPorte) {
         inline: true,
       },
     ],
-    footer: { text: "Sistema Integrado - Polícia Civil" },
+    footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
   const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
@@ -654,11 +653,13 @@ window.renovarPorte = async function (idPorte) {
   }
 };
 
+// ==========================================
+// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
+// ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  // Confirmação com Modal de Perigo
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
     `Tem certeza que deseja revogar o porte de ${p.nome}? Esta ação é irreversível e será registrada.`,
@@ -674,7 +675,6 @@ window.revogar = async function (id) {
   try {
     const blob = await gerarBlobRevogacao(p);
     const nomeArq = `revogacao_${id}.png`;
-
     const embed = {
       title: `🚫 REVOGADO: ${p.arma}`,
       description: "Porte cancelado devido a infração ou expiração.",
@@ -682,9 +682,10 @@ window.revogar = async function (id) {
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "🪪 RG", value: p.rg || "N/A", inline: true }, // <--- RG ADICIONADO NO EMBED
+        { name: "🪪 RG", value: p.rg || "N/A", inline: true }, // RG Corrigido
       ],
       image: { url: `attachment://${nomeArq}` },
+      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
       timestamp: new Date().toISOString(),
     };
 
@@ -697,7 +698,6 @@ window.revogar = async function (id) {
         `🚨 **REVOGAÇÃO REGISTRADA** por ${mencao}`
       )
     ) {
-      // Tenta deletar a mensagem original do porte ativo
       if (p.message_id) {
         try {
           await fetch("/api/deletar", {
@@ -709,11 +709,10 @@ window.revogar = async function (id) {
           console.log("Msg original não deletada");
         }
       }
-
       p.status = "Revogado";
       renderTables();
       atualizarStats();
-      mostrarAlerta("Sucesso", "Revogado com sucesso!", "success");
+      mostrarAlerta("Sucesso", "Revogado!", "success");
     }
   } catch (e) {
     console.error(e);
@@ -726,33 +725,22 @@ function gerarBlobRevogacao(p) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
-
-    // Define a imagem de fundo baseada na arma
     let imgName = "revogado_glock.png";
     if (p.arma && p.arma.includes("MP5")) imgName = "revogado_mp5.png";
     if (p.arma && p.arma.includes("TASER")) imgName = "revogado_taser.png";
 
     img.src = `assets/${imgName}`;
-
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
-
-      // 1. Desenha o fundo
       ctx.drawImage(img, 0, 0);
-
-      // 2. Configura a fonte
       ctx.font = POSICOES.fonte;
       ctx.fillStyle = POSICOES.corTexto;
-
-      // 3. Preenche os dados
       ctx.fillText(p.nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
       ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
-
-      // 👇 AQUI ESTAVA FALTANDO O RG 👇
+      // RG Corrigido na imagem
       ctx.fillText(p.rg || "N/A", POSICOES.rg.x, POSICOES.rg.y);
 
-      // Datas
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       const dataExp =
         p.expedicao && p.expedicao !== "N/A" ? p.expedicao : dataHoje;
@@ -761,12 +749,9 @@ function gerarBlobRevogacao(p) {
 
       ctx.fillText(dataExp, POSICOES.expedicao.x, POSICOES.expedicao.y);
       ctx.fillText(dataVal, POSICOES.validade.x, POSICOES.validade.y);
-
       canvas.toBlob(resolve, "image/png");
     };
-
-    img.onerror = () =>
-      reject(new Error(`Imagem assets/${imgName} não encontrada.`));
+    img.onerror = reject;
   });
 }
 
@@ -805,7 +790,7 @@ async function validarLoginNaAPI(token) {
 }
 
 // ==========================================
-// 🛠️ FUNÇÕES DE SISTEMA & MODAL (ATUALIZADO)
+// 🛠️ FUNÇÕES DE SISTEMA & MODAL (VISUAL ATUALIZADO)
 // ==========================================
 function atualizarStats() {
   const elA = document.getElementById("counter-ativos");
@@ -861,19 +846,12 @@ window.navegar = (t) => {
   if (t === "emissao") configurarDatasAutomaticas();
 };
 
-// ==========================================
-// 🛠️ SISTEMA DE MODAL (VISUAL)
-// ==========================================
-
-// Função para Confirmação (Sim/Não) com Estilo de Perigo
+// 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
 window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-
-    // Se não achar o modal no HTML, usa o nativo (fallback de segurança)
-    if (!modal) {
-      return resolve(confirm(`${titulo}\n${mensagem}`));
-    }
+    // Se não achar o modal no HTML, usa o nativo por segurança
+    if (!modal) return resolve(confirm(`${titulo}\n${mensagem}`));
 
     const elTitulo = document.getElementById("modal-title");
     const elDesc = document.getElementById("modal-desc");
@@ -881,58 +859,46 @@ window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
     const btnConfirm = document.getElementById("btn-modal-confirm");
     const btnCancel = document.getElementById("btn-modal-cancel");
 
-    // Configura Textos
     elTitulo.innerText = titulo;
     elDesc.innerText = mensagem;
 
-    // Estilização baseada no tipo (Danger vs Padrão)
     if (tipo === "danger") {
-      // Modo PERIGO (Revogação)
       elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
-      btnConfirm.className = "btn-danger-modal"; // Vermelho
+      btnConfirm.className = "btn-danger-modal";
       btnConfirm.innerText = "Sim, Revogar";
     } else {
-      // Modo PADRÃO
       elIcon.className = "fa-solid fa-circle-question modal-icon";
       elIcon.style.color = "#fff";
-      btnConfirm.className = "btn-primary"; // Azul
+      btnConfirm.className = "btn-primary";
       btnConfirm.innerText = "Confirmar";
     }
 
-    // Exibe o modal e o botão cancelar
     modal.classList.remove("hidden");
     btnCancel.classList.remove("hidden");
 
-    // CLONAGEM DE BOTÕES
-    // Importante: Clonamos para remover eventos de clique antigos e não duplicar ações
+    // Clona botões para limpar eventos antigos
     const novoConfirm = btnConfirm.cloneNode(true);
     const novoCancel = btnCancel.cloneNode(true);
-
     btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
     btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
 
-    // Ação: CLICOU EM CONFIRMAR
     novoConfirm.onclick = () => {
       modal.classList.add("hidden");
       novoCancel.classList.add("hidden");
-      resolve(true); // Retorna SIM
+      resolve(true);
     };
-
-    // Ação: CLICOU EM CANCELAR
     novoCancel.onclick = () => {
       modal.classList.add("hidden");
       novoCancel.classList.add("hidden");
-      resolve(false); // Retorna NÃO
+      resolve(false);
     };
   });
 };
 
-// Função para Alerta Simples (Só OK)
+// Alerta Simples (Só OK)
 window.mostrarAlerta = (titulo, mensagem, type) => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-
-    // Fallback se não tiver modal
     if (!modal) {
       alert(`${titulo}\n${mensagem}`);
       return resolve(true);
@@ -947,22 +913,19 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
     elTitulo.innerText = titulo;
     elDesc.innerText = mensagem;
 
-    // Ícones
     if (type === "error")
       elIcon.className = "fa-solid fa-circle-xmark modal-icon error";
     else if (type === "warning")
       elIcon.className = "fa-solid fa-circle-exclamation modal-icon warning";
     else elIcon.className = "fa-solid fa-circle-check modal-icon success";
-    elIcon.style.color = ""; // Reseta cor inline se houver
+    elIcon.style.color = "";
 
-    // Configuração dos botões
-    btnCancel.classList.add("hidden"); // Esconde Cancelar
+    btnCancel.classList.add("hidden");
     btnConfirm.className = "btn-primary";
     btnConfirm.innerText = "OK";
 
     modal.classList.remove("hidden");
 
-    // Limpa eventos anteriores
     const novoBtn = btnConfirm.cloneNode(true);
     btnConfirm.parentNode.replaceChild(novoBtn, btnConfirm);
 
