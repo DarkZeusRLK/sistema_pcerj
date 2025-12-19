@@ -164,7 +164,7 @@ window.gerarPreviewPorte = function () {
 
   if (!container || !canvas)
     return console.error("Canvas container não encontrado!");
-  if (!nome || !id) return alert("Preencha Nome e ID.");
+  if (!nome || !id || rg) return alert("Preencha Nome, ID e RG");
 
   const ctx = canvas.getContext("2d");
   const img = new Image();
