@@ -112,7 +112,21 @@ body {
   font-size: 0.7rem;
   color: var(--green-accent);
 }
+/* Isso garante que ele herde o tamanho e borda dos inputs normais */
+.input-group input[readonly] {
+  background-color: rgba(0, 0, 0, 0.3); /* Fundo um pouco mais escuro */
+  color: #a1a1aa; /* Texto levemente cinza (parecer desabilitado) */
+  border-color: rgba(255, 255, 255, 0.1);
+  cursor: not-allowed; /* Mostra o ícone de bloqueio no mouse */
+  font-weight: 600; /* Deixa a data em negrito para destaque */
 
+  /* Garante alinhamento igual aos outros */
+  width: 100%;
+  padding: 0.8rem; /* Ajuste conforme o padding dos seus outros inputs */
+  border-radius: 6px;
+  outline: none;
+  transition: 0.2s;
+}
 /* Header & Stats */
 header {
   display: flex;
