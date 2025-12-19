@@ -189,7 +189,7 @@ window.processarLimpeza = async function () {
 // ==========================================
 // 🧼 GERADOR DE IMAGEM LIMPEZA
 // ==========================================
-function gerarBlobLimpeza(nome, id, rg, valor) {
+function gerarBlobLimpeza(nome, id, rg) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -218,14 +218,6 @@ function gerarBlobLimpeza(nome, id, rg, valor) {
 
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
-
-      if (valor) {
-        ctx.fillText(
-          `R$ ${valor}`,
-          POSICOES_LIMPEZA.valor.x,
-          POSICOES_LIMPEZA.valor.y
-        );
-      }
 
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
