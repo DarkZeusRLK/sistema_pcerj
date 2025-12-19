@@ -18,8 +18,8 @@ const POSICOES = {
 
 const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
-  id: { x: 400, y: 380 },
-  rg: { x: 200, y: 440 },
+  id: { x: 550, y: 380 },
+  rg: { x: 180, y: 440 },
   data: { x: 690, y: 380 },
   corTexto: "#000000",
   fonte: "bold 30px 'Arial'",
