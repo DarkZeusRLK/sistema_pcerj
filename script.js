@@ -269,6 +269,28 @@ async function processarEmissao() {
     }
   });
 }
+// Converte "DD/MM/YYYY" para objeto Date
+function parseData(dataStr) {
+  const partes = dataStr.split("/");
+  // Mês em JS começa em 0, por isso -1
+  return new Date(partes[2], partes[1] - 1, partes[0]);
+}
+
+// Calcula diferença em dias entre hoje e a data string
+function calcularDiasCorridos(dataExpedicaoStr) {
+  const hoje = new Date();
+  const expedicao = parseData(dataExpedicaoStr);
+  const diffTime = Math.abs(hoje - expedicao);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+// Soma dias a uma data e retorna string formatada
+function somarDiasData(dataStr, dias) {
+  const data = parseData(dataStr);
+  data.setDate(data.getDate() + dias);
+  return data.toLocaleDateString("pt-BR");
+}
 // ==========================================
 // 🔘 CONFIGURAÇÃO DOS BOTÕES
 // ==========================================

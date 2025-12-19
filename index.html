@@ -29,7 +29,10 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <img src="assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png" alt="Logo PC" class="logo">
-        <h2>Polícia Civil</h2>
+        <div class="header-titles">
+          <h2>Polícia Civil</h2>
+          <h4 class="subtitle-system">Sistema Integrado</h4>
+        </div>
       </div>
 
       <nav class="nav-menu">
@@ -39,6 +42,9 @@
           </li>
           <li id="menu-emissao" onclick="navegar('emissao')">
             <i class="fa-solid fa-file-signature"></i> Emitir Porte
+          </li>
+          <li id="menu-renovacao" onclick="navegar('renovacao')">
+            <i class="fa-solid fa-arrows-rotate"></i> Renovações
           </li>
           <li id="menu-limpeza" onclick="navegar('limpeza')">
             <i class="fa-solid fa-eraser"></i> Limpeza Ficha
@@ -191,7 +197,32 @@
           </div>
         </div>
       </section>
+      <section id="sec-renovacao" class="screen hidden">
+        <header class="top-bar">
+          <h1>Renovação de Portes</h1>
+        </header>
 
+        <div class="alert-info" style="margin-bottom: 20px;">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Aqui aparecem apenas portes entre <strong>30 e 33 dias</strong> de uso (Período de Graça).</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Cidadão</th>
+                <th>ID</th>
+                <th>Expedido em</th>
+                <th>Dias Vencidos</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="lista-renovacao">
+            </tbody>
+          </table>
+        </div>
+      </section>
       <section id="sec-limpeza" class="screen hidden">
         <header class="top-bar">
           <h1>Limpeza de Ficha</h1>

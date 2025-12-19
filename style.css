@@ -43,13 +43,13 @@ body {
   transition: width 0.3s;
 }
 
+/* Ajuste do Header da Sidebar para alinhar texto */
 .sidebar-header {
   display: flex;
   align-items: center;
   gap: 15px;
-  margin-bottom: 40px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-light);
+  /* Removemos margin-bottom fixo grande, ajustamos layout */
+  align-items: flex-start;
 }
 
 .logo {
@@ -584,4 +584,56 @@ th {
   .row {
     grid-template-columns: 1fr;
   }
+}
+.header-titles {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 5px;
+}
+/* O Estilo do Subtítulo solicitado */
+.subtitle-system {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 400;
+  margin-top: 2px;
+  opacity: 0.7;
+}
+
+/* Badge de Prioridade (Revogação) */
+.badge-priority {
+  background: rgba(229, 46, 77, 0.15);
+  color: #e52e4d;
+  border: 1px solid #e52e4d;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Badge de Atenção (Renovação) */
+.badge-warning {
+  background: rgba(251, 169, 76, 0.15);
+  color: #fba94c;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+/* Alerta Info Azul */
+.alert-info {
+  background: rgba(102, 178, 255, 0.1);
+  color: #66b2ff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid rgba(102, 178, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
