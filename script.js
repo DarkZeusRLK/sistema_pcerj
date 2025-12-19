@@ -337,23 +337,75 @@ window.renderTables = function () {
   });
 };
 
-window.revogar = function (id) {
-  if (confirm("Deseja revogar este porte?")) {
-    const index = dbPortes.findIndex((p) => p.id === id);
-    if (index !== -1) {
-      dbPortes[index].status = "Revogado";
-      renderTables();
-      atualizarStats();
+window.revogar = async function (id) {
+  // 1. Acha o cidadão na lista local
+  const p = dbPortes.find((x) => x.id === id);
+
+  if (!p) return alert("Erro: Registro não encontrado.");
+
+  if (
+    confirm(
+      `⚠️ ATENÇÃO: Tem certeza que deseja REVOGAR o porte de ${p.nome}?\nIsso enviará um alerta para o canal de Revogados no Discord.`
+    )
+  ) {
+    // 2. Pega dados do Oficial logado
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const oficialNome = sessao.username || "Oficial";
+    const oficialAvatar = sessao.avatar
+      ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
+      : "";
+
+    // 3. Configura o Embed de Revogação (Vermelho Sangue)
+    const embedRevogacao = {
+      title: `🚫 PORTE REVOGADO`,
+      description: `O porte de arma foi **CANCELADO** e consta como inválido a partir de agora.`,
+      color: 15548997, // Vermelho (Red)
+      fields: [
+        { name: "👤 Cidadão", value: `**${p.nome}**`, inline: true },
+        { name: "🆔 Passaporte", value: `\`${p.id}\``, inline: true },
+        { name: "🔫 Arma", value: p.arma, inline: true },
+        {
+          name: "📅 Data da Revogação",
+          value: new Date().toLocaleDateString("pt-BR"),
+          inline: true,
+        },
+        { name: "👮 Responsável", value: oficialNome, inline: true },
+      ],
+      footer: {
+        text: `Sistema de Segurança Pública • Ação Irreversível`,
+        icon_url: oficialAvatar,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    // 4. Cria um arquivo "fake" (Necessário porque sua API espera receber um arquivo)
+    // Isso evita ter que reescrever todo o backend.
+    const blob = new Blob([`Registro de Revogação: ${p.nome} - ID ${p.id}`], {
+      type: "text/plain",
+    });
+    const nomeArquivoLog = `revogacao_${p.id}.txt`;
+
+    // Avisa que está enviando...
+    alert("Enviando solicitação ao sistema...");
+
+    // 5. ENVIA PARA A API (Atenção ao tipo "revogacao")
+    // O seu Backend precisa saber para qual webhook mandar quando recebe "revogacao"
+    const sucesso = await enviarParaAPI(
+      blob,
+      nomeArquivoLog,
+      "revogacao",
+      embedRevogacao
+    );
+
+    if (sucesso) {
+      // 6. Atualiza o banco local e a tela
+      p.status = "Revogado";
+      renderTables(); // Move para a tabela de baixo
+      atualizarStats(); // Atualiza contadores
+      alert("✅ Porte revogado e notificado no Discord com sucesso!");
     }
   }
 };
-
-function atualizarStats() {
-  const elAtivos = document.getElementById("counter-ativos");
-  if (elAtivos)
-    elAtivos.innerText = dbPortes.filter((p) => p.status === "Ativo").length;
-}
-
 window.processarLimpeza = function () {
   alert("Função de limpeza (Implementar igual ao porte).");
 };
