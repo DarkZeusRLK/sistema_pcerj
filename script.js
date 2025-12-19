@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   try {
     configurarBotoes();
-    ativarFormatacaoDinheiro(); // <--- AGORA ESTÁ SENDO CHAMADO!
+    ativarFormatacaoDinheiro();
   } catch (e) {
     console.error("Erro config:", e);
   }
@@ -44,7 +44,6 @@ document.addEventListener("DOMContentLoaded", async function () {
   const isLoginPage = window.location.pathname.includes("login.html");
   const sessao = localStorage.getItem("pc_session");
 
-  // 1. Login Callback
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
@@ -54,7 +53,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     return;
   }
 
-  // 2. Usuário Logado
   if (sessao) {
     if (isLoginPage) {
       window.location.href = "index.html";
@@ -70,9 +68,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         window.location.href = "login.html";
       }
     }
-  }
-  // 3. Usuário Não Logado
-  else {
+  } else {
     if (!isLoginPage) {
       window.location.href = "login.html";
     } else {
@@ -90,8 +86,7 @@ function ativarFormatacaoDinheiro() {
   const inputValor = document.getElementById("input-valor-limpeza");
   if (inputValor) {
     inputValor.addEventListener("input", function (e) {
-      let value = e.target.value.replace(/\D/g, ""); // Remove tudo que não é número
-      // Adiciona ponto de milhar (Ex: 150.000)
+      let value = e.target.value.replace(/\D/g, "");
       value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
       e.target.value = value;
     });
@@ -99,11 +94,9 @@ function ativarFormatacaoDinheiro() {
 }
 
 // ==========================================
-// 🧼 AÇÃO DE LIMPEZA (CORRIGIDA)
+// 🧼 AÇÃO DE LIMPEZA
 // ==========================================
 window.processarLimpeza = async function () {
-  // Agora busca pelos IDs ESPECÍFICOS de Limpeza (Passo 1)
-  // Se não achar (null), usa "" para não quebrar
   const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
   const id = (document.getElementById("limpeza-id")?.value || "").trim();
   const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
@@ -111,7 +104,6 @@ window.processarLimpeza = async function () {
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
 
-  // Debug no console para você ver o que está pegando
   console.log("Tentando limpar ficha:", { nome, id, rg, valor });
 
   if (!nome || !id) {
@@ -131,7 +123,8 @@ window.processarLimpeza = async function () {
   mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg, valor);
+    // Passamos o valor, mas a função abaixo vai ignorar ele na imagem
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
     const nomeArquivo = `limpeza_${id}.png`;
 
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -142,9 +135,12 @@ window.processarLimpeza = async function () {
       ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
       : "";
 
+    // MENSAGEM EXTERNA (QRA AQUI)
+    const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+
     const embedLimpeza = {
-      title: `🧼 LIMPEZA DE FICHA REALIZADA`,
-      description: `**Oficial:** ${mencaoOficial}\n**Valor Pago:** R$ ${valor}`,
+      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
+      description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
         {
@@ -153,7 +149,7 @@ window.processarLimpeza = async function () {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "💰 Valor", value: `R$ ${valor}`, inline: true },
+        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true }, // VALOR CONTINUA AQUI NO EMBED
         {
           name: "📅 Data",
           value: new Date().toLocaleDateString("pt-BR"),
@@ -170,24 +166,27 @@ window.processarLimpeza = async function () {
       nomeArquivo,
       "limpeza",
       embedLimpeza,
-      `✅ Ficha limpa com sucesso.`
+      mensagemExterna
     );
 
     if (sucesso) {
       mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
-      // Limpa os campos
       document.getElementById("limpeza-nome").value = "";
       document.getElementById("limpeza-id").value = "";
       document.getElementById("input-valor-limpeza").value = "";
     }
   } catch (erro) {
     console.error(erro);
-    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
+    mostrarAlerta(
+      "Erro",
+      "Erro ao processar limpeza. Verifique se a imagem existe.",
+      "error"
+    );
   }
 };
 
 // ==========================================
-// 🧼 GERADOR DE IMAGEM LIMPEZA
+// 🧼 GERADOR DE IMAGEM LIMPEZA (SEM VALOR)
 // ==========================================
 function gerarBlobLimpeza(nome, id, rg) {
   return new Promise((resolve, reject) => {
@@ -195,7 +194,8 @@ function gerarBlobLimpeza(nome, id, rg) {
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
-    img.src = "assets/bg_limpeza.png"; // Certifique-se que o arquivo existe
+    // Mantive o nome que estava no seu código enviado
+    img.src = "assets/bg_limpeza.png";
 
     img.onload = () => {
       canvas.width = img.width;
@@ -210,8 +210,7 @@ function gerarBlobLimpeza(nome, id, rg) {
       ctx.fillText(
         nome.toUpperCase(),
         POSICOES_LIMPEZA.nome.x,
-        POSICOES_LIMPEZA.nome.y,
-        POSICOES_LIMPEZA.nome.max
+        POSICOES_LIMPEZA.nome.y
       );
       ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
       ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
@@ -219,16 +218,19 @@ function gerarBlobLimpeza(nome, id, rg) {
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
 
+      // REMOVIDO: Não desenha mais o valor na imagem
+
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
+
     img.onerror = () =>
       reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
   });
 }
 
-// ==========================================
-// ☁️ BUSCAR DADOS DO DISCORD
-// ==========================================
+// ... (O RESTANTE DO CÓDIGO PERMANECE IGUAL: CarregarPortes, Emissão, Revogação, etc.) ...
+// Para garantir que nada quebre, vou incluir o restante abaixo:
+
 async function carregarPortesDoDiscord() {
   try {
     console.log("🔄 Buscando portes...");
@@ -244,9 +246,6 @@ async function carregarPortesDoDiscord() {
   }
 }
 
-// ==========================================
-// 📨 LÓGICA DE EMISSÃO
-// ==========================================
 function configurarBotoes() {
   const btnEmitir = document.getElementById("btn-emitir-final");
   if (btnEmitir) {
@@ -331,9 +330,6 @@ async function processarEmissao() {
   });
 }
 
-// ==========================================
-// 🚫 REVOGAÇÃO & OUTROS
-// ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
@@ -437,7 +433,6 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
 }
 
 window.gerarPreviewPorte = function () {
-  // ... (Mantenha igual ou copie se precisar, a lógica é a mesma de antes)
   const container = document.getElementById("preview-porte-container");
   const canvas = document.getElementById("canvas-porte");
   const nome = document.getElementById("porte-nome").value;
