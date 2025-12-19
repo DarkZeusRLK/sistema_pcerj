@@ -159,42 +159,7 @@
             <div class="form-group">
               <label>RG</label>
               <input type="text" id="porte-rg">
-              <div class="input-group">
-                <label>Armamento</label>
-                <select id="porte-arma" onchange="atualizarValoresPorte()">
-                  <option value="GLOCK">Glock</option>
-                  <option value="MP5">MP5</option>
-                  <option value="TASER">Taser</option>
-                </select>
-              </div>
 
-              <div class="checkbox-group" style="margin: 15px 0 5px 0;">
-                <input type="checkbox" id="check-municao" checked onchange="atualizarValoresPorte()">
-                <label for="check-municao">Incluir Kit Munição (+ R$ 100.000)</label>
-              </div>
-
-              <div class="checkbox-group" style="margin-bottom: 20px;">
-                <input type="checkbox" id="check-desconto" onchange="atualizarValoresPorte()">
-                <label for="check-desconto" style="color: #66b2ff;">Aplicar Desconto Policial (-15%)</label>
-              </div>
-
-              <div id="painel-valores" class="price-box hidden">
-                <div class="price-row">
-                  <span>Arma:</span> <span id="val-arma">R$ 0</span>
-                </div>
-                <div class="price-row">
-                  <span>Laudo Técnico:</span> <span id="val-laudo">R$ 0</span>
-                </div>
-                <div class="price-row">
-                  <span>Munição:</span> <span id="val-municao">R$ 0</span>
-                </div>
-                <div class="price-row" id="row-desconto" style="display: none; color: #e52e4d;">
-                  <span>Desconto (15%):</span> <span id="val-desconto">- R$ 0</span>
-                </div>
-                <div class="price-total">
-                  <span>TOTAL:</span> <span id="val-total">R$ 0</span>
-                </div>
-              </div>
               <div class="input-group">
                 <label>Data de Expedição</label>
                 <input type="text" id="porte-expedicao" readonly>

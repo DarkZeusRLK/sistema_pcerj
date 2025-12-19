@@ -493,3 +493,119 @@ td {
   height: 20px;
   accent-color: var(--gold-accent);
 }
+/* Grid para os botões de opção (Munição e Desconto) */
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Divide em 2 colunas */
+  gap: 15px;
+  margin: 20px 0;
+}
+
+/* Cartão de Opção (Aparência do Checkbox) */
+.option-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.option-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Oculta o checkbox nativo feio ou estiliza ele levemente */
+.option-card input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold-accent);
+  cursor: pointer;
+}
+
+.option-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.opt-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.opt-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Painel de Preços (Estilo Recibo) */
+.price-box {
+  background: #18181b; /* Fundo mais escuro */
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  margin-bottom: 25px;
+  overflow: hidden; /* Para o header não vazar */
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.price-header {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-light);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.price-content {
+  padding: 20px;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  color: #ccc;
+}
+
+.price-row.discount {
+  color: #e52e4d; /* Vermelho para desconto */
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.price-footer {
+  background: rgba(4, 211, 97, 0.1); /* Verde bem suave */
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(4, 211, 97, 0.2);
+}
+
+.price-footer span:first-child {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--green-accent);
+}
+
+.total-big {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--green-accent);
+}
+
+/* Ajuste Responsivo para telas pequenas */
+@media (max-width: 600px) {
+  .options-grid {
+    grid-template-columns: 1fr; /* Fica um embaixo do outro no celular */
+  }
+}
