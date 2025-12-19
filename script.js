@@ -654,14 +654,11 @@ window.renovarPorte = async function (idPorte) {
   }
 };
 
-// ==========================================
-// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
-// ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  // 👇 MODAL PERSONALIZADO DE PERIGO AQUI 👇
+  // Confirmação com Modal de Perigo
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
     `Tem certeza que deseja revogar o porte de ${p.nome}? Esta ação é irreversível e será registrada.`,
@@ -677,15 +674,18 @@ window.revogar = async function (id) {
   try {
     const blob = await gerarBlobRevogacao(p);
     const nomeArq = `revogacao_${id}.png`;
+
     const embed = {
       title: `🚫 REVOGADO: ${p.arma}`,
-      description: "Porte cancelado.",
-      color: 15548997,
+      description: "Porte cancelado devido a infração ou expiração.",
+      color: 15548997, // Vermelho
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
+        { name: "🪪 RG", value: p.rg || "N/A", inline: true }, // <--- RG ADICIONADO NO EMBED
       ],
       image: { url: `attachment://${nomeArq}` },
+      timestamp: new Date().toISOString(),
     };
 
     if (
@@ -694,9 +694,10 @@ window.revogar = async function (id) {
         nomeArq,
         "revogacao",
         embed,
-        `🚨 REVOGADO por ${mencao}`
+        `🚨 **REVOGAÇÃO REGISTRADA** por ${mencao}`
       )
     ) {
+      // Tenta deletar a mensagem original do porte ativo
       if (p.message_id) {
         try {
           await fetch("/api/deletar", {
@@ -705,13 +706,14 @@ window.revogar = async function (id) {
             body: JSON.stringify({ message_id: p.message_id }),
           });
         } catch (e) {
-          console.log("Msg original não deletada ou não encontrada");
+          console.log("Msg original não deletada");
         }
       }
+
       p.status = "Revogado";
       renderTables();
       atualizarStats();
-      mostrarAlerta("Sucesso", "Revogado!", "success");
+      mostrarAlerta("Sucesso", "Revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
@@ -724,20 +726,33 @@ function gerarBlobRevogacao(p) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
+
+    // Define a imagem de fundo baseada na arma
     let imgName = "revogado_glock.png";
     if (p.arma && p.arma.includes("MP5")) imgName = "revogado_mp5.png";
     if (p.arma && p.arma.includes("TASER")) imgName = "revogado_taser.png";
 
     img.src = `assets/${imgName}`;
+
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
+
+      // 1. Desenha o fundo
       ctx.drawImage(img, 0, 0);
+
+      // 2. Configura a fonte
       ctx.font = POSICOES.fonte;
       ctx.fillStyle = POSICOES.corTexto;
+
+      // 3. Preenche os dados
       ctx.fillText(p.nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
       ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
 
+      // 👇 AQUI ESTAVA FALTANDO O RG 👇
+      ctx.fillText(p.rg || "N/A", POSICOES.rg.x, POSICOES.rg.y);
+
+      // Datas
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       const dataExp =
         p.expedicao && p.expedicao !== "N/A" ? p.expedicao : dataHoje;
@@ -746,9 +761,12 @@ function gerarBlobRevogacao(p) {
 
       ctx.fillText(dataExp, POSICOES.expedicao.x, POSICOES.expedicao.y);
       ctx.fillText(dataVal, POSICOES.validade.x, POSICOES.validade.y);
+
       canvas.toBlob(resolve, "image/png");
     };
-    img.onerror = reject;
+
+    img.onerror = () =>
+      reject(new Error(`Imagem assets/${imgName} não encontrada.`));
   });
 }
 
