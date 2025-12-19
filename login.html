@@ -25,20 +25,17 @@
       width: 400px;
       text-align: center;
       border: 1px solid var(--border-light);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     }
 
     .login-logo {
-      width: 100px;
+      width: 80px;
       margin-bottom: 20px;
     }
 
     .login-title {
-      color: var(--gold-accent);
-      font-size: 1.5rem;
+      color: var(--text-primary);
       margin-bottom: 10px;
-      font-weight: bold;
-      letter-spacing: 1px;
     }
 
     .login-desc {
@@ -50,33 +47,20 @@
     .btn-discord {
       background: #5865F2;
       color: white;
-      padding: 12px;
-      width: 100%;
-      border-radius: 6px;
       text-decoration: none;
+      padding: 12px 20px;
+      border-radius: 6px;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       gap: 10px;
-      font-weight: bold;
+      font-weight: 500;
       transition: 0.3s;
     }
 
     .btn-discord:hover {
       background: #4752c4;
       transform: translateY(-2px);
-    }
-
-    .error-msg {
-      color: var(--red-accent);
-      background: rgba(229, 46, 77, 0.1);
-      padding: 10px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-      font-size: 0.85rem;
-      display: none;
-      /* Só aparece se der erro */
-      border: 1px solid var(--red-accent);
     }
   </style>
 </head>
@@ -88,22 +72,26 @@
     <h2 class="login-title">ACESSO RESTRITO</h2>
     <p class="login-desc">Sistema Integrado da Polícia Civil.<br>Apenas oficiais autorizados.</p>
 
-    <div id="error-area" class="error-msg">
-      <i class="fa-solid fa-triangle-exclamation"></i> Acesso Negado: Você não possui a tag da PCERJ.
-    </div>
-
-    <a href="https://discord.com/oauth2/authorize?client_id=1451342682487259319&response_type=token&redirect_uri=https%3A%2F%2Fsistema-emissao.vercel.app%2F&scope=identify+guilds.members.read" class="btn-discord">
+    <a href="https://discord.com/oauth2/authorize?client_id=1451342682487259319&response_type=token&redirect_uri=https%3A%2F%2Fsistema-emissao.vercel.app%2F&scope=identify+guilds" class="btn-discord">
       <i class="fa-brands fa-discord"></i> Entrar com Discord
     </a>
   </div>
 
-  <script>
-    // Verifica se voltou com erro de permissão
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('error') === 'access_denied') {
-      document.getElementById('error-area').style.display = 'block';
-    }
-  </script>
+  <div id="custom-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-icon" id="modal-icon-box">
+        <i id="modal-icon" class="fa-solid fa-circle-check"></i>
+      </div>
+      <h3 id="modal-title">Aviso</h3>
+      <p id="modal-desc">...</p>
+      <div class="modal-actions">
+        <button id="btn-modal-cancel" class="btn-secondary hidden">Cancelar</button>
+        <button id="btn-modal-confirm" class="btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 
 </html>

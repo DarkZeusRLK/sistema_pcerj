@@ -10,23 +10,20 @@ const CONFIG = {
 // 📍 CONFIGURAÇÃO DE POSIÇÕES (AJUSTE FINO)
 // ==========================================
 const POSICOES = {
-  // X = Horizontal (Esquerda/Direita)
-  // Y = Vertical (Cima/Baixo)
-
-  nome: { x: 370, y: 250 },
+  // Coordenadas baseadas no template
+  nome: { x: 370, y: 250, max: 400 },
   id: { x: 754, y: 433 },
 
-  // Linha de baixo
+  // Linha Inferior
   rg: { x: 576, y: 433 },
-  expedicao: { x: 122, y: 435 }, // <--- NOVA POSIÇÃO (Ajuste se ficar em cima de outro)
+  expedicao: { x: 122, y: 435 },
   validade: { x: 304, y: 435 },
 
-  // Estilo da Fonte
   corTexto: "#000000",
   fonte: "bold 26px 'Arial'",
 };
 
-// Dados Mockados
+// Dados Iniciais (Exemplo)
 let dbPortes = [
   {
     nome: "Tony Stark",
@@ -39,64 +36,55 @@ let dbPortes = [
 ];
 
 // ==========================================
-// 🚀 INICIALIZAÇÃO
+// 🚀 INICIALIZAÇÃO E AUTENTICAÇÃO
 // ==========================================
 document.addEventListener("DOMContentLoaded", async function () {
   const hash = window.location.hash;
   const isLoginPage = window.location.pathname.includes("login.html");
 
-  // 1. Autenticação Discord
+  // 1. Processa retorno do Discord (Token na URL)
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
     const tokenType = fragment.get("token_type");
+
     window.history.replaceState({}, document.title, window.location.pathname);
     await validarLoginNaAPI(`${tokenType} ${accessToken}`);
-  } else {
+  }
+  // 2. Verifica sessão existente ou erros
+  else {
     const sessao = localStorage.getItem("pc_session");
+
+    // Trata erro de URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("error") === "unauthorized" && isLoginPage) {
+      await mostrarAlerta(
+        "Acesso Negado",
+        "Você não possui a tag necessária no Discord.",
+        "error"
+      );
+    }
+
     if (sessao) {
-      iniciarSistema(JSON.parse(sessao));
+      if (isLoginPage) window.location.href = "index.html";
+      else iniciarSistema(JSON.parse(sessao));
     } else if (!isLoginPage) {
       window.location.href = "login.html";
     }
   }
 
-  // 2. Setup Inicial
+  // 3. Setup de funcionalidades (Só no Index)
   if (!isLoginPage) {
-    configurarDatasAutomaticas(); // <--- Função nova de datas
+    configurarDatasAutomaticas();
     atualizarStats();
     renderTables();
   }
 });
 
-// --- Configura Data de Hoje e Validade ---
-function configurarDatasAutomaticas() {
-  const hoje = new Date();
-
-  // 1. Define Data de Expedição (Hoje)
-  const campoExpedicao = document.getElementById("porte-expedicao");
-  if (campoExpedicao) {
-    campoExpedicao.value = hoje.toLocaleDateString("pt-BR");
-  }
-
-  // 2. Define Validade (+30 dias)
-  const campoValidade = document.getElementById("porte-validade");
-  if (campoValidade) {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    campoValidade.value = d.toLocaleDateString("pt-BR");
-  }
-
-  // 3. Data no Header (se houver)
-  const elDataHeader = document.getElementById("data-atual");
-  if (elDataHeader) elDataHeader.innerText = hoje.toLocaleDateString("pt-BR");
-}
-
-// ==========================================
-// 🔐 LOGIN API
-// ==========================================
 async function validarLoginNaAPI(tokenCompleto) {
   try {
+    // Opcional: Mostrar modal de loading aqui se desejar
+
     const response = await fetch("/api/auth", {
       method: "GET",
       headers: { Authorization: tokenCompleto },
@@ -113,12 +101,16 @@ async function validarLoginNaAPI(tokenCompleto) {
       localStorage.setItem("pc_session", JSON.stringify(userSession));
       window.location.href = "index.html";
     } else {
-      alert(data.error || "Acesso negado.");
+      await mostrarAlerta(
+        "Acesso Negado",
+        data.error || "Permissão insuficiente.",
+        "error"
+      );
       window.location.href = "login.html?error=unauthorized";
     }
   } catch (error) {
     console.error(error);
-    window.location.href = "login.html";
+    await mostrarAlerta("Erro", "Falha na conexão com o servidor.", "error");
   }
 }
 
@@ -146,13 +138,14 @@ window.logout = function () {
 };
 
 // ==========================================
-// 🎨 LÓGICA DO CANVAS (PRÉVIA)
+// 🎨 GERADOR DE PRÉVIA (CANVAS)
 // ==========================================
-window.gerarPreviewPorte = function () {
+window.gerarPreviewPorte = async function () {
   console.log("--- Gerando Prévia ---");
 
   const container = document.getElementById("preview-porte-container");
   const canvas = document.getElementById("canvas-porte");
+  const wrapper = document.querySelector(".canvas-wrapper");
 
   // Inputs
   const nome = document.getElementById("porte-nome").value;
@@ -160,15 +153,23 @@ window.gerarPreviewPorte = function () {
   const rg = document.getElementById("porte-rg").value;
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
-  const expedicao = document.getElementById("porte-expedicao").value; // <--- Novo
+  const expedicao = document.getElementById("porte-expedicao").value;
 
-  if (!container || !canvas)
-    return console.error("Canvas container não encontrado!");
-  if (!nome || !id || !rg) return alert("Preencha Nome, ID e RG");
+  if (!container || !canvas) return;
+
+  // Validação Visual
+  if (!nome || !id) {
+    return mostrarAlerta(
+      "Dados Incompletos",
+      "Preencha Nome e ID para gerar o documento.",
+      "warning"
+    );
+  }
 
   const ctx = canvas.getContext("2d");
   const img = new Image();
 
+  // Seleciona background
   if (arma === "GLOCK") img.src = "assets/porte_glock.png";
   else if (arma === "MP5") img.src = "assets/porte_mp5.png";
   else img.src = "assets/porte_taser.png";
@@ -176,13 +177,13 @@ window.gerarPreviewPorte = function () {
   img.onload = function () {
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.drawImage(img, 30, 30);
+    ctx.drawImage(img, 0, 0);
 
     ctx.font = POSICOES.fonte;
     ctx.fillStyle = POSICOES.corTexto;
     ctx.textAlign = "left";
 
-    // --- DESENHANDO OS DADOS ---
+    // Desenha textos
     ctx.fillText(
       nome.toUpperCase(),
       POSICOES.nome.x,
@@ -191,31 +192,34 @@ window.gerarPreviewPorte = function () {
     );
     ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
     ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
-
-    // Data de Expedição
     ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
-
-    // Validade
     ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
 
+    // Mostra e Rola
     container.classList.remove("hidden");
     container.style.display = "block";
-    container.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    if (wrapper)
+      wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+    else container.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   img.onerror = function () {
-    alert(`Erro: Imagem '${img.src}' não encontrada.`);
+    mostrarAlerta(
+      "Erro de Recurso",
+      `Imagem '${img.src}' não encontrada.`,
+      "error"
+    );
   };
 };
 
 // ==========================================
-// 📨 ENVIO PARA O DISCORD (EMBED ATUALIZADO)
+// 📨 EMISSÃO (ENVIO AZUL)
 // ==========================================
 const btnEmitir = document.getElementById("btn-emitir-final");
 
 if (btnEmitir) {
   btnEmitir.addEventListener("click", () => {
-    // 1. Pega os dados do formulário
     const nome = document.getElementById("porte-nome").value;
     const id = document.getElementById("porte-id").value;
     const rg = document.getElementById("porte-rg").value;
@@ -223,10 +227,8 @@ if (btnEmitir) {
     const validade = document.getElementById("porte-validade").value;
     const expedicao = document.getElementById("porte-expedicao").value;
 
-    // 2. Pega a sessão do usuário logado (para pegar o ID do Discord)
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-
-    // Verifica se tem ID, senão usa o nome como texto simples
+    // Menção clicável
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username || "Oficial"}**`;
@@ -236,14 +238,10 @@ if (btnEmitir) {
     canvas.toBlob(async (blob) => {
       const nomeArquivo = `porte_${id}.png`;
 
-      // --- CONFIGURAÇÃO DO EMBED ---
       const embedData = {
         title: `📄 EMISSÃO DE PORTE: ${arma}`,
-
-        // AQUI ESTÁ A MUDANÇA QUE VOCÊ PEDIU:
         description: `Emitido por ${mencaoOficial} oficial da Polícia Civil.`,
-
-        color: 3447003, // Azul PCERJ
+        color: 3447003, // Azul
         fields: [
           {
             name: "👤 Cidadão",
@@ -252,10 +250,8 @@ if (btnEmitir) {
           },
           { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
           { name: "🪪 RG", value: rg, inline: true },
-
           { name: "📅 Expedição", value: `\`${expedicao}\``, inline: true },
           { name: "📅 Validade", value: `\`${validade}\``, inline: true },
-
           { name: "🔫 Armamento", value: arma, inline: false },
         ],
         image: { url: `attachment://${nomeArquivo}` },
@@ -268,7 +264,6 @@ if (btnEmitir) {
         timestamp: new Date().toISOString(),
       };
 
-      // Envia para API
       const sucesso = await enviarParaAPI(
         blob,
         nomeArquivo,
@@ -283,12 +278,12 @@ if (btnEmitir) {
           "success"
         );
 
-        // Adiciona ao histórico local e limpa a tela
         dbPortes.push({ nome, id, rg, arma, validade, status: "Ativo" });
         renderTables();
         atualizarStats();
         window.navegar("dashboard");
 
+        // Limpeza
         document.getElementById("preview-porte-container").style.display =
           "none";
         document.getElementById("porte-nome").value = "";
@@ -299,8 +294,168 @@ if (btnEmitir) {
 }
 
 // ==========================================
-// 🛠️ FUNÇÕES DE API E NAVEGAÇÃO
+// 🚫 REVOGAÇÃO (ENVIO VERMELHO)
 // ==========================================
+window.revogar = async function (id) {
+  const p = dbPortes.find((x) => x.id === id);
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+
+  const confirmou = await confirmarAcao(
+    "Revogar Porte?",
+    `Tem certeza que deseja REVOGAR o porte de ${p.nome}? Isso notificará o Discord.`
+  );
+
+  if (confirmou) {
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
+    const oficialAvatar = sessao.avatar
+      ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
+      : "";
+
+    const embedRevogacao = {
+      title: `🚫 PORTE REVOGADO: ${p.arma}`,
+      description: `Revogado por ${mencaoOficial} oficial da Polícia Civil.`,
+      color: 15548997, // Vermelho
+      fields: [
+        {
+          name: "👤 Cidadão",
+          value: `**${p.nome.toUpperCase()}**`,
+          inline: true,
+        },
+        { name: "🆔 Passaporte", value: `\`${p.id}\``, inline: true },
+        { name: "🪪 RG", value: p.rg || "N/A", inline: true },
+        {
+          name: "📅 Data Revogação",
+          value: `\`${new Date().toLocaleDateString("pt-BR")}\``,
+          inline: true,
+        },
+        { name: "🔫 Armamento", value: p.arma, inline: true },
+      ],
+      footer: {
+        text: `Sistema de Segurança Pública • Polícia Civil`,
+        icon_url: oficialAvatar,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    // Cria arquivo dummy para API aceitar o FormData
+    const blob = new Blob([`LOG REVOGACAO ${id}`], { type: "text/plain" });
+    const nomeArquivoLog = `revogacao_${id}.txt`;
+
+    const sucesso = await enviarParaAPI(
+      blob,
+      nomeArquivoLog,
+      "revogacao",
+      embedRevogacao
+    );
+
+    if (sucesso) {
+      p.status = "Revogado";
+      renderTables();
+      atualizarStats();
+      mostrarAlerta("Revogado", "Porte revogado com sucesso.", "success");
+    }
+  }
+};
+
+// ==========================================
+// 🔔 SISTEMA DE ALERTAS (MODAL)
+// ==========================================
+window.mostrarAlerta = function (titulo, mensagem, tipo = "success") {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    if (!modal) {
+      alert(mensagem);
+      return resolve(true);
+    } // Fallback
+
+    const iconBox = document.getElementById("modal-icon");
+    const boxColor = document.getElementById("modal-icon-box");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+
+    // Configura ícone
+    iconBox.className = "fa-solid";
+    boxColor.className = "modal-icon " + tipo;
+
+    if (tipo === "success") iconBox.classList.add("fa-circle-check");
+    else if (tipo === "error") iconBox.classList.add("fa-circle-xmark");
+    else if (tipo === "warning")
+      iconBox.classList.add("fa-triangle-exclamation");
+
+    document.getElementById("modal-title").innerText = titulo;
+    document.getElementById("modal-desc").innerText = mensagem;
+
+    if (btnCancel) btnCancel.classList.add("hidden");
+    btnConfirm.innerText = "OK";
+
+    modal.classList.remove("hidden");
+
+    btnConfirm.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true);
+    };
+  });
+};
+
+window.confirmarAcao = function (titulo, mensagem) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    const iconBox = document.getElementById("modal-icon");
+    const boxColor = document.getElementById("modal-icon-box");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+
+    iconBox.className = "fa-solid fa-circle-question";
+    boxColor.className = "modal-icon warning";
+
+    document.getElementById("modal-title").innerText = titulo;
+    document.getElementById("modal-desc").innerText = mensagem;
+
+    if (btnCancel) btnCancel.classList.remove("hidden");
+    btnConfirm.innerText = "Confirmar";
+
+    modal.classList.remove("hidden");
+
+    btnConfirm.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true);
+    };
+
+    if (btnCancel) {
+      btnCancel.onclick = () => {
+        modal.classList.add("hidden");
+        resolve(false);
+      };
+    }
+  });
+};
+
+// ==========================================
+// 🛠️ FUNÇÕES AUXILIARES
+// ==========================================
+function configurarDatasAutomaticas() {
+  const hoje = new Date();
+
+  // Campo Expedição (Hoje)
+  const campoExpedicao = document.getElementById("porte-expedicao");
+  if (campoExpedicao) campoExpedicao.value = hoje.toLocaleDateString("pt-BR");
+
+  // Campo Validade (+30 dias)
+  const campoValidade = document.getElementById("porte-validade");
+  if (campoValidade) {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    campoValidade.value = d.toLocaleDateString("pt-BR");
+  }
+
+  // Header Data
+  const elDataHeader = document.getElementById("data-atual");
+  if (elDataHeader) elDataHeader.innerText = hoje.toLocaleDateString("pt-BR");
+}
+
 async function enviarParaAPI(blob, filename, tipoCanal, embedData) {
   const formData = new FormData();
   formData.append("file", blob, filename);
@@ -314,160 +469,90 @@ async function enviarParaAPI(blob, filename, tipoCanal, embedData) {
     if (res.ok) return true;
 
     const erro = await res.json();
-    alert("Erro no envio: " + (erro.error || "Desconhecido"));
+    mostrarAlerta("Erro na API", erro.error || "Erro desconhecido", "error");
     return false;
   } catch (err) {
     console.error(err);
+    mostrarAlerta("Erro Crítico", "Falha de conexão com a API.", "error");
     return false;
   }
 }
 
 window.navegar = function (tela) {
+  // Esconde telas
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.add("hidden"));
+  // Reseta menu
   document
     .querySelectorAll(".nav-links li")
     .forEach((l) => l.classList.remove("active"));
+
+  // Mostra tela e ativa menu
   const section = document.getElementById(`sec-${tela}`);
   if (section) section.classList.remove("hidden");
 
-  // Recarrega as datas se voltar para a emissão
+  const menuLink = document.querySelector(
+    `.nav-links li[onclick="navegar('${tela}')"]`
+  );
+  if (menuLink) menuLink.classList.add("active");
+
   if (tela === "emissao") configurarDatasAutomaticas();
 };
 
 window.renderTables = function () {
-  const tbody = document.getElementById("lista-revogacao");
-  if (!tbody) return;
+  const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
+  const tbodyRevogados = document.getElementById("lista-ja-revogados");
 
-  tbody.innerHTML = "";
+  if (tbodyAtivos) tbodyAtivos.innerHTML = "";
+  if (tbodyRevogados) tbodyRevogados.innerHTML = "";
+
   dbPortes.forEach((p) => {
     if (p.status === "Ativo") {
-      tbody.innerHTML += `
+      if (tbodyAtivos) {
+        tbodyAtivos.innerHTML += `
                 <tr>
                     <td>${p.nome}</td>
                     <td>${p.id}</td>
                     <td>${p.arma}</td>
-                    <td><span class="badge active">Ativo</span></td>
-                    <td><button class="btn-danger" onclick="revogar('${p.id}')">REVOGAR</button></td>
+                    <td>
+                        <button class="btn-danger" onclick="revogar('${p.id}')">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>
+                    </td>
                 </tr>`;
+      }
+    } else if (p.status === "Revogado") {
+      if (tbodyRevogados) {
+        tbodyRevogados.innerHTML += `
+                <tr style="opacity: 0.7;">
+                    <td>${p.nome}</td>
+                    <td>${p.id}</td>
+                    <td>${new Date().toLocaleDateString("pt-BR")}</td>
+                    <td><span class="badge revogado">REVOGADO</span></td>
+                </tr>`;
+      }
     }
   });
+  atualizarStats();
 };
 
-// ==========================================
-// 🚫 FUNÇÃO DE REVOGAR (PADRÃO "SEGUNDO PRINT")
-// ==========================================
-window.revogar = async function (id) {
-  const p = dbPortes.find((x) => x.id === id);
-  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+function atualizarStats() {
+  const elAtivos = document.getElementById("counter-ativos");
+  const elRevogados = document.getElementById("counter-revogados");
 
-  // SUBSTITUINDO O CONFIRM NATIVO:
-  const confirmou = await confirmarAcao(
-    "Revogar Porte?",
-    `Tem certeza que deseja REVOGAR o porte de ${p.nome}? Isso enviará um alerta no Discord.`
-  );
+  if (elAtivos)
+    elAtivos.innerText = dbPortes.filter((p) => p.status === "Ativo").length;
+  if (elRevogados)
+    elRevogados.innerText = dbPortes.filter(
+      (p) => p.status === "Revogado"
+    ).length;
+}
 
-  if (confirmou) {
-    // ... (código de preparação do embed igual antes) ...
-
-    // SUBSTITUINDO O ALERT DE "PROCESSANDO":
-    // Não usamos await aqui para ele não travar, ou podemos criar um "loading" simples.
-    // Por enquanto, vamos pular o alert de processando ou usar um console.log
-    console.log("Enviando...");
-
-    const sucesso = await enviarParaAPI(
-      blob,
-      nomeArquivoLog,
-      "revogacao",
-      embedRevogacao
-    );
-
-    if (sucesso) {
-      p.status = "Revogado";
-      renderTables();
-      atualizarStats();
-      // SUBSTITUINDO O ALERT FINAL:
-      mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
-    } else {
-      mostrarAlerta("Erro", "Falha ao comunicar com o servidor.", "error");
-    }
-  }
-};
 window.processarLimpeza = function () {
-  alert("Função de limpeza (Implementar igual ao porte).");
+  mostrarAlerta(
+    "Em Breve",
+    "Funcionalidade de limpeza ainda não implementada.",
+    "warning"
+  );
 };
-// ==========================================
-// 🔔 SISTEMA DE ALERTAS CUSTOMIZADOS
-// ==========================================
-
-// 1. Alerta Simples (Substitui o alert)
-function mostrarAlerta(titulo, mensagem, tipo = "success") {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("custom-modal");
-    const iconBox = document.getElementById("modal-icon");
-    const btnCancel = document.getElementById("btn-modal-cancel");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-
-    // Configura Ícone e Cor
-    iconBox.className = "fa-solid"; // Reseta
-    document.getElementById("modal-icon-box").className = "modal-icon " + tipo;
-
-    if (tipo === "success") iconBox.classList.add("fa-circle-check");
-    else if (tipo === "error") iconBox.classList.add("fa-circle-xmark");
-    else if (tipo === "warning")
-      iconBox.classList.add("fa-triangle-exclamation");
-
-    // Textos
-    document.getElementById("modal-title").innerText = titulo;
-    document.getElementById("modal-desc").innerText = mensagem;
-
-    // Botões
-    btnCancel.classList.add("hidden"); // Esconde cancelar
-    btnConfirm.innerText = "OK";
-
-    // Mostrar
-    modal.classList.remove("hidden");
-
-    // Ação ao fechar
-    btnConfirm.onclick = () => {
-      modal.classList.add("hidden");
-      resolve(true);
-    };
-  });
-}
-
-// 2. Confirmação (Substitui o confirm)
-function confirmarAcao(titulo, mensagem) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("custom-modal");
-    const iconBox = document.getElementById("modal-icon");
-    const btnCancel = document.getElementById("btn-modal-cancel");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-
-    // Configura visual de Perigo/Warning
-    iconBox.className = "fa-solid fa-circle-question";
-    document.getElementById("modal-icon-box").className = "modal-icon warning";
-
-    document.getElementById("modal-title").innerText = titulo;
-    document.getElementById("modal-desc").innerText = mensagem;
-
-    // Botões
-    btnCancel.classList.remove("hidden"); // Mostra cancelar
-    btnConfirm.innerText = "Confirmar";
-
-    // Mostrar
-    modal.classList.remove("hidden");
-
-    // Lógica de Resposta
-    btnConfirm.onclick = () => {
-      modal.classList.add("hidden");
-      resolve(true); // Clicou em SIM
-    };
-
-    btnCancel.onclick = () => {
-      modal.classList.add("hidden");
-      resolve(false); // Clicou em NÃO
-    };
-  });
-}
