@@ -221,28 +221,28 @@ async function processarEmissao() {
   });
 }
 
-// 🧼 GERADOR DE IMAGEM LIMPEZA DE FICHA
 // ==========================================
-function gerarBlobLimpeza(nome, id, rg) {
+// 🧼 GERADOR DE IMAGEM LIMPEZA (ATUALIZADO COM VALOR)
+// ==========================================
+function gerarBlobLimpeza(nome, id, rg, valor) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
-    // ⚠️ CERTIFIQUE-SE DE QUE ESTA IMAGEM EXISTE NA PASTA ASSETS
-    img.src = "assets/bg_limpeza.png";
+    // Verifique se o nome do arquivo está correto na pasta assets
+    img.src = "assets/limpeza.png";
 
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
 
-      // Configura fonte e cor baseadas na nova constante
       ctx.font = POSICOES_LIMPEZA.fonte;
       ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
       ctx.textAlign = "left";
 
-      // Preenche os dados usando as NOVAS coordenadas
+      // Preenche Nome, ID, RG
       ctx.fillText(
         nome.toUpperCase(),
         POSICOES_LIMPEZA.nome.x,
@@ -252,63 +252,76 @@ function gerarBlobLimpeza(nome, id, rg) {
       ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
       ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
 
-      // Data de hoje
+      // Preenche Data
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
+
+      // Preenche Valor (Formatado)
+      if (valor) {
+        ctx.fillText(
+          `R$ ${valor}`,
+          POSICOES_LIMPEZA.valor.x,
+          POSICOES_LIMPEZA.valor.y
+        );
+      }
 
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
 
-    img.onerror = () =>
-      reject(new Error("Imagem 'assets/bg_limpeza.png' não encontrada."));
+    img.onerror = () => reject(new Error("Imagem de limpeza não encontrada."));
   });
 }
+
 // ==========================================
-// 🧼 AÇÃO DE LIMPEZA DE FICHA
+// 🧼 AÇÃO DE PROCESSAR (CORRIGIDA)
 // ==========================================
 window.processarLimpeza = async function () {
-  // Vamos reutilizar os inputs da tela de emissão para pegar os dados
-  const nome = document.getElementById("porte-nome").value;
-  const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value;
+  // Tenta pegar os valores. Se for null, vira string vazia "" para não quebrar.
+  const elNome = document.getElementById("porte-nome");
+  const elId = document.getElementById("porte-id");
+  const elRg = document.getElementById("porte-rg");
+  const elValor = document.getElementById("input-valor-limpeza");
 
-  // Validação básica
+  const nome = elNome ? elNome.value : "";
+  const id = elId ? elId.value : "";
+  const rg = elRg ? elRg.value : "";
+  const valor = elValor ? elValor.value : "0";
+
+  // Validação Detalhada (Debug)
   if (!nome || !id) {
+    console.log("Falha na validação:", { nome, id }); // Veja no console (F12) o que está faltando
     return mostrarAlerta(
       "Dados Incompletos",
-      "Para limpar a ficha, preencha pelo menos NOME e ID nos campos acima.",
+      "Por favor, preencha o NOME e o ID (Passaporte) para prosseguir.",
       "warning"
     );
   }
 
   const confirmou = await confirmarAcao(
     "Limpar Ficha?",
-    `Deseja emitir documento de BONS ANTECEDENTES para ${nome}?`
+    `Confirmar limpeza de ficha para ${nome} no valor de R$ ${valor}?`
   );
   if (!confirmou) return;
 
-  mostrarAlerta("Processando", "Gerando documento de limpeza...", "warning");
-
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const mencaoOficial = sessao.id
-    ? `<@${sessao.id}>`
-    : `**${sessao.username || "Oficial"}**`;
-  const oficialAvatar = sessao.avatar
-    ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
-    : "";
-
-  const mensagemNotificacao = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+  mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    // Gera a imagem usando as coordenadas novas
-    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
+    // Gera a imagem
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg, valor);
     const nomeArquivo = `limpeza_${id}.png`;
 
-    // Configura o Embed para o Discord
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
+    const avatarUrl = sessao.avatar
+      ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
+      : "";
+
     const embedLimpeza = {
-      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
-      description: `A ficha criminal do cidadão foi limpa no sistema.`,
-      color: 65280, // Cor Verde (Decimal)
+      title: `🧼 LIMPEZA DE FICHA REALIZADA`,
+      description: `**Oficial:** ${mencaoOficial}\n**Valor Pago:** R$ ${valor}`,
+      color: 65280,
       fields: [
         {
           name: "👤 Cidadão",
@@ -316,41 +329,38 @@ window.processarLimpeza = async function () {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "🪪 RG", value: rg || "N/A", inline: true },
+        { name: "💰 Valor", value: `R$ ${valor}`, inline: true },
         {
           name: "📅 Data",
-          value: `\`${new Date().toLocaleDateString("pt-BR")}\``,
+          value: new Date().toLocaleDateString("pt-BR"),
           inline: true,
         },
       ],
       image: { url: `attachment://${nomeArquivo}` },
-      footer: {
-        text: `Departamento de Justiça • Polícia Civil`,
-        icon_url: oficialAvatar,
-      },
+      footer: { text: `Departamento de Justiça`, icon_url: avatarUrl },
       timestamp: new Date().toISOString(),
     };
 
-    // Envia para a API usando o tipo "limpeza" (que vai para o CHANNEL_LIMPEZA_ID)
     const sucesso = await enviarParaAPI(
       blobLimpeza,
       nomeArquivo,
       "limpeza",
       embedLimpeza,
-      mensagemNotificacao
+      `✅ Ficha limpa com sucesso.`
     );
 
     if (sucesso) {
-      mostrarAlerta("Sucesso", "Ficha limpa e documento enviado!", "success");
-      // Opcional: Limpar os campos depois
-      document.getElementById("porte-nome").value = "";
-      document.getElementById("porte-id").value = "";
+      mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
+      // Limpa os campos
+      if (elNome) elNome.value = "";
+      if (elId) elId.value = "";
+      if (elValor) elValor.value = "";
     }
   } catch (erro) {
     console.error(erro);
     mostrarAlerta(
       "Erro",
-      "Falha ao gerar imagem de limpeza. Verifique se 'limpeza.png' existe.",
+      "Erro ao processar limpeza. Verifique o console.",
       "error"
     );
   }
