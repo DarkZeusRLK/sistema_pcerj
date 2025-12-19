@@ -148,45 +148,103 @@
             <h2><i class="fa-solid fa-gun"></i> Novo Porte de Armas</h2>
           </div>
           <div class="input-grid">
-            <div class="form-group">
+            <div class="input-group">
               <label>Nome Completo</label>
-              <input type="text" id="porte-nome">
+              <input type="text" id="porte-nome" placeholder="Ex: John Doe">
             </div>
-            <div class="form-group">
-              <label>Passaporte (ID)</label>
-              <input type="number" id="porte-id">
-            </div>
-            <div class="form-group">
-              <label>RG</label>
-              <input type="text" id="porte-rg">
 
+            <div class="row">
+              <div class="input-group">
+                <label>Passaporte (ID)</label>
+                <input type="number" id="porte-id" placeholder="Ex: 123">
+              </div>
+              <div class="input-group">
+                <label>RG</label>
+                <input type="text" id="porte-rg" placeholder="Ex: 00.000.000-0">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label><i class="fa-solid fa-gun"></i> Armamento</label>
+              <select id="porte-arma" onchange="atualizarValoresPorte()">
+                <option value="GLOCK">Glock (9mm)</option>
+                <option value="MP5">MP5 (Submetralhadora)</option>
+                <option value="TASER">Taser (Não letal)</option>
+              </select>
+            </div>
+
+            <div class="row">
               <div class="input-group">
                 <label>Data de Expedição</label>
                 <input type="text" id="porte-expedicao" readonly>
               </div>
-              <div class="form-group">
-                <label>Validade (+30 Dias)</label>
-                <input type="text" id="porte-validade" readonly style="background: #2a2a2e; color: #aaa;">
+              <div class="input-group">
+                <label>Válido Até</label>
+                <input type="text" id="porte-validade" readonly>
+              </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 20px 0;">
+
+            <div class="options-grid">
+              <div class="option-card" onclick="document.getElementById('check-municao').click()">
+                <input type="checkbox" id="check-municao" checked onchange="atualizarValoresPorte(); event.stopPropagation();">
+                <div class="option-info">
+                  <span class="opt-title">Incluir Munição</span>
+                  <span class="opt-desc">+ R$ 100.000</span>
+                </div>
+              </div>
+
+              <div class="option-card" onclick="document.getElementById('check-desconto').click()">
+                <input type="checkbox" id="check-desconto" onchange="atualizarValoresPorte(); event.stopPropagation();">
+                <div class="option-info">
+                  <span class="opt-title" style="color: #66b2ff;">Oficial de Polícia</span>
+                  <span class="opt-desc">Desconto de 15%</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="painel-valores" class="price-box hidden">
+              <div class="price-header">
+                <i class="fa-solid fa-receipt"></i> Resumo Financeiro
+              </div>
+
+              <div class="price-content">
+                <div class="price-row">
+                  <span>Valor da Arma</span> <span id="val-arma">R$ 0</span>
+                </div>
+                <div class="price-row">
+                  <span>Laudo Técnico</span> <span id="val-laudo">R$ 0</span>
+                </div>
+                <div class="price-row">
+                  <span>Kit Munição</span> <span id="val-municao">R$ 0</span>
+                </div>
+                <div class="price-row discount" id="row-desconto" style="display: none;">
+                  <span>Desconto Policial</span> <span id="val-desconto">- R$ 0</span>
+                </div>
+              </div>
+
+              <div class="price-footer">
+                <span>TOTAL A PAGAR</span>
+                <span id="val-total" class="total-big">R$ 0</span>
               </div>
             </div>
 
             <div class="form-actions">
-              <button id="btn-gerar-previa" class="btn-primary">
+              <button class="btn-secondary" id="btn-gerar-previa">
                 <i class="fa-solid fa-eye"></i> Gerar Prévia
               </button>
             </div>
-          </div>
-
-          <div id="preview-porte-container" class="preview-box hidden">
-            <h3>Documento Gerado</h3>
-            <div class="canvas-wrapper">
-              <canvas id="canvas-porte"></canvas>
-              <img id="img-porte-final" src="">
+            <div id="preview-porte-container" class="preview-box hidden">
+              <h3>Documento Gerado</h3>
+              <div class="canvas-wrapper">
+                <canvas id="canvas-porte"></canvas>
+                <img id="img-porte-final" src="">
+              </div>
+              <button class="btn-success" id="btn-emitir-final">
+                <i class="fa-solid fa-paper-plane"></i> Confirmar Emissão
+              </button>
             </div>
-            <button class="btn-success" id="btn-emitir-final">
-              <i class="fa-solid fa-paper-plane"></i> Confirmar Emissão
-            </button>
-          </div>
       </section>
 
       <section id="sec-renovacao" class="screen hidden">
