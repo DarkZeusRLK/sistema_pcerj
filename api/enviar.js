@@ -3,7 +3,7 @@ const Busboy = require("busboy");
 const FormData = require("form-data");
 const fetch = require("node-fetch");
 
-// Desativa o body-parser padrão da Vercel para lidarmos com o arquivo manualmente
+// Configuração obrigatória para Vercel
 module.exports.config = {
   api: {
     bodyParser: false,
@@ -11,18 +11,21 @@ module.exports.config = {
 };
 
 module.exports = (req, res) => {
-  // IMPORTANTE: Envolvemos tudo numa Promise para a Vercel não matar o processo
   return new Promise((resolve, reject) => {
+    console.log("📨 Iniciando envio via API...");
+
     if (req.method !== "POST") {
       res.status(405).json({ error: "Método inválido" });
       return resolve();
     }
 
     const busboy = Busboy({ headers: req.headers });
-    const discordForm = new FormData();
-    let channelId = "";
 
-    // Mapeamento dos Canais
+    // Vamos guardar os dados na memória antes de enviar
+    let fileBuffer = [];
+    let fileName = "";
+    let payloadJson = "";
+
     const CANAIS = {
       porte: process.env.CHANNEL_PORTE_ID,
       revogacao: process.env.CHANNEL_REVOGACAO_ID,
@@ -30,22 +33,33 @@ module.exports = (req, res) => {
     };
 
     const { tipo } = req.query;
-    channelId = CANAIS[tipo];
+    const channelId = CANAIS[tipo];
 
-    // 1. Processa o Arquivo
+    // 1. Recebe o Arquivo (Guarda pedacinhos num array)
     busboy.on("file", (name, file, info) => {
-      const { filename } = info;
-      discordForm.append("file", file, filename);
+      console.log(`📎 Recebendo arquivo: ${info.filename}`);
+      fileName = info.filename;
+
+      file.on("data", (data) => {
+        fileBuffer.push(data);
+      });
     });
 
-    // 2. Processa os Campos (JSON)
+    // 2. Recebe o JSON (Texto)
     busboy.on("field", (name, val) => {
-      if (name === "payload_json") discordForm.append("payload_json", val);
+      if (name === "payload_json") {
+        payloadJson = val;
+      }
     });
 
-    // 3. Finaliza e Envia
+    // 3. Tudo recebido? Agora monta e envia pro Discord
     busboy.on("finish", async () => {
+      console.log(
+        "📦 Upload recebido pelo servidor. Preparando envio para Discord..."
+      );
+
       if (!channelId || !process.env.Discord_Bot_Token) {
+        console.error("❌ Erro: Configuração faltando.");
         res
           .status(500)
           .json({ error: "Configuração de Canal ou Token faltando." });
@@ -53,14 +67,22 @@ module.exports = (req, res) => {
       }
 
       try {
-        // Envia para o Discord
+        // Reconstrói o arquivo final
+        const finalBuffer = Buffer.concat(fileBuffer);
+        const discordForm = new FormData();
+
+        // Anexa o arquivo e o JSON
+        discordForm.append("file", finalBuffer, fileName);
+        if (payloadJson) discordForm.append("payload_json", payloadJson);
+
+        // Dispara pro Discord
         const response = await fetch(
           `https://discord.com/api/v10/channels/${channelId}/messages`,
           {
             method: "POST",
             headers: {
               Authorization: `Bot ${process.env.Discord_Bot_Token}`,
-              ...discordForm.getHeaders(), // Headers obrigatórios do form-data
+              ...discordForm.getHeaders(),
             },
             body: discordForm,
           }
@@ -68,26 +90,20 @@ module.exports = (req, res) => {
 
         if (!response.ok) {
           const text = await response.text();
-          console.error("Erro Discord:", text);
-          res.status(500).json({ error: text });
+          console.error("❌ Discord recusou:", text);
+          res.status(response.status).json({ error: text });
           return resolve();
         }
 
         const data = await response.json();
+        console.log("✅ Sucesso! Mensagem enviada.");
         res.status(200).json(data);
         return resolve();
       } catch (err) {
-        console.error("Erro Fetch:", err);
+        console.error("❌ Erro fatal no envio:", err);
         res.status(500).json({ error: err.message });
         return resolve();
       }
-    });
-
-    // Tratamento de erros do Busboy
-    busboy.on("error", (err) => {
-      console.error("Erro Busboy:", err);
-      res.status(500).json({ error: "Erro no upload do arquivo." });
-      return resolve();
     });
 
     req.pipe(busboy);
