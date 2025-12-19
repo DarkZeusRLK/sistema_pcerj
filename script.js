@@ -208,6 +208,98 @@ async function processarEmissao() {
     }
   });
 }
+// ==========================================
+// 🧼 AÇÃO DE LIMPEZA DE FICHA
+// ==========================================
+window.processarLimpeza = async function () {
+  // Vamos reutilizar os inputs da tela de emissão para pegar os dados
+  const nome = document.getElementById("porte-nome").value;
+  const id = document.getElementById("porte-id").value;
+  const rg = document.getElementById("porte-rg").value;
+
+  // Validação básica
+  if (!nome || !id) {
+    return mostrarAlerta(
+      "Dados Incompletos",
+      "Para limpar a ficha, preencha pelo menos NOME e ID nos campos acima.",
+      "warning"
+    );
+  }
+
+  const confirmou = await confirmarAcao(
+    "Limpar Ficha?",
+    `Deseja emitir documento de BONS ANTECEDENTES para ${nome}?`
+  );
+  if (!confirmou) return;
+
+  mostrarAlerta("Processando", "Gerando documento de limpeza...", "warning");
+
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  const mencaoOficial = sessao.id
+    ? `<@${sessao.id}>`
+    : `**${sessao.username || "Oficial"}**`;
+  const oficialAvatar = sessao.avatar
+    ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
+    : "";
+
+  const mensagemNotificacao = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+
+  try {
+    // Gera a imagem usando as coordenadas novas
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
+    const nomeArquivo = `limpeza_${id}.png`;
+
+    // Configura o Embed para o Discord
+    const embedLimpeza = {
+      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
+      description: `A ficha criminal do cidadão foi limpa no sistema.`,
+      color: 65280, // Cor Verde (Decimal)
+      fields: [
+        {
+          name: "👤 Cidadão",
+          value: `**${nome.toUpperCase()}**`,
+          inline: true,
+        },
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "🪪 RG", value: rg || "N/A", inline: true },
+        {
+          name: "📅 Data",
+          value: `\`${new Date().toLocaleDateString("pt-BR")}\``,
+          inline: true,
+        },
+      ],
+      image: { url: `attachment://${nomeArquivo}` },
+      footer: {
+        text: `Departamento de Justiça • Polícia Civil`,
+        icon_url: oficialAvatar,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    // Envia para a API usando o tipo "limpeza" (que vai para o CHANNEL_LIMPEZA_ID)
+    const sucesso = await enviarParaAPI(
+      blobLimpeza,
+      nomeArquivo,
+      "limpeza",
+      embedLimpeza,
+      mensagemNotificacao
+    );
+
+    if (sucesso) {
+      mostrarAlerta("Sucesso", "Ficha limpa e documento enviado!", "success");
+      // Opcional: Limpar os campos depois
+      document.getElementById("porte-nome").value = "";
+      document.getElementById("porte-id").value = "";
+    }
+  } catch (erro) {
+    console.error(erro);
+    mostrarAlerta(
+      "Erro",
+      "Falha ao gerar imagem de limpeza. Verifique se 'limpeza.png' existe.",
+      "error"
+    );
+  }
+};
 // 🧼 GERADOR DE IMAGEM LIMPEZA DE FICHA
 // ==========================================
 function gerarBlobLimpeza(nome, id, rg) {
