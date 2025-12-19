@@ -843,10 +843,20 @@ window.navegar = (t) => {
   if (t === "emissao") configurarDatasAutomaticas();
 };
 
-// 👇 NOVA FUNÇÃO DE CONFIRMAÇÃO COM MODAL DOM 👇
+// ==========================================
+// 🛠️ SISTEMA DE MODAL (VISUAL)
+// ==========================================
+
+// Função para Confirmação (Sim/Não) com Estilo de Perigo
 window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
+
+    // Se não achar o modal no HTML, usa o nativo (fallback de segurança)
+    if (!modal) {
+      return resolve(confirm(`${titulo}\n${mensagem}`));
+    }
+
     const elTitulo = document.getElementById("modal-title");
     const elDesc = document.getElementById("modal-desc");
     const elIcon = document.getElementById("modal-icon");
@@ -857,78 +867,90 @@ window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
     elTitulo.innerText = titulo;
     elDesc.innerText = mensagem;
 
-    // Estilização baseada no tipo
+    // Estilização baseada no tipo (Danger vs Padrão)
     if (tipo === "danger") {
       // Modo PERIGO (Revogação)
       elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
-      btnConfirm.className = "btn-danger-modal"; // Botão Vermelho (via CSS)
+      btnConfirm.className = "btn-danger-modal"; // Vermelho
       btnConfirm.innerText = "Sim, Revogar";
     } else {
-      // Modo PADRÃO (Limpeza/Outros)
-      elIcon.className = "fa-solid fa-circle-question modal-icon"; // Ícone Azul/Branco
-      elIcon.style.color = "#fff"; // Reset cor
-      btnConfirm.className = "btn-primary"; // Botão Azul
+      // Modo PADRÃO
+      elIcon.className = "fa-solid fa-circle-question modal-icon";
+      elIcon.style.color = "#fff";
+      btnConfirm.className = "btn-primary"; // Azul
       btnConfirm.innerText = "Confirmar";
     }
 
-    // Mostra o modal e o botão cancelar
+    // Exibe o modal e o botão cancelar
     modal.classList.remove("hidden");
     btnCancel.classList.remove("hidden");
 
-    // Remove listeners antigos clonando os botões (para não acumular cliques)
+    // CLONAGEM DE BOTÕES
+    // Importante: Clonamos para remover eventos de clique antigos e não duplicar ações
     const novoConfirm = btnConfirm.cloneNode(true);
     const novoCancel = btnCancel.cloneNode(true);
+
     btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
     btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
 
-    // Ação Confirmar
+    // Ação: CLICOU EM CONFIRMAR
     novoConfirm.onclick = () => {
       modal.classList.add("hidden");
-      btnCancel.classList.add("hidden");
-      resolve(true);
+      novoCancel.classList.add("hidden");
+      resolve(true); // Retorna SIM
     };
 
-    // Ação Cancelar
+    // Ação: CLICOU EM CANCELAR
     novoCancel.onclick = () => {
       modal.classList.add("hidden");
-      btnCancel.classList.add("hidden");
-      resolve(false);
+      novoCancel.classList.add("hidden");
+      resolve(false); // Retorna NÃO
     };
   });
 };
 
-// Wrapper simplificado para mostrar apenas alerta (sem cancelamento)
-window.mostrarAlerta = (t, m, type) => {
-  return new Promise((r) => {
+// Função para Alerta Simples (Só OK)
+window.mostrarAlerta = (titulo, mensagem, type) => {
+  return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-    if (modal) {
-      document.getElementById("modal-title").innerText = t;
-      document.getElementById("modal-desc").innerText = m;
-      document.getElementById("modal-icon").className =
-        type === "error"
-          ? "fa-solid fa-circle-xmark modal-icon error"
-          : type === "warning"
-          ? "fa-solid fa-circle-exclamation modal-icon warning"
-          : "fa-solid fa-circle-check modal-icon success";
 
-      document.getElementById("btn-modal-cancel").classList.add("hidden"); // Esconde cancelar
-      const btn = document.getElementById("btn-modal-confirm");
-      btn.className = "btn-primary";
-      btn.innerText = "OK";
-
-      modal.classList.remove("hidden");
-
-      // Limpa eventos anteriores
-      const novoBtn = btn.cloneNode(true);
-      btn.parentNode.replaceChild(novoBtn, btn);
-
-      novoBtn.onclick = () => {
-        modal.classList.add("hidden");
-        r(true);
-      };
-    } else {
-      alert(`${t}\n${m}`);
-      r(true);
+    // Fallback se não tiver modal
+    if (!modal) {
+      alert(`${titulo}\n${mensagem}`);
+      return resolve(true);
     }
+
+    const elTitulo = document.getElementById("modal-title");
+    const elDesc = document.getElementById("modal-desc");
+    const elIcon = document.getElementById("modal-icon");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+
+    elTitulo.innerText = titulo;
+    elDesc.innerText = mensagem;
+
+    // Ícones
+    if (type === "error")
+      elIcon.className = "fa-solid fa-circle-xmark modal-icon error";
+    else if (type === "warning")
+      elIcon.className = "fa-solid fa-circle-exclamation modal-icon warning";
+    else elIcon.className = "fa-solid fa-circle-check modal-icon success";
+    elIcon.style.color = ""; // Reseta cor inline se houver
+
+    // Configuração dos botões
+    btnCancel.classList.add("hidden"); // Esconde Cancelar
+    btnConfirm.className = "btn-primary";
+    btnConfirm.innerText = "OK";
+
+    modal.classList.remove("hidden");
+
+    // Limpa eventos anteriores
+    const novoBtn = btnConfirm.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(novoBtn, btnConfirm);
+
+    novoBtn.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true);
+    };
   });
 };
