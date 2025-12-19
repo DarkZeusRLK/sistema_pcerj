@@ -7,10 +7,10 @@ const CONFIG = {
 };
 
 // ==========================================
-// 📍 CONFIGURAÇÃO DE POSIÇÕES (AJUSTE FINO)
+// 📍 CONFIGURAÇÃO DE POSIÇÕES
 // ==========================================
 const POSICOES = {
-  // Coordenadas baseadas no template
+  // Coordenadas (Mantendo as mesmas da emissão)
   nome: { x: 370, y: 250, max: 400 },
   id: { x: 754, y: 433 },
 
@@ -23,7 +23,7 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
-// Dados Iniciais (Exemplo)
+// Dados Iniciais
 let dbPortes = [
   {
     nome: "Tony Stark",
@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   const hash = window.location.hash;
   const isLoginPage = window.location.pathname.includes("login.html");
 
-  // 1. Processa retorno do Discord (Token na URL)
+  // 1. Processa retorno do Discord
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
@@ -51,11 +51,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     window.history.replaceState({}, document.title, window.location.pathname);
     await validarLoginNaAPI(`${tokenType} ${accessToken}`);
   }
-  // 2. Verifica sessão existente ou erros
+  // 2. Verifica sessão
   else {
     const sessao = localStorage.getItem("pc_session");
 
-    // Trata erro de URL
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("error") === "unauthorized" && isLoginPage) {
       await mostrarAlerta(
@@ -73,7 +72,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 
-  // 3. Setup de funcionalidades (Só no Index)
+  // 3. Setup funcional
   if (!isLoginPage) {
     configurarDatasAutomaticas();
     atualizarStats();
@@ -83,8 +82,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 async function validarLoginNaAPI(tokenCompleto) {
   try {
-    // Opcional: Mostrar modal de loading aqui se desejar
-
     const response = await fetch("/api/auth", {
       method: "GET",
       headers: { Authorization: tokenCompleto },
@@ -138,7 +135,7 @@ window.logout = function () {
 };
 
 // ==========================================
-// 🎨 GERADOR DE PRÉVIA (CANVAS)
+// 🎨 GERADOR DE PRÉVIA (CANVAS EMISSÃO)
 // ==========================================
 window.gerarPreviewPorte = async function () {
   console.log("--- Gerando Prévia ---");
@@ -157,7 +154,6 @@ window.gerarPreviewPorte = async function () {
 
   if (!container || !canvas) return;
 
-  // Validação Visual
   if (!nome || !id) {
     return mostrarAlerta(
       "Dados Incompletos",
@@ -183,7 +179,6 @@ window.gerarPreviewPorte = async function () {
     ctx.fillStyle = POSICOES.corTexto;
     ctx.textAlign = "left";
 
-    // Desenha textos
     ctx.fillText(
       nome.toUpperCase(),
       POSICOES.nome.x,
@@ -195,7 +190,6 @@ window.gerarPreviewPorte = async function () {
     ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
     ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
 
-    // Mostra e Rola
     container.classList.remove("hidden");
     container.style.display = "block";
 
@@ -228,10 +222,14 @@ if (btnEmitir) {
     const expedicao = document.getElementById("porte-expedicao").value;
 
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    // Menção clicável
+
+    // Menção Clicável (Para a mensagem acima do Embed)
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username || "Oficial"}**`;
+
+    // Mensagem de Notificação
+    const mensagemNotificacao = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial} oficial da Polícia Civil.`;
 
     const canvas = document.getElementById("canvas-porte");
 
@@ -240,7 +238,7 @@ if (btnEmitir) {
 
       const embedData = {
         title: `📄 EMISSÃO DE PORTE: ${arma}`,
-        description: `Emitido por ${mencaoOficial} oficial da Polícia Civil.`,
+        description: `O documento foi gerado e registrado no sistema.`,
         color: 3447003, // Azul
         fields: [
           {
@@ -268,7 +266,8 @@ if (btnEmitir) {
         blob,
         nomeArquivo,
         "porte",
-        embedData
+        embedData,
+        mensagemNotificacao
       );
 
       if (sucesso) {
@@ -278,12 +277,20 @@ if (btnEmitir) {
           "success"
         );
 
-        dbPortes.push({ nome, id, rg, arma, validade, status: "Ativo" });
+        // Salva tudo no banco (incluindo expedicao se precisar recuperar depois)
+        dbPortes.push({
+          nome,
+          id,
+          rg,
+          arma,
+          validade,
+          expedicao,
+          status: "Ativo",
+        });
         renderTables();
         atualizarStats();
         window.navegar("dashboard");
 
-        // Limpeza
         document.getElementById("preview-porte-container").style.display =
           "none";
         document.getElementById("porte-nome").value = "";
@@ -294,7 +301,75 @@ if (btnEmitir) {
 }
 
 // ==========================================
-// 🚫 REVOGAÇÃO (ENVIO VERMELHO)
+// 🎨 GERADOR DE IMAGEM DE REVOGAÇÃO (INTELIGENTE)
+// ==========================================
+function gerarBlobRevogacao(p) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    // --- SELEÇÃO INTELIGENTE DA IMAGEM DE REVOGAÇÃO ---
+    let imagemRevogacao = "";
+
+    // Verifica a arma cadastrada no objeto 'p'
+    if (p.arma === "GLOCK") {
+      imagemRevogacao = "revogado_glock.png";
+    } else if (p.arma === "MP5") {
+      imagemRevogacao = "revogado_mp5.png";
+    } else if (p.arma === "TASER") {
+      imagemRevogacao = "revogado_taser.png";
+    } else {
+      // Fallback caso seja uma arma desconhecida ou antiga
+      imagemRevogacao = "revogado_glock.png";
+    }
+
+    // Define o caminho
+    img.src = `assets/${imagemRevogacao}`;
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Usa as mesmas posições e fonte da emissão
+      ctx.font = POSICOES.fonte;
+      ctx.fillStyle = POSICOES.corTexto;
+      ctx.textAlign = "left";
+
+      // Escreve os dados originais do porte na imagem de revogação
+      ctx.fillText(
+        p.nome.toUpperCase(),
+        POSICOES.nome.x,
+        POSICOES.nome.y,
+        POSICOES.nome.max
+      );
+      ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
+      ctx.fillText(p.rg || "00.000.000-0", POSICOES.rg.x, POSICOES.rg.y);
+
+      // Usa as datas que foram salvas (ou data de hoje se não tiver)
+      const dataHoje = new Date().toLocaleDateString("pt-BR");
+      ctx.fillText(
+        p.expedicao || dataHoje,
+        POSICOES.expedicao.x,
+        POSICOES.expedicao.y
+      );
+      ctx.fillText(p.validade, POSICOES.validade.x, POSICOES.validade.y);
+
+      // Gera o arquivo Blob
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, "image/png");
+    };
+
+    img.onerror = () => {
+      reject(new Error(`Imagem 'assets/${imagemRevogacao}' não encontrada.`));
+    };
+  });
+}
+
+// ==========================================
+// 🚫 REVOGAÇÃO (COM IMAGEM CORRETA)
 // ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => x.id === id);
@@ -302,7 +377,7 @@ window.revogar = async function (id) {
 
   const confirmou = await confirmarAcao(
     "Revogar Porte?",
-    `Tem certeza que deseja REVOGAR o porte de ${p.nome}? Isso notificará o Discord.`
+    `Tem certeza que deseja REVOGAR o porte de ${p.nome}? Isso gerará um documento de revogação para ${p.arma}.`
   );
 
   if (confirmou) {
@@ -314,9 +389,22 @@ window.revogar = async function (id) {
       ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
       : "";
 
+    const mensagemNotificacao = `🚨 **PORTE REVOGADO**\nRevogado por ${mencaoOficial} oficial da Polícia Civil.`;
+
+    // 1. Gera a Imagem de Revogação (Agora escolhe a arma certa)
+    let blobRevogacao;
+    try {
+      blobRevogacao = await gerarBlobRevogacao(p);
+    } catch (erroImg) {
+      console.error(erroImg);
+      return mostrarAlerta("Erro de Arquivo", erroImg.message, "error");
+    }
+
+    const nomeArquivo = `revogacao_${id}.png`;
+
     const embedRevogacao = {
-      title: `🚫 PORTE REVOGADO: ${p.arma}`,
-      description: `Revogado por ${mencaoOficial} oficial da Polícia Civil.`,
+      title: `🚫 REGISTRO DE REVOGAÇÃO: ${p.arma}`,
+      description: `Este porte foi cancelado e consta como inválido no sistema.`,
       color: 15548997, // Vermelho
       fields: [
         {
@@ -333,6 +421,7 @@ window.revogar = async function (id) {
         },
         { name: "🔫 Armamento", value: p.arma, inline: true },
       ],
+      image: { url: `attachment://${nomeArquivo}` }, // Agora anexa a imagem gerada
       footer: {
         text: `Sistema de Segurança Pública • Polícia Civil`,
         icon_url: oficialAvatar,
@@ -340,22 +429,23 @@ window.revogar = async function (id) {
       timestamp: new Date().toISOString(),
     };
 
-    // Cria arquivo dummy para API aceitar o FormData
-    const blob = new Blob([`LOG REVOGACAO ${id}`], { type: "text/plain" });
-    const nomeArquivoLog = `revogacao_${id}.txt`;
-
     const sucesso = await enviarParaAPI(
-      blob,
-      nomeArquivoLog,
+      blobRevogacao,
+      nomeArquivo,
       "revogacao",
-      embedRevogacao
+      embedRevogacao,
+      mensagemNotificacao
     );
 
     if (sucesso) {
       p.status = "Revogado";
       renderTables();
       atualizarStats();
-      mostrarAlerta("Revogado", "Porte revogado com sucesso.", "success");
+      mostrarAlerta(
+        "Revogado",
+        "Documento de revogação gerado e enviado com sucesso.",
+        "success"
+      );
     }
   }
 };
@@ -369,14 +459,13 @@ window.mostrarAlerta = function (titulo, mensagem, tipo = "success") {
     if (!modal) {
       alert(mensagem);
       return resolve(true);
-    } // Fallback
+    }
 
     const iconBox = document.getElementById("modal-icon");
     const boxColor = document.getElementById("modal-icon-box");
     const btnCancel = document.getElementById("btn-modal-cancel");
     const btnConfirm = document.getElementById("btn-modal-confirm");
 
-    // Configura ícone
     iconBox.className = "fa-solid";
     boxColor.className = "modal-icon " + tipo;
 
@@ -438,28 +527,36 @@ window.confirmarAcao = function (titulo, mensagem) {
 // ==========================================
 function configurarDatasAutomaticas() {
   const hoje = new Date();
-
-  // Campo Expedição (Hoje)
   const campoExpedicao = document.getElementById("porte-expedicao");
   if (campoExpedicao) campoExpedicao.value = hoje.toLocaleDateString("pt-BR");
 
-  // Campo Validade (+30 dias)
   const campoValidade = document.getElementById("porte-validade");
   if (campoValidade) {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     campoValidade.value = d.toLocaleDateString("pt-BR");
   }
-
-  // Header Data
   const elDataHeader = document.getElementById("data-atual");
   if (elDataHeader) elDataHeader.innerText = hoje.toLocaleDateString("pt-BR");
 }
 
-async function enviarParaAPI(blob, filename, tipoCanal, embedData) {
+async function enviarParaAPI(
+  blob,
+  filename,
+  tipoCanal,
+  embedData,
+  mensagemTexto = ""
+) {
   const formData = new FormData();
   formData.append("file", blob, filename);
-  formData.append("payload_json", JSON.stringify({ embeds: [embedData] }));
+
+  formData.append(
+    "payload_json",
+    JSON.stringify({
+      content: mensagemTexto,
+      embeds: [embedData],
+    })
+  );
 
   try {
     const res = await fetch(`/api/enviar?tipo=${tipoCanal}`, {
@@ -479,16 +576,13 @@ async function enviarParaAPI(blob, filename, tipoCanal, embedData) {
 }
 
 window.navegar = function (tela) {
-  // Esconde telas
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.add("hidden"));
-  // Reseta menu
   document
     .querySelectorAll(".nav-links li")
     .forEach((l) => l.classList.remove("active"));
 
-  // Mostra tela e ativa menu
   const section = document.getElementById(`sec-${tela}`);
   if (section) section.classList.remove("hidden");
 

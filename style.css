@@ -346,6 +346,7 @@ td {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 20%;
 }
 .modal-overlay {
   position: fixed;
