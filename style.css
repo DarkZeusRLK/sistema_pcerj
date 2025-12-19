@@ -43,18 +43,26 @@ body {
   transition: width 0.3s;
 }
 
-/* Ajuste do Header da Sidebar para alinhar texto */
 .sidebar-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Alinhamento ajustado para o subtítulo */
   gap: 15px;
-  /* Removemos margin-bottom fixo grande, ajustamos layout */
-  align-items: flex-start;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .logo {
   width: 45px;
   height: auto;
+}
+
+/* Novos estilos para o Título e Subtítulo */
+.header-titles {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 5px;
 }
 
 .sidebar-header h2 {
@@ -63,6 +71,16 @@ body {
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.subtitle-system {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 400;
+  margin-top: 4px;
+  opacity: 0.7;
 }
 
 /* Menu de Navegação */
@@ -162,7 +180,7 @@ body {
    ============================ */
 .form-container {
   max-width: 600px;
-  margin: 0 auto; /* Centraliza o formulário */
+  margin: 0 auto;
 }
 
 .input-group {
@@ -178,7 +196,6 @@ body {
   font-weight: 500;
 }
 
-/* Estilo unificado para Inputs e Selects */
 input[type="text"],
 input[type="number"],
 select {
@@ -198,7 +215,6 @@ select:focus {
   border-color: var(--gold-accent);
 }
 
-/* Inputs bloqueados (Readonly) */
 input[readonly] {
   background-color: #18181b;
   color: #666;
@@ -212,7 +228,7 @@ input[readonly] {
 }
 
 /* ============================
-   NOVOS ESTILOS (OPÇÕES E PREÇOS)
+   OPÇÕES & FINANCEIRO (Recibo)
    ============================ */
 
 /* Grid das Opções (Munição e Desconto) */
@@ -266,9 +282,9 @@ input[readonly] {
   margin-top: 2px;
 }
 
-/* Painel de Preços (Estilo Recibo) */
+/* Painel de Preços */
 .price-box {
-  background: #18181b; /* Fundo ligeiramente mais escuro que o painel */
+  background: #18181b;
   border: 1px solid var(--border-light);
   border-radius: 8px;
   margin-bottom: 25px;
@@ -307,7 +323,7 @@ input[readonly] {
 }
 
 .price-footer {
-  background: rgba(4, 211, 97, 0.05); /* Verde muito suave */
+  background: rgba(4, 211, 97, 0.05);
   border-top: 1px solid rgba(4, 211, 97, 0.2);
   padding: 15px 20px;
   display: flex;
@@ -329,7 +345,7 @@ input[readonly] {
 }
 
 /* ============================
-   BOTÕES
+   BOTÕES GERAIS
    ============================ */
 .form-actions {
   display: flex;
@@ -358,7 +374,7 @@ button:active {
 
 .btn-primary {
   background-color: var(--gold-accent);
-  color: #121214; /* Texto escuro para contraste no dourado */
+  color: #121214;
 }
 .btn-primary:hover {
   filter: brightness(1.1);
@@ -373,6 +389,7 @@ button:active {
   background-color: #323238;
 }
 
+/* Botão pequeno de tabela */
 .btn-danger {
   background-color: rgba(229, 46, 77, 0.15);
   color: var(--red-accent);
@@ -465,15 +482,6 @@ th {
   text-transform: uppercase;
 }
 
-.badge.revogado {
-  background: rgba(229, 46, 77, 0.2);
-  color: var(--red-accent);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: bold;
-}
-
 /* Busca */
 .search-area {
   margin-bottom: 20px;
@@ -496,111 +504,9 @@ th {
   color: var(--text-secondary);
 }
 
-/* Alert Warning */
-.alert-warning {
-  background: rgba(251, 169, 76, 0.1);
-  color: #fba94c;
-  padding: 15px;
-  border-radius: 6px;
-  border: 1px solid rgba(251, 169, 76, 0.2);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
 /* ============================
-   PRÉVIA & MODAL
+   BADGES E ALERTAS (NOVOS)
    ============================ */
-.preview-box {
-  background: var(--bg-dark);
-  border: 1px dashed var(--border-light);
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 15px;
-}
-
-/* Utilitários */
-.hidden {
-  display: none !important;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.modal-box {
-  background: #202024;
-  border: 1px solid #323238;
-  padding: 30px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.modal-icon {
-  font-size: 3rem;
-  margin-bottom: 15px;
-  color: var(--gold-accent);
-}
-.modal-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-/* Responsividade Mobile */
-@media (max-width: 768px) {
-  .app-container {
-    flex-direction: column;
-  }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border-light);
-  }
-  .content-area {
-    padding: 15px;
-  }
-  .options-grid {
-    grid-template-columns: 1fr;
-  }
-  .row {
-    grid-template-columns: 1fr;
-  }
-}
-.header-titles {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: 5px;
-}
-/* O Estilo do Subtítulo solicitado */
-.subtitle-system {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: 400;
-  margin-top: 2px;
-  opacity: 0.7;
-}
 
 /* Badge de Prioridade (Revogação) */
 .badge-priority {
@@ -626,6 +532,15 @@ th {
   font-weight: bold;
 }
 
+.badge.revogado {
+  background: rgba(229, 46, 77, 0.2);
+  color: var(--red-accent);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
 /* Alerta Info Azul */
 .alert-info {
   background: rgba(102, 178, 255, 0.1);
@@ -637,13 +552,130 @@ th {
   align-items: center;
   gap: 10px;
 }
-/* Ícone de Perigo (Triângulo ou Caveira) */
+
+/* Alerta Warning Laranja */
+.alert-warning {
+  background: rgba(251, 169, 76, 0.1);
+  color: #fba94c;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 169, 76, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* ============================
+   PRÉVIA DA IMAGEM
+   ============================ */
+.preview-box {
+  background: var(--bg-dark);
+  border: 1px dashed var(--border-light);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+/* Utilitários */
+.hidden {
+  display: none !important;
+}
+
+/* ============================
+   MODAL DE CONFIRMAÇÃO
+   ============================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  transition: opacity 0.3s;
+}
+
+.modal-box {
+  background: #202024;
+  border: 1px solid #323238;
+  padding: 30px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transform: scale(1);
+  transition: transform 0.3s;
+}
+
+.modal-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+/* Tipos de Ícones */
+.modal-icon.success {
+  color: var(--green-accent);
+}
+.modal-icon.warning {
+  color: #fba94c;
+}
+.modal-icon.error {
+  color: var(--red-accent);
+}
+
+/* ESTILOS DE PERIGO (REVOGAÇÃO) */
 .modal-icon.danger {
-  color: #e52e4d; /* Vermelho vibrante */
+  color: #e52e4d;
   animation: pulse-red 2s infinite;
 }
 
-/* Botão de Confirmação de Perigo */
+@keyframes pulse-red {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Botões do Modal */
+.btn-cancel {
+  background-color: transparent;
+  border: 1px solid #323238;
+  color: #a8a8b3;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.btn-cancel:hover {
+  background-color: #29292e;
+  color: #fff;
+  border-color: #fff;
+}
+
 .btn-danger-modal {
   background-color: #e52e4d;
   color: #fff;
@@ -659,35 +691,24 @@ th {
   background-color: #c72542;
 }
 
-/* Botão Cancelar (Cinza Escuro) */
-.btn-cancel {
-  background-color: transparent;
-  border: 1px solid #323238;
-  color: #a8a8b3;
-  padding: 10px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-cancel:hover {
-  background-color: #29292e;
-  color: #fff;
-  border-color: #fff;
-}
-
-/* Animação suave no ícone */
-@keyframes pulse-red {
-  0% {
-    transform: scale(1);
-    opacity: 1;
+/* Responsividade Mobile */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
   }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-light);
   }
-  100% {
-    transform: scale(1);
-    opacity: 1;
+  .content-area {
+    padding: 15px;
+  }
+  .options-grid {
+    grid-template-columns: 1fr;
+  }
+  .row {
+    grid-template-columns: 1fr;
   }
 }
