@@ -99,15 +99,20 @@ function ativarFormatacaoDinheiro() {
 }
 
 // ==========================================
-// 🧼 AÇÃO DE LIMPEZA (CORRIGIDA - QRA FORA DO EMBED)
+// 🧼 AÇÃO DE LIMPEZA (CORRIGIDA)
 // ==========================================
 window.processarLimpeza = async function () {
+  // Agora busca pelos IDs ESPECÍFICOS de Limpeza (Passo 1)
+  // Se não achar (null), usa "" para não quebrar
   const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
   const id = (document.getElementById("limpeza-id")?.value || "").trim();
   const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
   const valor = (
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
+
+  // Debug no console para você ver o que está pegando
+  console.log("Tentando limpar ficha:", { nome, id, rg, valor });
 
   if (!nome || !id) {
     return mostrarAlerta(
@@ -129,7 +134,6 @@ window.processarLimpeza = async function () {
     const blobLimpeza = await gerarBlobLimpeza(nome, id, rg, valor);
     const nomeArquivo = `limpeza_${id}.png`;
 
-    // Pega os dados do Oficial
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
@@ -138,13 +142,10 @@ window.processarLimpeza = async function () {
       ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
       : "";
 
-    // 👇 MUDANÇA AQUI: Mensagem que fica FORA do embed (igual ao porte)
-    const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
-
     const embedLimpeza = {
-      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
-      description: `O registro criminal foi limpo mediante pagamento de taxa.`, // Descrição genérica
-      color: 65280, // Verde
+      title: `🧼 LIMPEZA DE FICHA REALIZADA`,
+      description: `**Oficial:** ${mencaoOficial}\n**Valor Pago:** R$ ${valor}`,
+      color: 65280,
       fields: [
         {
           name: "👤 Cidadão",
@@ -152,7 +153,7 @@ window.processarLimpeza = async function () {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        { name: "💰 Valor", value: `R$ ${valor}`, inline: true },
         {
           name: "📅 Data",
           value: new Date().toLocaleDateString("pt-BR"),
@@ -164,31 +165,27 @@ window.processarLimpeza = async function () {
       timestamp: new Date().toISOString(),
     };
 
-    // Envia a 'mensagemExterna' como conteúdo principal
     const sucesso = await enviarParaAPI(
       blobLimpeza,
       nomeArquivo,
       "limpeza",
       embedLimpeza,
-      mensagemExterna
+      `✅ Ficha limpa com sucesso.`
     );
 
     if (sucesso) {
       mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
+      // Limpa os campos
       document.getElementById("limpeza-nome").value = "";
       document.getElementById("limpeza-id").value = "";
       document.getElementById("input-valor-limpeza").value = "";
     }
   } catch (erro) {
     console.error(erro);
-    // Lembrete sobre o erro da imagem que você teve antes
-    mostrarAlerta(
-      "Erro",
-      "Erro ao processar. Verifique se a imagem 'bg_limpeza.png' existe na pasta assets.",
-      "error"
-    );
+    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
   }
 };
+
 // ==========================================
 // 🧼 GERADOR DE IMAGEM LIMPEZA
 // ==========================================
