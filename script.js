@@ -277,7 +277,11 @@ if (btnEmitir) {
       );
 
       if (sucesso) {
-        alert("✅ Porte emitido e enviado para o Discord!");
+        await mostrarAlerta(
+          "Sucesso",
+          "Porte emitido e enviado para o Discord!",
+          "success"
+        );
 
         // Adiciona ao histórico local e limpa a tela
         dbPortes.push({ nome, id, rg, arma, validade, status: "Ativo" });
