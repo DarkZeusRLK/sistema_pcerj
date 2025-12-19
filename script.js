@@ -401,26 +401,42 @@ window.renderTables = function () {
   if (tbodyAtivos) tbodyAtivos.innerHTML = "";
   if (tbodyRevogados) tbodyRevogados.innerHTML = "";
 
+  // Se não tiver portes, avisa
+  if (dbPortes.length === 0 && tbodyAtivos) {
+    tbodyAtivos.innerHTML =
+      "<tr><td colspan='5' style='text-align:center'>Nenhum porte ativo encontrado.</td></tr>";
+  }
+
   [...dbPortes].reverse().forEach((p) => {
+    // --- TABELA DE ATIVOS (COM VALIDADE) ---
     if (p.status === "Ativo" && tbodyAtivos) {
       tbodyAtivos.innerHTML += `
             <tr>
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
                 <td>${p.arma}</td>
-                <td>${p.validade}</td>
-                <td><button class="btn-danger" onclick="revogar('${p.id}')"><i class="fa-solid fa-ban"></i></button></td>
+                <td>${p.validade || "Indefinido"}</td> <td>
+                    <button class="btn-danger" onclick="revogar('${
+                      p.id
+                    }')" title="Revogar">
+                        <i class="fa-solid fa-ban"></i>
+                    </button>
+                </td>
             </tr>`;
-    } else if (p.status === "Revogado" && tbodyRevogados) {
+    }
+    // --- TABELA DE JÁ REVOGADOS ---
+    else if (p.status === "Revogado" && tbodyRevogados) {
       tbodyRevogados.innerHTML += `
             <tr style="opacity:0.7">
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
                 <td>Hoje</td>
-                <td><span class=\"badge revogado\">REVOGADO</span></td>
+                <td><span class="badge revogado">REVOGADO</span></td>
             </tr>`;
     }
   });
+
+  atualizarStats();
 };
 
 function atualizarStats() {
