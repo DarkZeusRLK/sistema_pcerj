@@ -16,12 +16,13 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 const POSICOES_LIMPEZA = {
-  nome: { x: 500, y: 300, max: 600 }, // Exemplo: Mais para a direita
+  nome: { x: 500, y: 300, max: 600 },
   id: { x: 500, y: 400 },
   rg: { x: 500, y: 450 },
-  data: { x: 800, y: 500 }, // Data da limpeza
-  corTexto: "#000000", // Cor do texto
-  fonte: "bold 30px 'Arial'", // Fonte pode ser diferente
+  data: { x: 800, y: 500 },
+  valor: { x: 800, y: 600 }, // <--- NOVA COORDENADA PARA O VALOR
+  corTexto: "#000000",
+  fonte: "bold 30px 'Arial'",
 };
 let dbPortes = [];
 
@@ -36,6 +37,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     configurarBotoes();
   } catch (e) {
     console.error("Erro btn:", e);
+  }
+  function ativarFormatacaoDinheiro() {
+    const inputValor = document.getElementById("input-valor-limpeza");
+    if (inputValor) {
+      inputValor.addEventListener("input", function (e) {
+        let value = e.target.value.replace(/\D/g, ""); // Remove letras
+        // Adiciona ponto de milhar (Ex: 150.000)
+        value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        e.target.value = value;
+      });
+    }
   }
 
   const hash = window.location.hash;
@@ -248,7 +260,7 @@ function gerarBlobLimpeza(nome, id, rg) {
     };
 
     img.onerror = () =>
-      reject(new Error("Imagem 'assets/limpeza.png' não encontrada."));
+      reject(new Error("Imagem 'assets/bg_limpeza.png' não encontrada."));
   });
 }
 // ==========================================
