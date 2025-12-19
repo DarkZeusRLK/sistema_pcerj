@@ -25,11 +25,12 @@ module.exports = async (req, res) => {
         const e = m.embeds[0];
         const fields = e.fields || [];
 
-        // Função auxiliar de busca
+        // Função que busca ignorando maiúsculas e acentos
         const find = (key) => {
           const f = fields.find((field) =>
             field.name.toLowerCase().includes(key.toLowerCase())
           );
+          // Remove asteriscos, crases e espaços extras
           return f ? f.value.replace(/[*`]/g, "").trim() : null;
         };
 
@@ -41,7 +42,8 @@ module.exports = async (req, res) => {
             message_id: m.id,
             nome,
             id,
-            // 👇 AQUI ESTÃO AS LINHAS QUE FALTAVAM:
+            // 👇 AQUI ESTÁ A CORREÇÃO: Lendo as datas
+            expedicao: find("Expedição") || find("Data") || "N/A",
             validade: find("Validade") || find("Vencimento") || "N/A",
             rg: find("RG") || "N/A",
             arma: find("Armamento") || find("Arma") || "N/A",
