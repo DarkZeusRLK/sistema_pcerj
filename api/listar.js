@@ -1,67 +1,66 @@
-// Arquivo: api/listar.js
-export default async function handler(req, res) {
-  // 1. Configurações (Pegaremos das variáveis de ambiente da Vercel)
-  const BOT_TOKEN = process.env.Discord_Bot_Token;
-  const CHANNEL_ID = process.env.CHANNEL_PORTE_ID; // ID do canal de PORTES ATIVOS
+import fetch from "node-fetch";
 
-  if (!BOT_TOKEN || !CHANNEL_ID) {
+export default async function handler(req, res) {
+  // Pegando suas variáveis exatas
+  const token = process.env.Discord_Bot_Token;
+  const channelId = process.env.CHANNEL_PORTE_ID;
+
+  if (!token || !channelId) {
     return res
       .status(500)
-      .json({ error: "Configuração do Bot ausente na Vercel." });
+      .json({ error: "Configuração (Token/ID) faltando na Vercel." });
   }
 
   try {
-    // 2. Pede ao Discord as últimas 100 mensagens do canal
+    // Busca as últimas 100 mensagens
     const response = await fetch(
-      `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages?limit=100`,
+      `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
       {
-        headers: {
-          Authorization: `Bot ${BOT_TOKEN}`,
-        },
+        headers: { Authorization: `Bot ${token}` },
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`Erro Discord: ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`Erro Discord: ${response.status}`);
 
     const messages = await response.json();
 
-    // 3. Filtra e processa apenas as mensagens que são Portes Válidos
-    const portesEncontrados = messages
-      .filter((msg) => msg.embeds && msg.embeds.length > 0) // Tem que ter Embed
+    // Filtra e limpa os dados
+    const lista = messages
+      .filter((msg) => msg.embeds && msg.embeds.length > 0)
       .map((msg) => {
         const embed = msg.embeds[0];
 
-        // Função para achar o valor de um campo específico do Embed
-        const getField = (namePart) => {
-          const field = embed.fields?.find((f) => f.name.includes(namePart));
-          return field ? field.value.replace(/`|\*|/g, "").trim() : "N/A"; // Limpa ** e ``
+        // Função auxiliar para achar campos ignorando maiúsculas/minúsculas e acentos
+        const getVal = (keys) => {
+          const field = embed.fields?.find((f) =>
+            keys.some((k) => f.name.toLowerCase().includes(k))
+          );
+          return field ? field.value.replace(/[*`]/g, "").trim() : null;
         };
 
-        // Verifica se é um embed de Emissão (pelo título ou campos)
-        if (embed.title && embed.title.includes("EMISSÃO DE PORTE")) {
-          return {
-            message_id: msg.id, // Guardamos o ID da mensagem para poder deletar depois se quiser
-            nome: getField("Cidadão"),
-            id: getField("Passaporte") || getField("ID"),
-            rg: getField("RG"),
-            arma: getField("Armamento"),
-            validade: getField("Validade"),
-            expedicao: getField("Expedição"),
-            status: "Ativo",
-          };
-        }
-        return null;
-      })
-      .filter((item) => item !== null); // Remove os nulos
+        // Procura por campos comuns
+        const nome = getVal(["cidadão", "nome", "civil"]);
+        const id = getVal(["passaporte", "id"]);
 
-    // 4. Retorna a lista limpa para o seu site
-    return res.status(200).json(portesEncontrados);
+        // Se não tiver Nome e ID, ignora (não é um porte válido)
+        if (!nome || !id) return null;
+
+        return {
+          message_id: msg.id, // Importante para deletar depois
+          nome: nome,
+          id: id,
+          rg: getVal(["rg"]) || "N/A",
+          arma: getVal(["arma", "armamento"]) || "Desconhecida",
+          validade: getVal(["validade"]) || "N/A",
+          expedicao: getVal(["expedição"]) || "N/A",
+          status: "Ativo",
+        };
+      })
+      .filter((item) => item !== null); // Remove os vazios
+
+    return res.status(200).json(lista);
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ error: "Falha ao buscar registros no Discord." });
+    return res.status(500).json({ error: "Falha ao listar portes." });
   }
 }
