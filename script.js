@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   try {
     configurarBotoes();
     ativarFormatacaoDinheiro();
-    atualizarValoresPorte(); // Inicializa valores na tela de emissão
+    atualizarValoresPorte();
   } catch (e) {
     console.error("Erro config:", e);
   }
@@ -79,7 +79,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
     }
   } else {
-    // Se não tem sessão
     if (!isLoginPage) {
       window.location.href = "login.html";
     } else {
@@ -91,19 +90,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ==========================================
-// 📅 UTILITÁRIOS DE DATA (NOVO)
+// 📅 UTILITÁRIOS DE DATA
 // ==========================================
 function parseData(dataStr) {
-  // Converte DD/MM/AAAA para Objeto Date
   if (!dataStr) return new Date();
   const partes = dataStr.split("/");
   return new Date(partes[2], partes[1] - 1, partes[0]);
 }
 
 function calcularDiasCorridos(dataExpedicaoStr) {
-  // Retorna quantos dias se passaram desde a expedição
   const hoje = new Date();
-  // Zera horas para comparação justa
   hoje.setHours(0, 0, 0, 0);
 
   const expedicao = parseData(dataExpedicaoStr);
@@ -129,7 +125,6 @@ window.atualizarValoresPorte = function () {
   const armaSelecionada = selectArma.value;
   const regras = PRECOS[armaSelecionada];
 
-  // Lógica do Taser (Bloqueia munição)
   if (armaSelecionada === "TASER") {
     checkMunicao.checked = false;
     checkMunicao.disabled = true;
@@ -146,25 +141,19 @@ window.atualizarValoresPorte = function () {
 
   let valorDesconto = 0;
   if (checkDesconto && checkDesconto.checked) {
-    valorDesconto = subtotal * 0.15; // 15%
+    valorDesconto = subtotal * 0.15;
   }
 
   const totalFinal = subtotal - valorDesconto;
-
   const fmt = (v) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Atualiza Tela
-  const elArma = document.getElementById("val-arma");
-  const elLaudo = document.getElementById("val-laudo");
-  const elMunicao = document.getElementById("val-municao");
+  document.getElementById("val-arma").innerText = fmt(valorArma);
+  document.getElementById("val-laudo").innerText = fmt(valorLaudo);
+  document.getElementById("val-municao").innerText = fmt(valorMunicao);
+
   const rowDesconto = document.getElementById("row-desconto");
   const elDesconto = document.getElementById("val-desconto");
-  const elTotal = document.getElementById("val-total");
-
-  if (elArma) elArma.innerText = fmt(valorArma);
-  if (elLaudo) elLaudo.innerText = fmt(valorLaudo);
-  if (elMunicao) elMunicao.innerText = fmt(valorMunicao);
 
   if (valorDesconto > 0) {
     rowDesconto.style.display = "flex";
@@ -173,9 +162,8 @@ window.atualizarValoresPorte = function () {
     rowDesconto.style.display = "none";
   }
 
-  if (elTotal) elTotal.innerText = fmt(totalFinal);
+  document.getElementById("val-total").innerText = fmt(totalFinal);
 
-  // Salva metadados
   painel.dataset.total = totalFinal;
   painel.dataset.desconto = valorDesconto;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
@@ -302,7 +290,6 @@ async function processarEmissao() {
     );
     if (sucesso) {
       await mostrarAlerta("Sucesso", "Porte emitido!", "success");
-      // Atualiza lista local
       dbPortes.push({
         nome,
         id,
@@ -315,7 +302,6 @@ async function processarEmissao() {
       renderTables();
       atualizarStats();
       window.navegar("dashboard");
-      // Limpeza
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
@@ -413,7 +399,7 @@ function gerarBlobLimpeza(nome, id, rg) {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
-    img.src = "assets/bg_limpeza.png"; // Certifique-se que o arquivo existe
+    img.src = "assets/bg_limpeza.png";
 
     img.onload = () => {
       canvas.width = img.width;
@@ -495,7 +481,7 @@ window.gerarPreviewPorte = function () {
 };
 
 // ==========================================
-// ☁️ DADOS E TABELAS (ATUALIZADO COM RENOVAÇÃO)
+// ☁️ DADOS E TABELAS
 // ==========================================
 async function carregarPortesDoDiscord() {
   try {
@@ -510,10 +496,9 @@ async function carregarPortesDoDiscord() {
   }
 }
 
-// LÓGICA PRINCIPAL DAS TABELAS (Revogação e Renovação)
 window.renderTables = function () {
   const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
-  const tbodyRenovacao = document.getElementById("lista-renovacao"); // Nova tabela
+  const tbodyRenovacao = document.getElementById("lista-renovacao");
   const filtro = document.getElementById("input-busca")
     ? document.getElementById("input-busca").value.toLowerCase()
     : "";
@@ -525,11 +510,8 @@ window.renderTables = function () {
     .slice()
     .reverse()
     .forEach((porte, index) => {
-      // slice para não mutar o original
-      // Ignora Revogados
       if (porte.status === "Revogado") return;
 
-      // Filtro de Busca
       if (
         filtro &&
         !porte.nome.toLowerCase().includes(filtro) &&
@@ -537,10 +519,9 @@ window.renderTables = function () {
       )
         return;
 
-      // Cálculo de Dias
       const diasCorridos = calcularDiasCorridos(porte.expedicao);
 
-      // 1. LÓGICA DE RENOVAÇÃO (Somente entre 30 e 33 dias)
+      // 1. RENOVAÇÃO (30 a 33 dias)
       if (diasCorridos >= 30 && diasCorridos <= 33) {
         if (tbodyRenovacao) {
           const tr = document.createElement("tr");
@@ -559,12 +540,12 @@ window.renderTables = function () {
         }
       }
 
-      // 2. LÓGICA DE REVOGAÇÃO (Todos ativos aparecem)
+      // 2. REVOGAÇÃO (Todos ativos)
       if (tbodyRevogacao) {
         const trRev = document.createElement("tr");
         let validadeHTML = porte.validade || "N/A";
 
-        // ALERTA: Passou de 33 dias? PRIORIDADE.
+        // ALERTA DE PRIORIDADE
         if (diasCorridos > 33) {
           validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
         } else if (diasCorridos >= 30) {
@@ -586,7 +567,6 @@ window.renderTables = function () {
       }
     });
 
-  // Renderiza a tabela de "Já Revogados" separadamente se necessário
   renderRevogadosHistorico();
   atualizarStats();
 };
@@ -631,7 +611,6 @@ window.renovarPorte = async function (idPorte) {
     ? `<@${sessao.id}>`
     : `**${sessao.username}**`;
 
-  // Nova Validade = Hoje + 30 dias
   const hoje = new Date();
   const novaValidade = new Date();
   novaValidade.setDate(hoje.getDate() + 30);
@@ -655,11 +634,8 @@ window.renovarPorte = async function (idPorte) {
     footer: { text: "Sistema Integrado - Polícia Civil" },
   };
 
-  // Blob Vazio (a API espera file, mandamos um txt vazio pois renovação é só Log)
   const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
 
-  // Usa tipo 'renovacao' (ou crie um canal específico para isso se quiser)
-  // Aqui vou mandar para o canal de revogacao/manutenção para logs
   const sucesso = await enviarParaAPI(
     blob,
     "renovacao_log.txt",
@@ -670,7 +646,7 @@ window.renovarPorte = async function (idPorte) {
 
   if (sucesso) {
     porte.validade = novaValidadeStr;
-    porte.expedicao = new Date().toLocaleDateString("pt-BR"); // Reseta ciclo
+    porte.expedicao = new Date().toLocaleDateString("pt-BR");
     renderTables();
     mostrarAlerta("Sucesso", "Porte renovado!", "success");
   } else {
@@ -679,13 +655,20 @@ window.renovarPorte = async function (idPorte) {
 };
 
 // ==========================================
-// 🚫 AÇÃO DE REVOGAR
+// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
 // ==========================================
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  if (!(await confirmarAcao("Revogar?", `Revogar porte de ${p.nome}?`))) return;
+  // 👇 MODAL PERSONALIZADO DE PERIGO AQUI 👇
+  const confirmou = await confirmarAcao(
+    "REVOGAR PORTE?",
+    `Tem certeza que deseja revogar o porte de ${p.nome}? Esta ação é irreversível e será registrada.`,
+    "danger"
+  );
+
+  if (!confirmou) return;
 
   mostrarAlerta("Processando", "Revogando...", "warning");
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -715,7 +698,6 @@ window.revogar = async function (id) {
       )
     ) {
       if (p.message_id) {
-        // Tenta deletar mensagem original se tiver ID salvo
         try {
           await fetch("/api/deletar", {
             method: "POST",
@@ -805,7 +787,7 @@ async function validarLoginNaAPI(token) {
 }
 
 // ==========================================
-// 🛠️ FUNÇÕES DE SISTEMA (UX/UI)
+// 🛠️ FUNÇÕES DE SISTEMA & MODAL (ATUALIZADO)
 // ==========================================
 function atualizarStats() {
   const elA = document.getElementById("counter-ativos");
@@ -861,14 +843,86 @@ window.navegar = (t) => {
   if (t === "emissao") configurarDatasAutomaticas();
 };
 
+// 👇 NOVA FUNÇÃO DE CONFIRMAÇÃO COM MODAL DOM 👇
+window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    const elTitulo = document.getElementById("modal-title");
+    const elDesc = document.getElementById("modal-desc");
+    const elIcon = document.getElementById("modal-icon");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+
+    // Configura Textos
+    elTitulo.innerText = titulo;
+    elDesc.innerText = mensagem;
+
+    // Estilização baseada no tipo
+    if (tipo === "danger") {
+      // Modo PERIGO (Revogação)
+      elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
+      btnConfirm.className = "btn-danger-modal"; // Botão Vermelho (via CSS)
+      btnConfirm.innerText = "Sim, Revogar";
+    } else {
+      // Modo PADRÃO (Limpeza/Outros)
+      elIcon.className = "fa-solid fa-circle-question modal-icon"; // Ícone Azul/Branco
+      elIcon.style.color = "#fff"; // Reset cor
+      btnConfirm.className = "btn-primary"; // Botão Azul
+      btnConfirm.innerText = "Confirmar";
+    }
+
+    // Mostra o modal e o botão cancelar
+    modal.classList.remove("hidden");
+    btnCancel.classList.remove("hidden");
+
+    // Remove listeners antigos clonando os botões (para não acumular cliques)
+    const novoConfirm = btnConfirm.cloneNode(true);
+    const novoCancel = btnCancel.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
+    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
+
+    // Ação Confirmar
+    novoConfirm.onclick = () => {
+      modal.classList.add("hidden");
+      btnCancel.classList.add("hidden");
+      resolve(true);
+    };
+
+    // Ação Cancelar
+    novoCancel.onclick = () => {
+      modal.classList.add("hidden");
+      btnCancel.classList.add("hidden");
+      resolve(false);
+    };
+  });
+};
+
+// Wrapper simplificado para mostrar apenas alerta (sem cancelamento)
 window.mostrarAlerta = (t, m, type) => {
   return new Promise((r) => {
     const modal = document.getElementById("custom-modal");
     if (modal) {
       document.getElementById("modal-title").innerText = t;
       document.getElementById("modal-desc").innerText = m;
+      document.getElementById("modal-icon").className =
+        type === "error"
+          ? "fa-solid fa-circle-xmark modal-icon error"
+          : type === "warning"
+          ? "fa-solid fa-circle-exclamation modal-icon warning"
+          : "fa-solid fa-circle-check modal-icon success";
+
+      document.getElementById("btn-modal-cancel").classList.add("hidden"); // Esconde cancelar
+      const btn = document.getElementById("btn-modal-confirm");
+      btn.className = "btn-primary";
+      btn.innerText = "OK";
+
       modal.classList.remove("hidden");
-      document.getElementById("btn-modal-confirm").onclick = () => {
+
+      // Limpa eventos anteriores
+      const novoBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(novoBtn, btn);
+
+      novoBtn.onclick = () => {
         modal.classList.add("hidden");
         r(true);
       };
@@ -878,5 +932,3 @@ window.mostrarAlerta = (t, m, type) => {
     }
   });
 };
-
-window.confirmarAcao = (t, m) => new Promise((r) => r(confirm(`${t}\n${m}`)));

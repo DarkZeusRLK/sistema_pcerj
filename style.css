@@ -637,3 +637,57 @@ th {
   align-items: center;
   gap: 10px;
 }
+/* Ícone de Perigo (Triângulo ou Caveira) */
+.modal-icon.danger {
+  color: #e52e4d; /* Vermelho vibrante */
+  animation: pulse-red 2s infinite;
+}
+
+/* Botão de Confirmação de Perigo */
+.btn-danger-modal {
+  background-color: #e52e4d;
+  color: #fff;
+  border: none;
+  font-weight: bold;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-danger-modal:hover {
+  background-color: #c72542;
+}
+
+/* Botão Cancelar (Cinza Escuro) */
+.btn-cancel {
+  background-color: transparent;
+  border: 1px solid #323238;
+  color: #a8a8b3;
+  padding: 10px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background-color: #29292e;
+  color: #fff;
+  border-color: #fff;
+}
+
+/* Animação suave no ícone */
+@keyframes pulse-red {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
