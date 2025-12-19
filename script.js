@@ -351,59 +351,73 @@ window.renderTables = function () {
   });
 };
 
+// ==========================================
+// 🚫 FUNÇÃO DE REVOGAR (PADRÃO "SEGUNDO PRINT")
+// ==========================================
 window.revogar = async function (id) {
-  // 1. Acha o cidadão na lista local
+  // 1. Encontra os dados do cidadão
   const p = dbPortes.find((x) => x.id === id);
 
   if (!p) return alert("Erro: Registro não encontrado.");
 
   if (
-    confirm(
-      `⚠️ ATENÇÃO: Tem certeza que deseja REVOGAR o porte de ${p.nome}?\nIsso enviará um alerta para o canal de Revogados no Discord.`
-    )
+    confirm(`⚠️ ATENÇÃO: Tem certeza que deseja REVOGAR o porte de ${p.nome}?`)
   ) {
-    // 2. Pega dados do Oficial logado
+    // 2. Pega a sessão para mencionar o Oficial (Igual na Emissão)
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const oficialNome = sessao.username || "Oficial";
+
+    // Cria a menção <@ID>
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
     const oficialAvatar = sessao.avatar
       ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
       : "";
 
-    // 3. Configura o Embed de Revogação (Vermelho Sangue)
+    // 3. Configura o Embed (Igual ao de Emissão, mas Vermelho)
     const embedRevogacao = {
-      title: `🚫 PORTE REVOGADO`,
-      description: `O porte de arma foi **CANCELADO** e consta como inválido a partir de agora.`,
-      color: 15548997, // Vermelho (Red)
+      title: `🚫 PORTE REVOGADO: ${p.arma}`,
+
+      // AQUI ESTÁ A FRASE QUE VOCÊ PEDIU:
+      description: `Revogado por ${mencaoOficial} oficial da Polícia Civil.`,
+
+      color: 15548997, // Vermelho
       fields: [
-        { name: "👤 Cidadão", value: `**${p.nome}**`, inline: true },
-        { name: "🆔 Passaporte", value: `\`${p.id}\``, inline: true },
-        { name: "🔫 Arma", value: p.arma, inline: true },
+        // Mantendo a mesma organização visual da Emissão
         {
-          name: "📅 Data da Revogação",
-          value: new Date().toLocaleDateString("pt-BR"),
+          name: "👤 Cidadão",
+          value: `**${p.nome.toUpperCase()}**`,
           inline: true,
         },
-        { name: "👮 Responsável", value: oficialNome, inline: true },
+        { name: "🆔 Passaporte", value: `\`${p.id}\``, inline: true },
+        { name: "🪪 RG", value: p.rg || "N/A", inline: true },
+
+        {
+          name: "📅 Data Revogação",
+          value: `\`${new Date().toLocaleDateString("pt-BR")}\``,
+          inline: true,
+        },
+        { name: "🔫 Armamento", value: p.arma, inline: true },
       ],
       footer: {
-        text: `Sistema de Segurança Pública • Ação Irreversível`,
+        text: `Sistema de Segurança Pública • Polícia Civil`,
         icon_url: oficialAvatar,
       },
       timestamp: new Date().toISOString(),
     };
 
-    // 4. Cria um arquivo "fake" (Necessário porque sua API espera receber um arquivo)
-    // Isso evita ter que reescrever todo o backend.
-    const blob = new Blob([`Registro de Revogação: ${p.nome} - ID ${p.id}`], {
-      type: "text/plain",
-    });
-    const nomeArquivoLog = `revogacao_${p.id}.txt`;
+    // 4. Arquivo de Log (Necessário para a API não travar)
+    const blob = new Blob(
+      [
+        `LOG DE REVOGAÇÃO\nOficial: ${sessao.username}\nCidadão: ${p.nome}\nID: ${p.id}`,
+      ],
+      { type: "text/plain" }
+    );
+    const nomeArquivoLog = `revogacao_${id}.txt`;
 
-    // Avisa que está enviando...
-    alert("Enviando solicitação ao sistema...");
+    alert("Processando revogação...");
 
-    // 5. ENVIA PARA A API (Atenção ao tipo "revogacao")
-    // O seu Backend precisa saber para qual webhook mandar quando recebe "revogacao"
+    // 5. Envia para o Discord
     const sucesso = await enviarParaAPI(
       blob,
       nomeArquivoLog,
@@ -412,11 +426,10 @@ window.revogar = async function (id) {
     );
 
     if (sucesso) {
-      // 6. Atualiza o banco local e a tela
       p.status = "Revogado";
-      renderTables(); // Move para a tabela de baixo
-      atualizarStats(); // Atualiza contadores
-      alert("✅ Porte revogado e notificado no Discord com sucesso!");
+      renderTables();
+      atualizarStats();
+      alert("✅ Porte revogado com sucesso!");
     }
   }
 };
