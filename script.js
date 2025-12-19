@@ -176,7 +176,7 @@ window.gerarPreviewPorte = function () {
   img.onload = function () {
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 30, 30);
 
     ctx.font = POSICOES.fonte;
     ctx.fillStyle = POSICOES.corTexto;
