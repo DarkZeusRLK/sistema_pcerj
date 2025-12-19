@@ -1,73 +1,83 @@
-// Arquivo: api/enviar.js
-// Instale o form-data se não tiver: npm install form-data node-fetch
-
+// api/enviar.js
+import Busboy from "busboy";
 import FormData from "form-data";
-import fetch from "node-fetch"; // Vercel suporta fetch nativo, mas node-fetch garante compatibilidade
+import fetch from "node-fetch";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
+// Desativa o parser padrão da Vercel para podermos processar o arquivo manualmente
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default function handler(req, res) {
+  if (req.method !== "POST")
     return res.status(405).json({ error: "Método não permitido" });
-  }
 
-  // 1. Configurações e Variáveis de Ambiente
-  const BOT_TOKEN = process.env.Discord_Bot_Token;
+  const busboy = Busboy({ headers: req.headers });
+  const discordForm = new FormData();
 
-  // Mapeamento dos Canais baseado nas suas variáveis
+  // Variáveis para guardar os dados enquanto processa
+  let payloadJson = null;
+  let channelId = null;
+
+  // Mapeamento
   const CANAIS = {
     porte: process.env.CHANNEL_PORTE_ID,
     revogacao: process.env.CHANNEL_REVOGACAO_ID,
     limpeza: process.env.CHANNEL_LIMPEZA_ID,
-    // 'renovacao': process.env.CHANNEL_RENOVACAO_ID // Caso use no futuro
   };
 
-  const { tipo } = req.query; // Pega ?tipo=porte ou ?tipo=revogacao da URL
-  const channelId = CANAIS[tipo];
+  const { tipo } = req.query;
+  channelId = CANAIS[tipo];
 
-  // Validações
-  if (!BOT_TOKEN)
-    return res.status(500).json({ error: "Token do Bot não configurado." });
-  if (!channelId)
-    return res
-      .status(400)
-      .json({ error: "Tipo de canal inválido ou ID não configurado." });
+  // 1. Processa Arquivos (Imagem)
+  busboy.on("file", (fieldname, file, filename) => {
+    discordForm.append("file", file, filename.filename);
+  });
 
-  try {
-    // 2. Processa o FormData vindo do frontend
-    // Na Vercel, precisamos parsear o formData de um jeito específico ou repassar o body
-    // Como o req.body na Vercel Serverless pode vir como buffer/stream, vamos repassar.
+  // 2. Processa Campos (JSON do Embed)
+  busboy.on("field", (fieldname, val) => {
+    if (fieldname === "payload_json") {
+      discordForm.append("payload_json", val);
+    }
+  });
 
-    // DICA: Para simplificar na Vercel sem usar bibliotecas de parse complexas como formidable,
-    // vamos montar a requisição para o Discord direto.
+  // 3. Quando terminar de ler tudo, envia pro Discord
+  busboy.on("finish", async () => {
+    if (!process.env.Discord_Bot_Token || !channelId) {
+      return res
+        .status(500)
+        .json({ error: "Configuração de Token ou Canal inválida." });
+    }
 
-    // Nota: O fluxo abaixo assume que o frontend enviou um FormData padrão.
-    // Vamos reconstruir o fetch para o Discord.
+    try {
+      const response = await fetch(
+        `https://discord.com/api/v10/channels/${channelId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${process.env.Discord_Bot_Token}`,
+            ...discordForm.getHeaders(), // Importante: Headers do form-data
+          },
+          body: discordForm,
+        }
+      );
 
-    const discordResponse = await fetch(
-      `https://discord.com/api/v10/channels/${channelId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${BOT_TOKEN}`,
-          // Não setamos Content-Type aqui, o fetch detecta o boundary do FormData automaticamente se passarmos o body correto
-          // Mas como estamos num serverless proxy, o ideal é pegar os dados.
-          // Simplificação: Vamos assumir que o frontend manda JSON + Base64 ou vamos ajustar o script frontend
-          // para mandar JSON puro se o FormData der trabalho na Vercel (comum dar erro de parse).
-        },
-        // Se conseguir repassar o stream direto:
-        body: req,
-        // Porém, repassar 'req' direto na Vercel para o Discord pode dar erro de cabeçalhos.
+      if (!response.ok) {
+        const erroAPI = await response.text();
+        console.error("Erro Discord Enviar:", erroAPI);
+        return res.status(500).json({ error: erroAPI });
       }
-    );
 
-    // ⚠️ SOLUÇÃO MAIS ROBUSTA PARA VERCEL (JSON BODY):
-    // Para evitar problemas com upload de arquivos (Blob) em Serverless functions sem libs extras,
-    // recomendo alterar o script.js para enviar a imagem como URL (se já hospedada) ou Base64,
-    // MAS como já fizemos com Blob, vamos usar uma abordagem segura:
+      const data = await response.json();
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("Erro Fetch:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
-    // Se este código acima der erro na Vercel, use a biblioteca 'formidable' para processar o upload antes de enviar.
-    // Mas para testar agora, vamos tentar o repasse direto ou simplificar.
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Erro interno no servidor." });
-  }
+  // Inicia o processamento
+  req.pipe(busboy);
 }
