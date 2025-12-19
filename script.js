@@ -355,10 +355,10 @@ window.processarLimpeza = async function () {
       ? `<@${sessao.id}>`
       : `**${sessao.username || "Oficial"}**`;
 
-    const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
+      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
