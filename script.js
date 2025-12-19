@@ -662,67 +662,94 @@ window.renovarPorte = async function (idPorte) {
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
 // ==========================================
-window.revogar = async function (id) {
-  const p = dbPortes.find((x) => String(x.id) === String(id));
+window.revogar = async function (idPassaporte) {
+  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Tem certeza que deseja revogar o porte de ${p.nome}? Esta ação é irreversível e será registrada.`,
+    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord.`,
     "danger"
   );
 
   if (!confirmou) return;
 
-  mostrarAlerta("Processando", "Revogando...", "warning");
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
+  mostrarAlerta("Processando", "Registrando revogação...", "warning");
 
   try {
+    // 1. Gera imagem e envia log para o Discord
     const blob = await gerarBlobRevogacao(p);
-    const nomeArq = `revogacao_${id}.png`;
+    const nomeArq = `revogacao_${idPassaporte}.png`;
+
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
+
     const embed = {
-      title: `🚫 REVOGADO: ${p.arma}`,
-      description: "Porte cancelado devido a infração ou expiração.",
-      color: 15548997, // Vermelho
+      title: `🚫 PORTE REVOGADO`,
+      color: 15548997,
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "🪪 RG", value: p.rg || "N/A", inline: true }, // RG Corrigido
+        { name: "👮 Oficial", value: mencao, inline: true },
       ],
       image: { url: `attachment://${nomeArq}` },
-      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
-      timestamp: new Date().toISOString(),
     };
 
-    if (
-      await enviarParaAPI(
-        blob,
-        nomeArq,
-        "revogacao",
-        embed,
-        `🚨 **REVOGAÇÃO REGISTRADA** por ${mencao}`
-      )
-    ) {
+    const enviou = await enviarParaAPI(
+      blob,
+      nomeArq,
+      "revogacao",
+      embed,
+      `🚨 **PORTE REVOGADO**`
+    );
+
+    if (enviou) {
+      // 2. Tenta deletar a mensagem original do Discord
       if (p.message_id) {
-        try {
-          await fetch("/api/deletar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message_id: p.message_id }),
-          });
-        } catch (e) {
-          console.log("Msg original não deletada");
-        }
+        await fetch("/api/deletar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message_id: p.message_id }),
+        });
       }
-      p.status = "Revogado";
+
+      // 3. SALVAR NO HISTÓRICO LOCAL (LocalStorage)
+      const historico = JSON.parse(
+        localStorage.getItem("historico_revogacoes") || "[]"
+      );
+
+      const novoRegistro = {
+        nome: p.nome,
+        id: p.id,
+        arma: p.arma,
+        dataRevogacao:
+          new Date().toLocaleDateString("pt-BR") +
+          " " +
+          new Date().toLocaleTimeString("pt-BR"),
+        oficial: sessao.username || "Sistema",
+      };
+
+      historico.push(novoRegistro);
+      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
+
+      // 4. Atualizar interface
+      mostrarAlerta(
+        "Sucesso",
+        "Porte revogado e salvo no histórico!",
+        "success"
+      );
+
+      // Remove do array local de ativos para sumir da tela atual
+      dbPortes = dbPortes.filter(
+        (item) => String(item.id) !== String(idPassaporte)
+      );
+
       renderTables();
       atualizarStats();
-      mostrarAlerta("Sucesso", "Revogado!", "success");
     }
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha na revogação.", "error");
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
 
