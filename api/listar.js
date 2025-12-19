@@ -1,8 +1,8 @@
 // Arquivo: api/listar.js
 export default async function handler(req, res) {
   // 1. Configurações (Pegaremos das variáveis de ambiente da Vercel)
-  const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-  const CHANNEL_ID = process.env.CHANNEL_PORTES_ID; // ID do canal de PORTES ATIVOS
+  const BOT_TOKEN = process.env.Discord_Bot_Token;
+  const CHANNEL_ID = process.env.CHANNEL_PORTE_ID; // ID do canal de PORTES ATIVOS
 
   if (!BOT_TOKEN || !CHANNEL_ID) {
     return res
