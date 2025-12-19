@@ -16,39 +16,63 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
-let dbPortes = []; // Lista local
+let dbPortes = [];
 
 // ==========================================
-// 🚀 INICIALIZAÇÃO (Tudo começa aqui)
+// 🚀 INICIALIZAÇÃO E CONTROLE DE TELA
 // ==========================================
 document.addEventListener("DOMContentLoaded", async function () {
   console.log("🚀 Sistema Iniciado");
 
-  // 1. Configurações de Navegação e Botões
-  configurarBotoes();
+  // Tenta configurar botões, mas não trava se falhar
+  try {
+    configurarBotoes();
+  } catch (e) {
+    console.error("Erro btn:", e);
+  }
 
   const hash = window.location.hash;
   const isLoginPage = window.location.pathname.includes("login.html");
+  const sessao = localStorage.getItem("pc_session");
 
-  // 2. Verifica Login Discord
+  // 1. Cenário: Voltando do Discord (Login Callback)
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
     const tokenType = fragment.get("token_type");
     window.history.replaceState({}, document.title, window.location.pathname);
     await validarLoginNaAPI(`${tokenType} ${accessToken}`);
-  } else {
-    const sessao = localStorage.getItem("pc_session");
+    return;
+  }
 
-    if (sessao) {
-      if (isLoginPage) window.location.href = "index.html";
-      else {
-        iniciarSistema(JSON.parse(sessao));
-        // Carrega a lista do Discord ao iniciar
-        await carregarPortesDoDiscord();
+  // 2. Cenário: Usuário Logado (Com Sessão)
+  if (sessao) {
+    if (isLoginPage) {
+      // Se tá logado, não tem que estar no login -> Manda pro painel
+      window.location.href = "index.html";
+    } else {
+      // 🚨 CORREÇÃO CRÍTICA: Mostra a tela IMEDIATAMENTE antes de qualquer lógica
+      document.body.style.display = "block";
+
+      try {
+        const user = JSON.parse(sessao);
+        iniciarSistema(user); // Preenche avatar/nome
+        await carregarPortesDoDiscord(); // Busca dados
+      } catch (err) {
+        console.error("Sessão inválida:", err);
+        localStorage.removeItem("pc_session");
+        window.location.href = "login.html";
       }
-    } else if (!isLoginPage) {
+    }
+  }
+  // 3. Cenário: Usuário NÃO Logado
+  else {
+    if (!isLoginPage) {
+      // Se não tem sessão e tá no painel -> Manda pro login
       window.location.href = "login.html";
+    } else {
+      // Se tá na tela de login -> Mostra o Login (Flexbox)
+      document.body.style.display = "flex";
     }
   }
 
@@ -67,24 +91,22 @@ async function carregarPortesDoDiscord() {
 
     const dados = await res.json();
     dbPortes = dados;
-
     console.log(`✅ ${dbPortes.length} portes carregados.`);
+
     renderTables();
     atualizarStats();
   } catch (erro) {
     console.error("Erro ao listar:", erro);
-    // Não mostramos alerta aqui para não spammar o usuário, apenas console
   }
 }
 
 // ==========================================
-// 🖱️ CONFIGURAR BOTÕES (A Correção do "Nada Acontece")
+// 🖱️ CONFIGURAR BOTÕES
 // ==========================================
 function configurarBotoes() {
-  // Botão de Emitir (Final)
   const btnEmitir = document.getElementById("btn-emitir-final");
   if (btnEmitir) {
-    // Remove ouvintes antigos para não duplicar
+    // Clona para remover listeners antigos e evitar clique duplo
     const novoBtn = btnEmitir.cloneNode(true);
     btnEmitir.parentNode.replaceChild(novoBtn, btnEmitir);
 
@@ -158,7 +180,7 @@ async function processarEmissao() {
 
     if (sucesso) {
       await mostrarAlerta("Sucesso", "Porte emitido!", "success");
-      // Adiciona na lista localmente para não precisar recarregar o Discord na hora
+      // Atualiza visualmente
       dbPortes.push({
         nome,
         id,
@@ -172,7 +194,7 @@ async function processarEmissao() {
       atualizarStats();
       window.navegar("dashboard");
 
-      // Limpa
+      // Limpa form
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
@@ -184,7 +206,6 @@ async function processarEmissao() {
 // 🚫 REVOGAÇÃO
 // ==========================================
 window.revogar = async function (id) {
-  // Força conversão para string para comparação segura
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p)
     return mostrarAlerta(
@@ -237,7 +258,6 @@ window.revogar = async function (id) {
     );
 
     if (sucesso) {
-      // Tenta deletar a mensagem original se tivermos o ID dela
       if (p.message_id) {
         await fetch("/api/deletar", {
           method: "POST",
@@ -258,7 +278,7 @@ window.revogar = async function (id) {
 };
 
 // ==========================================
-// 🛠️ FUNÇÕES AUXILIARES (Listar, Canvas, API)
+// 🛠️ FUNÇÕES AUXILIARES
 // ==========================================
 async function enviarParaAPI(
   blob,
@@ -280,13 +300,8 @@ async function enviarParaAPI(
       body: formData,
     });
     if (!res.ok) {
-      const txt = await res.text();
-      console.error("Erro API Enviar:", txt);
-      mostrarAlerta(
-        "Erro",
-        "Falha ao enviar para o Discord. Verifique o console.",
-        "error"
-      );
+      console.error(await res.text());
+      mostrarAlerta("Erro", "Falha no Discord. Verifique console.", "error");
       return false;
     }
     return true;
@@ -303,7 +318,6 @@ function gerarBlobRevogacao(p) {
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
-    // Lógica simples para imagem
     let imgName = "revogado_glock.png";
     if (p.arma && p.arma.includes("MP5")) imgName = "revogado_mp5.png";
     if (p.arma && p.arma.includes("TASER")) imgName = "revogado_taser.png";
@@ -316,8 +330,6 @@ function gerarBlobRevogacao(p) {
 
       ctx.font = POSICOES.fonte;
       ctx.fillStyle = POSICOES.corTexto;
-
-      // Preenche dados (posições definidas no topo)
       ctx.fillText(
         (p.nome || "").toUpperCase(),
         POSICOES.nome.x,
@@ -331,7 +343,6 @@ function gerarBlobRevogacao(p) {
   });
 }
 
-// Lógica Visual
 window.gerarPreviewPorte = function () {
   const container = document.getElementById("preview-porte-container");
   const canvas = document.getElementById("canvas-porte");
@@ -339,8 +350,6 @@ window.gerarPreviewPorte = function () {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
   const arma = document.getElementById("porte-arma").value;
-
-  // Pegando valores do DOM para desenhar
   const rg = document.getElementById("porte-rg").value;
   const expedicao = document.getElementById("porte-expedicao").value;
   const validade = document.getElementById("porte-validade").value;
@@ -374,8 +383,14 @@ window.gerarPreviewPorte = function () {
     if (wrapper)
       wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    // Chama a reconfiguração dos botões caso o DOM tenha mudado
     configurarBotoes();
+  };
+  img.onerror = function () {
+    mostrarAlerta(
+      "Erro",
+      "Imagem do porte não encontrada na pasta assets.",
+      "error"
+    );
   };
 };
 
@@ -401,7 +416,7 @@ window.renderTables = function () {
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
                 <td>Hoje</td>
-                <td><span class="badge revogado">REVOGADO</span></td>
+                <td><span class=\"badge revogado\">REVOGADO</span></td>
             </tr>`;
     }
   });
@@ -433,7 +448,7 @@ function configurarDatasAutomaticas() {
   if (dt) dt.innerText = hoje.toLocaleDateString("pt-BR");
 }
 
-// AUTH API E MODAIS
+// AUTH
 async function validarLoginNaAPI(token) {
   try {
     const res = await fetch("/api/auth", { headers: { Authorization: token } });
@@ -473,11 +488,22 @@ window.navegar = (t) => {
   if (t === "emissao") configurarDatasAutomaticas();
 };
 
-// Alertas Simplificados
 window.mostrarAlerta = (t, m, type) => {
   return new Promise((r) => {
-    alert(`${t}: ${m}`); // Fallback rápido para debug
-    r(true);
+    const modal = document.getElementById("custom-modal");
+    if (modal) {
+      document.getElementById("modal-title").innerText = t;
+      document.getElementById("modal-desc").innerText = m;
+      modal.classList.remove("hidden");
+      const btn = document.getElementById("btn-modal-confirm");
+      btn.onclick = () => {
+        modal.classList.add("hidden");
+        r(true);
+      };
+    } else {
+      alert(`${t}\n${m}`);
+      r(true);
+    }
   });
 };
 window.confirmarAcao = (t, m) => {
