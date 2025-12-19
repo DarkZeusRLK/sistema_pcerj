@@ -16,7 +16,7 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
-// 👇 SUAS COORDENADAS NOVAS AQUI
+// 👇 SUAS COORDENADAS DE LIMPEZA (Atualizadas)
 const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
   id: { x: 550, y: 380 },
@@ -24,6 +24,13 @@ const POSICOES_LIMPEZA = {
   data: { x: 680, y: 380 },
   corTexto: "#000000",
   fonte: "bold 30px 'Arial'",
+};
+
+// 👇 NOVO: TABELA DE PREÇOS
+const PRECOS = {
+  GLOCK: { arma: 400000, laudo: 250000, municao: 100000 },
+  MP5: { arma: 600000, laudo: 300000, municao: 100000 },
+  TASER: { arma: 700000, laudo: 300000, municao: 0 },
 };
 
 let dbPortes = [];
@@ -35,8 +42,9 @@ document.addEventListener("DOMContentLoaded", async function () {
   console.log("🚀 Sistema Iniciado");
 
   try {
-    configurarBotoes(); // <--- AQUI ESTA A CORREÇÃO DOS BOTÕES
+    configurarBotoes();
     ativarFormatacaoDinheiro();
+    atualizarValoresPorte(); // <--- Inicializa os valores na tela
   } catch (e) {
     console.error("Erro config:", e);
   }
@@ -81,27 +89,71 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ==========================================
-// 🔘 CONFIGURAÇÃO DOS BOTÕES (CORRIGIDO)
+// 💲 CÁLCULO DE VALORES (NOVO)
+// ==========================================
+window.atualizarValoresPorte = function () {
+  const selectArma = document.getElementById("porte-arma");
+  const checkMunicao = document.getElementById("check-municao");
+  const painel = document.getElementById("painel-valores");
+
+  // Se não estiver na tela de emissão, sai da função
+  if (!selectArma || !painel) return;
+
+  painel.classList.remove("hidden");
+  const armaSelecionada = selectArma.value; // GLOCK, MP5 ou TASER
+  const regras = PRECOS[armaSelecionada];
+
+  // Lógica do Taser (Bloqueia munição e desmarca)
+  if (armaSelecionada === "TASER") {
+    checkMunicao.checked = false;
+    checkMunicao.disabled = true;
+  } else {
+    checkMunicao.disabled = false;
+  }
+
+  // Cálculos
+  const valorArma = regras.arma;
+  const valorLaudo = regras.laudo;
+  // Se estiver marcado E não for taser, cobra munição.
+  const valorMunicao =
+    checkMunicao.checked && armaSelecionada !== "TASER" ? regras.municao : 0;
+  const total = valorArma + valorLaudo + valorMunicao;
+
+  // Função auxiliar para formatar dinheiro
+  const fmt = (v) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  // Atualiza HTML
+  const elArma = document.getElementById("val-arma");
+  const elLaudo = document.getElementById("val-laudo");
+  const elMunicao = document.getElementById("val-municao");
+  const elTotal = document.getElementById("val-total");
+
+  if (elArma) elArma.innerText = fmt(valorArma);
+  if (elLaudo) elLaudo.innerText = fmt(valorLaudo);
+  if (elMunicao) elMunicao.innerText = fmt(valorMunicao);
+  if (elTotal) elTotal.innerText = fmt(total);
+
+  // Salva no dataset para o envio pegar depois
+  painel.dataset.total = total;
+  painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
+};
+
+// ==========================================
+// 🔘 CONFIGURAÇÃO DOS BOTÕES
 // ==========================================
 function configurarBotoes() {
-  console.log("🔧 Configurando botões...");
-
   // 1. Botão de Gerar Prévia
   const btnPreview = document.getElementById("btn-gerar-previa");
 
   if (btnPreview) {
-    // Clona para remover eventos antigos (limpa a memória do botão)
     const novoBtn = btnPreview.cloneNode(true);
     btnPreview.parentNode.replaceChild(novoBtn, btnPreview);
 
     novoBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      console.log("🖱️ Botão Prévia Clicado");
       window.gerarPreviewPorte();
     });
-    console.log("✅ Botão de Prévia encontrado e configurado.");
-  } else {
-    console.error("❌ ERRO: Botão 'btn-gerar-previa' não achado no HTML.");
   }
 
   // 2. Botão de Emitir Final (que aparece depois da prévia)
@@ -115,8 +167,9 @@ function configurarBotoes() {
     });
   }
 }
+
 // ==========================================
-// 💰 FORMATAÇÃO DE DINHEIRO
+// 💰 FORMATAÇÃO DE DINHEIRO INPUT
 // ==========================================
 function ativarFormatacaoDinheiro() {
   const inputValor = document.getElementById("input-valor-limpeza");
@@ -143,14 +196,14 @@ window.processarLimpeza = async function () {
   if (!nome || !id) {
     return mostrarAlerta(
       "Dados Incompletos",
-      "Preencha os campos NOME e PASSAPORTE na tela de Limpeza.",
+      "Preencha os campos NOME e PASSAPORTE.",
       "warning"
     );
   }
 
   const confirmou = await confirmarAcao(
     "Limpar Ficha?",
-    `Confirmar limpeza para ${nome} no valor de R$ ${valor}?`
+    `Confirmar limpeza para ${nome} (R$ ${valor})?`
   );
   if (!confirmou) return;
 
@@ -213,28 +266,21 @@ window.processarLimpeza = async function () {
   }
 };
 
-// ==========================================
-// 🧼 GERADOR DE IMAGEM LIMPEZA
-// ==========================================
 function gerarBlobLimpeza(nome, id, rg) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
-
-    // Use o nome do seu arquivo aqui (bg_limpeza.png ou limpeza.png)
     img.src = "assets/bg_limpeza.png";
 
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
-
       ctx.font = POSICOES_LIMPEZA.fonte;
       ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
       ctx.textAlign = "left";
 
-      // Dados (usando suas novas coordenadas)
       ctx.fillText(
         nome.toUpperCase(),
         POSICOES_LIMPEZA.nome.x,
@@ -248,7 +294,6 @@ function gerarBlobLimpeza(nome, id, rg) {
 
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
-
     img.onerror = () => reject(new Error("Imagem da limpeza não encontrada."));
   });
 }
@@ -258,12 +303,10 @@ function gerarBlobLimpeza(nome, id, rg) {
 // ==========================================
 async function carregarPortesDoDiscord() {
   try {
-    console.log("🔄 Buscando portes...");
     const res = await fetch("/api/listar");
     if (!res.ok) throw new Error(`Erro API: ${res.status}`);
     const dados = await res.json();
     dbPortes = dados;
-    console.log(`✅ ${dbPortes.length} portes carregados.`);
     renderTables();
     atualizarStats();
   } catch (erro) {
@@ -272,17 +315,13 @@ async function carregarPortesDoDiscord() {
 }
 
 // ==========================================
-// 👁️ GERAR PREVIEW DO PORTE (VISUAL CORRIGIDO)
+// 👁️ GERAR PREVIEW DO PORTE
 // ==========================================
 window.gerarPreviewPorte = function () {
-  console.log("📸 Iniciando geração de preview...");
-
-  // Pega os elementos
   const container = document.getElementById("preview-porte-container");
   const canvas = document.getElementById("canvas-porte");
-  const imgPreview = document.getElementById("img-porte-final"); // A tag <img> onde vamos mostrar
+  const imgPreview = document.getElementById("img-porte-final");
 
-  // Pega os dados
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
   const arma = document.getElementById("porte-arma").value;
@@ -290,68 +329,45 @@ window.gerarPreviewPorte = function () {
   const expedicao = document.getElementById("porte-expedicao").value;
   const validade = document.getElementById("porte-validade").value;
 
-  if (!nome || !id) {
-    return mostrarAlerta(
-      "Dados Faltando",
-      "Preencha pelo menos o Nome e o Passaporte.",
-      "warning"
-    );
-  }
+  if (!nome || !id)
+    return mostrarAlerta("Erro", "Preencha Nome e Passaporte", "warning");
 
   const ctx = canvas.getContext("2d");
   const imgBase = new Image();
 
-  // Seleciona a base correta
   if (arma === "GLOCK") imgBase.src = "assets/porte_glock.png";
   else if (arma === "MP5") imgBase.src = "assets/porte_mp5.png";
   else imgBase.src = "assets/porte_taser.png";
 
   imgBase.onload = () => {
-    // 1. Ajusta o tamanho do canvas ao da imagem
     canvas.width = imgBase.width;
     canvas.height = imgBase.height;
-
-    // 2. Desenha a base
     ctx.drawImage(imgBase, 0, 0);
-
-    // 3. Configura o texto
     ctx.font = POSICOES.fonte;
     ctx.fillStyle = POSICOES.corTexto;
 
-    // 4. Escreve os dados nas coordenadas (POSICOES definido no início do arquivo)
-    ctx.fillText(
-      nome.toUpperCase(),
-      POSICOES.nome.x,
-      POSICOES.nome.y,
-      POSICOES.nome.max
-    );
+    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
     ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
     ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
     ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
     ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
 
-    // 5. MÁGICA: Transfere do Canvas para a Imagem visível
     const dataUrl = canvas.toDataURL("image/png");
     imgPreview.src = dataUrl;
-    imgPreview.style.display = "block"; // Garante que a imagem apareça
-
-    // 6. Mostra o container cinza
+    imgPreview.style.display = "block";
     container.classList.remove("hidden");
     container.style.display = "block";
 
-    // Reconfigura o botão de confirmar que estava escondido
     configurarBotoes();
   };
 
-  imgBase.onerror = () => {
-    mostrarAlerta(
-      "Erro de Arquivo",
-      `Não foi possível carregar a imagem: ${imgBase.src}. Verifique a pasta assets.`,
-      "error"
-    );
-  };
+  imgBase.onerror = () =>
+    mostrarAlerta("Erro", "Imagem do porte não encontrada.", "error");
 };
 
+// ==========================================
+// 📨 EMISSÃO COM PREÇOS ATUALIZADOS
+// ==========================================
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
@@ -359,6 +375,17 @@ async function processarEmissao() {
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
+
+  // DADOS FINANCEIROS
+  const painel = document.getElementById("painel-valores");
+  const totalCalculado = painel ? painel.dataset.total || "0" : "0";
+  const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
+  const regras = PRECOS[arma];
+  const fmt = (v) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  if (!nome || !id)
+    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
 
   mostrarAlerta("Aguarde", "Gerando documento...", "warning");
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -381,9 +408,23 @@ async function processarEmissao() {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "🪪 RG", value: rg, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true }, // <--- CAMPO DO OFICIAL
+        { name: "🔫 Armamento", value: arma, inline: true },
+        { name: "📦 Munição", value: temMunicao, inline: true },
         { name: "📅 Validade", value: `\`${validade}\``, inline: true },
-        { name: "🔫 Armamento", value: arma, inline: false },
+        // <--- CAMPO FINANCEIRO DETALHADO
+        {
+          name: "💰 Valores",
+          value: `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
+            regras.laudo
+          )}\`\nMunição: \`${
+            temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
+          }\`\n**TOTAL: \`${parseInt(totalCalculado).toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          })}\`**`,
+          inline: false,
+        },
       ],
       image: { url: `attachment://${nomeArquivo}` },
       footer: {
@@ -418,11 +459,13 @@ async function processarEmissao() {
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
+      atualizarValoresPorte(); // Reseta os valores
     }
   });
 }
 
-// ... (RESTANTE DO CÓDIGO DE REVOGAÇÃO E AUXILIARES MANTIDO IGUAL)
+// ... (FUNÇÕES DE REVOGAÇÃO E AUXILIARES PERMANECEM IGUAIS) ...
+
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");

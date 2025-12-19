@@ -453,3 +453,43 @@ td {
 .hidden {
   display: none !important;
 }
+/* Estilo do Painel de Preços */
+.price-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.price-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: var(--green-accent);
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-group input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold-accent);
+}
