@@ -219,7 +219,7 @@ function ativarFormatacaoDinheiro() {
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value;
+  const rg = document.getElementById("porte-rg").value; // <--- O valor é pego aqui
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
@@ -274,6 +274,10 @@ async function processarEmissao() {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+
+        // 👇 AQUI ESTAVA FALTANDO SALVAR O RG 👇
+        { name: "🪪 RG", value: `\`${rg || "N/A"}\``, inline: true },
+
         { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🔫 Armamento", value: arma, inline: true },
         { name: "📦 Munição", value: temMunicao, inline: true },
@@ -281,7 +285,7 @@ async function processarEmissao() {
         { name: "💰 Valores", value: textoValores, inline: false },
       ],
       image: { url: `attachment://${nomeArquivo}` },
-      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
+      footer: FOOTER_PADRAO,
     };
 
     const sucesso = await enviarParaAPI(
@@ -293,6 +297,7 @@ async function processarEmissao() {
     );
     if (sucesso) {
       await mostrarAlerta("Sucesso", "Porte emitido!", "success");
+      // Atualiza lista local já com o RG para não precisar recarregar
       dbPortes.push({
         nome,
         id,
@@ -308,6 +313,7 @@ async function processarEmissao() {
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
+      document.getElementById("porte-rg").value = ""; // Limpa RG também
       document.getElementById("check-desconto").checked = false;
       atualizarValoresPorte();
     }
