@@ -196,7 +196,7 @@ function gerarBlobLimpeza(nome, id, rg, valor) {
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
-    img.src = "assets/limpeza.png"; // Certifique-se que o arquivo existe
+    img.src = "assets/bg_limpeza.png"; // Certifique-se que o arquivo existe
 
     img.onload = () => {
       canvas.width = img.width;
@@ -231,7 +231,7 @@ function gerarBlobLimpeza(nome, id, rg, valor) {
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
     img.onerror = () =>
-      reject(new Error("Imagem assets/limpeza.png não encontrada."));
+      reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
   });
 }
 
