@@ -1,18 +1,13 @@
 import fetch from "node-fetch";
 
 export default async function handler(req, res) {
-  // Pegando suas variáveis exatas
   const token = process.env.Discord_Bot_Token;
   const channelId = process.env.CHANNEL_PORTE_ID;
 
-  if (!token || !channelId) {
-    return res
-      .status(500)
-      .json({ error: "Configuração (Token/ID) faltando na Vercel." });
-  }
+  if (!token || !channelId)
+    return res.status(500).json({ error: "Configuração faltando" });
 
   try {
-    // Busca as últimas 100 mensagens
     const response = await fetch(
       `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
       {
@@ -20,47 +15,41 @@ export default async function handler(req, res) {
       }
     );
 
-    if (!response.ok) throw new Error(`Erro Discord: ${response.status}`);
-
+    if (!response.ok) throw new Error("Erro Discord");
     const messages = await response.json();
 
-    // Filtra e limpa os dados
     const lista = messages
-      .filter((msg) => msg.embeds && msg.embeds.length > 0)
-      .map((msg) => {
-        const embed = msg.embeds[0];
+      .filter((m) => m.embeds && m.embeds.length > 0)
+      .map((m) => {
+        const e = m.embeds[0];
+        const fields = e.fields || [];
 
-        // Função auxiliar para achar campos ignorando maiúsculas/minúsculas e acentos
-        const getVal = (keys) => {
-          const field = embed.fields?.find((f) =>
-            keys.some((k) => f.name.toLowerCase().includes(k))
+        // Busca valor procurando parte do nome (ex: "Cidadão" acha "Nome do Cidadão")
+        const find = (key) => {
+          const f = fields.find((field) =>
+            field.name.toLowerCase().includes(key.toLowerCase())
           );
-          return field ? field.value.replace(/[*`]/g, "").trim() : null;
+          return f ? f.value.replace(/[*`]/g, "").trim() : null;
         };
 
-        // Procura por campos comuns
-        const nome = getVal(["cidadão", "nome", "civil"]);
-        const id = getVal(["passaporte", "id"]);
+        const nome = find("Cidadão") || find("Nome");
+        const id = find("Passaporte") || find("ID");
 
-        // Se não tiver Nome e ID, ignora (não é um porte válido)
-        if (!nome || !id) return null;
-
-        return {
-          message_id: msg.id, // Importante para deletar depois
-          nome: nome,
-          id: id,
-          rg: getVal(["rg"]) || "N/A",
-          arma: getVal(["arma", "armamento"]) || "Desconhecida",
-          validade: getVal(["validade"]) || "N/A",
-          expedicao: getVal(["expedição"]) || "N/A",
-          status: "Ativo",
-        };
+        if (nome && id) {
+          return {
+            message_id: m.id,
+            nome,
+            id,
+            arma: find("Armamento") || find("Arma") || "N/A",
+            status: "Ativo",
+          };
+        }
+        return null;
       })
-      .filter((item) => item !== null); // Remove os vazios
+      .filter((i) => i !== null);
 
-    return res.status(200).json(lista);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Falha ao listar portes." });
+    res.json(lista);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 }

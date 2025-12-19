@@ -1,7 +1,5 @@
 {
-  "name": "sistema-pcerj",
-  "version": "1.0.0",
-  "type": "module",
+  "name": "app-policia",
   "dependencies": {
     "busboy": "^1.6.0",
     "form-data": "^4.0.0",
