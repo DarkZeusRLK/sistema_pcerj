@@ -16,6 +16,7 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
+// 👇 SUAS COORDENADAS NOVAS AQUI
 const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
   id: { x: 550, y: 380 },
@@ -34,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   console.log("🚀 Sistema Iniciado");
 
   try {
-    configurarBotoes();
+    configurarBotoes(); // <--- AQUI ESTA A CORREÇÃO DOS BOTÕES
     ativarFormatacaoDinheiro();
   } catch (e) {
     console.error("Erro config:", e);
@@ -80,6 +81,43 @@ document.addEventListener("DOMContentLoaded", async function () {
 });
 
 // ==========================================
+// 🔘 CONFIGURAÇÃO DOS BOTÕES (CORRIGIDO)
+// ==========================================
+function configurarBotoes() {
+  // 1. Configura o botão de Gerar Prévia (Porte)
+  // Tenta achar pelo ID padrão ou variantes comuns
+  const btnPreview =
+    document.getElementById("btn-gerar-previa") ||
+    document.getElementById("btn-gerar-porte");
+
+  if (btnPreview) {
+    // Remove listeners antigos para não duplicar
+    const novoBtnPreview = btnPreview.cloneNode(true);
+    btnPreview.parentNode.replaceChild(novoBtnPreview, btnPreview);
+
+    // Adiciona o evento de clique
+    novoBtnPreview.addEventListener("click", (e) => {
+      e.preventDefault(); // Evita recarregar a página
+      window.gerarPreviewPorte();
+    });
+    console.log("✅ Botão de Prévia configurado com sucesso.");
+  } else {
+    console.warn("⚠️ Botão de gerar prévia não encontrado no HTML.");
+  }
+
+  // 2. Configura o botão de Emitir Final (dentro da prévia)
+  const btnEmitir = document.getElementById("btn-emitir-final");
+  if (btnEmitir) {
+    const novoBtnEmitir = btnEmitir.cloneNode(true);
+    btnEmitir.parentNode.replaceChild(novoBtnEmitir, btnEmitir);
+
+    novoBtnEmitir.addEventListener("click", async () => {
+      await processarEmissao();
+    });
+  }
+}
+
+// ==========================================
 // 💰 FORMATAÇÃO DE DINHEIRO
 // ==========================================
 function ativarFormatacaoDinheiro() {
@@ -104,8 +142,6 @@ window.processarLimpeza = async function () {
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
 
-  console.log("Tentando limpar ficha:", { nome, id, rg, valor });
-
   if (!nome || !id) {
     return mostrarAlerta(
       "Dados Incompletos",
@@ -123,7 +159,6 @@ window.processarLimpeza = async function () {
   mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    // Passamos o valor, mas a função abaixo vai ignorar ele na imagem
     const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
     const nomeArquivo = `limpeza_${id}.png`;
 
@@ -135,11 +170,10 @@ window.processarLimpeza = async function () {
       ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
       : "";
 
-    // MENSAGEM EXTERNA (QRA AQUI)
-    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+    const mensagemExterna = `🧼 **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: `CERTIFICADO DE BONS ANTECEDENTES`,
+      title: `🧼 CERTIFICADO DE BONS ANTECEDENTES`,
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
@@ -149,7 +183,7 @@ window.processarLimpeza = async function () {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true }, // VALOR CONTINUA AQUI NO EMBED
+        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
         {
           name: "📅 Data",
           value: new Date().toLocaleDateString("pt-BR"),
@@ -177,16 +211,12 @@ window.processarLimpeza = async function () {
     }
   } catch (erro) {
     console.error(erro);
-    mostrarAlerta(
-      "Erro",
-      "Erro ao processar limpeza. Verifique se a imagem existe.",
-      "error"
-    );
+    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
   }
 };
 
 // ==========================================
-// 🧼 GERADOR DE IMAGEM LIMPEZA (SEM VALOR)
+// 🧼 GERADOR DE IMAGEM LIMPEZA
 // ==========================================
 function gerarBlobLimpeza(nome, id, rg) {
   return new Promise((resolve, reject) => {
@@ -194,7 +224,7 @@ function gerarBlobLimpeza(nome, id, rg) {
     const ctx = canvas.getContext("2d");
     const img = new Image();
 
-    // Mantive o nome que estava no seu código enviado
+    // Use o nome do seu arquivo aqui (bg_limpeza.png ou limpeza.png)
     img.src = "assets/bg_limpeza.png";
 
     img.onload = () => {
@@ -206,7 +236,7 @@ function gerarBlobLimpeza(nome, id, rg) {
       ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
       ctx.textAlign = "left";
 
-      // Dados
+      // Dados (usando suas novas coordenadas)
       ctx.fillText(
         nome.toUpperCase(),
         POSICOES_LIMPEZA.nome.x,
@@ -218,19 +248,16 @@ function gerarBlobLimpeza(nome, id, rg) {
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       ctx.fillText(dataHoje, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
 
-      // REMOVIDO: Não desenha mais o valor na imagem
-
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
 
-    img.onerror = () =>
-      reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
+    img.onerror = () => reject(new Error("Imagem da limpeza não encontrada."));
   });
 }
 
-// ... (O RESTANTE DO CÓDIGO PERMANECE IGUAL: CarregarPortes, Emissão, Revogação, etc.) ...
-// Para garantir que nada quebre, vou incluir o restante abaixo:
-
+// ==========================================
+// ☁️ BUSCAR DADOS DO DISCORD
+// ==========================================
 async function carregarPortesDoDiscord() {
   try {
     console.log("🔄 Buscando portes...");
@@ -246,16 +273,61 @@ async function carregarPortesDoDiscord() {
   }
 }
 
-function configurarBotoes() {
-  const btnEmitir = document.getElementById("btn-emitir-final");
-  if (btnEmitir) {
-    const novoBtn = btnEmitir.cloneNode(true);
-    btnEmitir.parentNode.replaceChild(novoBtn, btnEmitir);
-    novoBtn.addEventListener("click", async () => {
-      await processarEmissao();
-    });
-  }
-}
+// ==========================================
+// 👁️ GERAR PREVIEW DO PORTE
+// ==========================================
+window.gerarPreviewPorte = function () {
+  console.log("📸 Gerando preview..."); // Debug
+
+  const container = document.getElementById("preview-porte-container");
+  const canvas = document.getElementById("canvas-porte");
+  const nome = document.getElementById("porte-nome").value;
+  const id = document.getElementById("porte-id").value;
+  const arma = document.getElementById("porte-arma").value;
+  const rg = document.getElementById("porte-rg").value;
+  const expedicao = document.getElementById("porte-expedicao").value;
+  const validade = document.getElementById("porte-validade").value;
+
+  if (!nome || !id)
+    return mostrarAlerta("Erro", "Preencha Nome e Passaporte", "warning");
+
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+
+  // Define qual imagem usar
+  if (arma === "GLOCK") img.src = "assets/porte_glock.png";
+  else if (arma === "MP5") img.src = "assets/porte_mp5.png";
+  else img.src = "assets/porte_taser.png";
+
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    ctx.font = POSICOES.fonte;
+    ctx.fillStyle = POSICOES.corTexto;
+
+    // Desenha os textos
+    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
+    ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
+    ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
+    ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
+    ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
+
+    // Mostra o container
+    container.style.display = "block";
+
+    // Reconfigura o botão de confirmar que acabou de aparecer
+    configurarBotoes();
+  };
+
+  img.onerror = () => {
+    mostrarAlerta(
+      "Erro",
+      "Imagem do porte não encontrada na pasta assets.",
+      "error"
+    );
+  };
+};
 
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
@@ -264,9 +336,6 @@ async function processarEmissao() {
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
-
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
 
   mostrarAlerta("Aguarde", "Gerando documento...", "warning");
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -330,6 +399,7 @@ async function processarEmissao() {
   });
 }
 
+// ... (RESTANTE DO CÓDIGO DE REVOGAÇÃO E AUXILIARES MANTIDO IGUAL)
 window.revogar = async function (id) {
   const p = dbPortes.find((x) => String(x.id) === String(id));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
@@ -431,43 +501,6 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
     return false;
   }
 }
-
-window.gerarPreviewPorte = function () {
-  const container = document.getElementById("preview-porte-container");
-  const canvas = document.getElementById("canvas-porte");
-  const nome = document.getElementById("porte-nome").value;
-  const id = document.getElementById("porte-id").value;
-  const arma = document.getElementById("porte-arma").value;
-  const rg = document.getElementById("porte-rg").value;
-  const expedicao = document.getElementById("porte-expedicao").value;
-  const validade = document.getElementById("porte-validade").value;
-
-  if (!nome || !id) return mostrarAlerta("Erro", "Preencha dados", "warning");
-
-  const ctx = canvas.getContext("2d");
-  const img = new Image();
-  img.src =
-    arma === "GLOCK"
-      ? "assets/porte_glock.png"
-      : arma === "MP5"
-      ? "assets/porte_mp5.png"
-      : "assets/porte_taser.png";
-
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-    ctx.font = POSICOES.fonte;
-    ctx.fillStyle = POSICOES.corTexto;
-    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
-    ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
-    ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
-    ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
-    ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
-    container.style.display = "block";
-    configurarBotoes();
-  };
-};
 
 window.renderTables = function () {
   const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
