@@ -412,45 +412,64 @@ window.gerarPreviewPorte = function () {
 window.renderTables = function () {
   const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
   const tbodyRevogados = document.getElementById("lista-ja-revogados");
+  const inputBusca = document.getElementById("input-busca"); // Pega a barra de pesquisa
 
   if (tbodyAtivos) tbodyAtivos.innerHTML = "";
   if (tbodyRevogados) tbodyRevogados.innerHTML = "";
 
-  // Se não tiver portes, avisa
-  if (dbPortes.length === 0 && tbodyAtivos) {
-    tbodyAtivos.innerHTML =
-      "<tr><td colspan='5' style='text-align:center'>Nenhum porte ativo encontrado.</td></tr>";
+  // 1. Lógica de Pesquisa
+  const termo = inputBusca ? inputBusca.value.toLowerCase() : "";
+
+  // Filtra a lista global baseado no que foi digitado
+  const listaFiltrada = dbPortes.filter((p) => {
+    // Se não digitou nada, retorna tudo
+    if (termo === "") return true;
+
+    // Verifica se o termo está no Nome, ID ou Arma
+    return (
+      (p.nome && p.nome.toLowerCase().includes(termo)) ||
+      (p.id && p.id.includes(termo)) ||
+      (p.arma && p.arma.toLowerCase().includes(termo))
+    );
+  });
+
+  // Inverte para os mais recentes aparecerem primeiro
+  const listaFinal = [...listaFiltrada].reverse();
+
+  if (listaFinal.length === 0 && termo !== "" && tbodyAtivos) {
+    tbodyAtivos.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum resultado para "${termo}"</td></tr>`;
+    return;
   }
 
-  [...dbPortes].reverse().forEach((p) => {
-    // --- TABELA DE ATIVOS (COM VALIDADE) ---
+  // 2. Desenha a Tabela
+  listaFinal.forEach((p) => {
+    // Tabela de Ativos
     if (p.status === "Ativo" && tbodyAtivos) {
       tbodyAtivos.innerHTML += `
             <tr>
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
                 <td>${p.arma}</td>
-                <td>${p.validade || "Indefinido"}</td> <td>
-                    <button class="btn-danger" onclick="revogar('${
-                      p.id
-                    }')" title="Revogar">
-                        <i class="fa-solid fa-ban"></i>
-                    </button>
-                </td>
+                <td>${p.validade || "Indefinido"}</td>
+                <td><button class="btn-danger" onclick="revogar('${
+                  p.id
+                }')"><i class="fa-solid fa-ban"></i></button></td>
             </tr>`;
     }
-    // --- TABELA DE JÁ REVOGADOS ---
+    // Tabela de Revogados (Geralmente não filtramos essa, ou filtramos se quiser)
     else if (p.status === "Revogado" && tbodyRevogados) {
       tbodyRevogados.innerHTML += `
-            <tr style="opacity:0.7">
+            <tr style="opacity: 0.7;">
                 <td>${p.nome}</td>
                 <td>${p.id}</td>
-                <td>Hoje</td>
-                <td><span class="badge revogado">REVOGADO</span></td>
+                <td>${
+                  p.expedicao || "Hoje"
+                }</td> <td><span class="badge revogado">REVOGADO</span></td>
             </tr>`;
     }
   });
 
+  // Atualiza os contadores (baseado na lista total, não na filtrada)
   atualizarStats();
 };
 
@@ -511,13 +530,29 @@ window.logout = () => {
   localStorage.removeItem("pc_session");
   window.location.href = "login.html";
 };
-window.navegar = (t) => {
+window.navegar = function (tela) {
+  // 1. Esconde todas as telas
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.add("hidden"));
-  const sec = document.getElementById(`sec-${t}`);
-  if (sec) sec.classList.remove("hidden");
-  if (t === "emissao") configurarDatasAutomaticas();
+
+  // 2. Remove o amarelo de TODOS os botões
+  document
+    .querySelectorAll(".nav-links li")
+    .forEach((l) => l.classList.remove("active"));
+
+  // 3. Mostra a tela certa
+  const section = document.getElementById(`sec-${tela}`);
+  if (section) section.classList.remove("hidden");
+
+  // 4. Adiciona o amarelo no botão certo (Usando o ID que criamos)
+  const menuBtn = document.getElementById(`menu-${tela}`);
+  if (menuBtn) {
+    menuBtn.classList.add("active");
+  }
+
+  // Ajustes extras
+  if (tela === "emissao") configurarDatasAutomaticas();
 };
 
 window.mostrarAlerta = (t, m, type) => {
