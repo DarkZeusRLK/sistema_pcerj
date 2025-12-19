@@ -355,69 +355,23 @@ window.renderTables = function () {
 // 🚫 FUNÇÃO DE REVOGAR (PADRÃO "SEGUNDO PRINT")
 // ==========================================
 window.revogar = async function (id) {
-  // 1. Encontra os dados do cidadão
   const p = dbPortes.find((x) => x.id === id);
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  if (!p) return alert("Erro: Registro não encontrado.");
+  // SUBSTITUINDO O CONFIRM NATIVO:
+  const confirmou = await confirmarAcao(
+    "Revogar Porte?",
+    `Tem certeza que deseja REVOGAR o porte de ${p.nome}? Isso enviará um alerta no Discord.`
+  );
 
-  if (
-    confirm(`⚠️ ATENÇÃO: Tem certeza que deseja REVOGAR o porte de ${p.nome}?`)
-  ) {
-    // 2. Pega a sessão para mencionar o Oficial (Igual na Emissão)
-    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  if (confirmou) {
+    // ... (código de preparação do embed igual antes) ...
 
-    // Cria a menção <@ID>
-    const mencaoOficial = sessao.id
-      ? `<@${sessao.id}>`
-      : `**${sessao.username || "Oficial"}**`;
-    const oficialAvatar = sessao.avatar
-      ? `https://cdn.discordapp.com/avatars/${sessao.id}/${sessao.avatar}.png`
-      : "";
+    // SUBSTITUINDO O ALERT DE "PROCESSANDO":
+    // Não usamos await aqui para ele não travar, ou podemos criar um "loading" simples.
+    // Por enquanto, vamos pular o alert de processando ou usar um console.log
+    console.log("Enviando...");
 
-    // 3. Configura o Embed (Igual ao de Emissão, mas Vermelho)
-    const embedRevogacao = {
-      title: `🚫 PORTE REVOGADO: ${p.arma}`,
-
-      // AQUI ESTÁ A FRASE QUE VOCÊ PEDIU:
-      description: `Revogado por ${mencaoOficial} oficial da Polícia Civil.`,
-
-      color: 15548997, // Vermelho
-      fields: [
-        // Mantendo a mesma organização visual da Emissão
-        {
-          name: "👤 Cidadão",
-          value: `**${p.nome.toUpperCase()}**`,
-          inline: true,
-        },
-        { name: "🆔 Passaporte", value: `\`${p.id}\``, inline: true },
-        { name: "🪪 RG", value: p.rg || "N/A", inline: true },
-
-        {
-          name: "📅 Data Revogação",
-          value: `\`${new Date().toLocaleDateString("pt-BR")}\``,
-          inline: true,
-        },
-        { name: "🔫 Armamento", value: p.arma, inline: true },
-      ],
-      footer: {
-        text: `Sistema de Segurança Pública • Polícia Civil`,
-        icon_url: oficialAvatar,
-      },
-      timestamp: new Date().toISOString(),
-    };
-
-    // 4. Arquivo de Log (Necessário para a API não travar)
-    const blob = new Blob(
-      [
-        `LOG DE REVOGAÇÃO\nOficial: ${sessao.username}\nCidadão: ${p.nome}\nID: ${p.id}`,
-      ],
-      { type: "text/plain" }
-    );
-    const nomeArquivoLog = `revogacao_${id}.txt`;
-
-    alert("Processando revogação...");
-
-    // 5. Envia para o Discord
     const sucesso = await enviarParaAPI(
       blob,
       nomeArquivoLog,
@@ -429,10 +383,87 @@ window.revogar = async function (id) {
       p.status = "Revogado";
       renderTables();
       atualizarStats();
-      alert("✅ Porte revogado com sucesso!");
+      // SUBSTITUINDO O ALERT FINAL:
+      mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
+    } else {
+      mostrarAlerta("Erro", "Falha ao comunicar com o servidor.", "error");
     }
   }
 };
 window.processarLimpeza = function () {
   alert("Função de limpeza (Implementar igual ao porte).");
 };
+// ==========================================
+// 🔔 SISTEMA DE ALERTAS CUSTOMIZADOS
+// ==========================================
+
+// 1. Alerta Simples (Substitui o alert)
+function mostrarAlerta(titulo, mensagem, tipo = "success") {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    const iconBox = document.getElementById("modal-icon");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+
+    // Configura Ícone e Cor
+    iconBox.className = "fa-solid"; // Reseta
+    document.getElementById("modal-icon-box").className = "modal-icon " + tipo;
+
+    if (tipo === "success") iconBox.classList.add("fa-circle-check");
+    else if (tipo === "error") iconBox.classList.add("fa-circle-xmark");
+    else if (tipo === "warning")
+      iconBox.classList.add("fa-triangle-exclamation");
+
+    // Textos
+    document.getElementById("modal-title").innerText = titulo;
+    document.getElementById("modal-desc").innerText = mensagem;
+
+    // Botões
+    btnCancel.classList.add("hidden"); // Esconde cancelar
+    btnConfirm.innerText = "OK";
+
+    // Mostrar
+    modal.classList.remove("hidden");
+
+    // Ação ao fechar
+    btnConfirm.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true);
+    };
+  });
+}
+
+// 2. Confirmação (Substitui o confirm)
+function confirmarAcao(titulo, mensagem) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    const iconBox = document.getElementById("modal-icon");
+    const btnCancel = document.getElementById("btn-modal-cancel");
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+
+    // Configura visual de Perigo/Warning
+    iconBox.className = "fa-solid fa-circle-question";
+    document.getElementById("modal-icon-box").className = "modal-icon warning";
+
+    document.getElementById("modal-title").innerText = titulo;
+    document.getElementById("modal-desc").innerText = mensagem;
+
+    // Botões
+    btnCancel.classList.remove("hidden"); // Mostra cancelar
+    btnConfirm.innerText = "Confirmar";
+
+    // Mostrar
+    modal.classList.remove("hidden");
+
+    // Lógica de Resposta
+    btnConfirm.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true); // Clicou em SIM
+    };
+
+    btnCancel.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(false); // Clicou em NÃO
+    };
+  });
+}
