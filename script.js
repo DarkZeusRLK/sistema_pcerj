@@ -375,6 +375,7 @@ window.processarLimpeza = async function () {
           value: `**${nome.toUpperCase()}**`,
           inline: true,
         },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
         { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
         {
@@ -698,7 +699,7 @@ window.revogar = async function (idPassaporte) {
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Oficial", value: mencao, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true },
       ],
       image: { url: `attachment://${nomeArq}` },
     };
