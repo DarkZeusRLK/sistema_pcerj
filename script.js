@@ -692,8 +692,7 @@ window.revogar = async function (idPassaporte) {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
     const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
-    // Exemplo de como deve estar o objeto embed dentro da função revogar()
-    const embedRevog = {
+    const embed = {
       title: "PORTE REVOGADO", // A API vai ler isso
       color: 15158332, // Vermelho
       fields: [
