@@ -60,7 +60,6 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // Detecção de Oficial (Expandida para incluir POLICIAL)
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
           /OFICIAL|RESPONSAVEL|POLICIAL|REVOGADO POR|RENOVADO POR/i.test(
@@ -86,7 +85,6 @@ module.exports = async (req, res) => {
           statsPorID[oficialId].emissao++;
         } else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
-          // Preservação de Meta
           const campoOrig = embed.fields?.find((f) =>
             /EMISSOR ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
           );
@@ -105,7 +103,7 @@ module.exports = async (req, res) => {
             }
           }
         }
-        // 🛡️ CORREÇÃO LIMPEZA: Pegando variações de títulos
+        // 👇 DETECÇÃO AMPLIADA PARA LIMPEZA 👇
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||

@@ -668,14 +668,26 @@ window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  // Usando seu modal padrão de confirmação
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas do emissor original.`,
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
     "danger"
   );
 
   if (!confirmou) return;
+
+  // --- ALERTA DE PROCESSAMENTO (NATIVO) ---
+  const modal = document.getElementById("custom-modal");
+  const modalTitle = document.getElementById("modal-title");
+  const modalDesc = document.getElementById("modal-desc");
+  const modalFooter = document.getElementById("modal-footer");
+  const modalIcon = document.getElementById("modal-icon");
+
+  modalTitle.innerText = "Revogando Porte...";
+  modalDesc.innerText = "Por favor, aguarde enquanto o documento é revogado...";
+  modalIcon.className = "fa-solid fa-spinner fa-spin"; // Ícone de carregamento
+  modalFooter.style.display = "none"; // Esconde os botões para não fechar
+  modal.classList.remove("hidden");
 
   try {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -702,7 +714,6 @@ window.revogar = async function (idPassaporte) {
     };
 
     const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Revogado por: ${mencaoOficial}`;
-
     const sucessoLog = await enviarParaAPI(
       blob,
       nomeArquivo,
@@ -726,11 +737,13 @@ window.revogar = async function (idPassaporte) {
       renderTables();
       atualizarStats();
 
-      // Alerta padrão do seu sistema
+      // Volta os botões e mostra sucesso
+      modalFooter.style.display = "flex";
       mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
+    modalFooter.style.display = "flex";
     mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
