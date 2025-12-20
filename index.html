@@ -310,26 +310,46 @@
           </table>
         </div>
       </section>
-      <section id="sec-relatorios" class="screen hidden">
-        <div class="header-top">
-          <h2>Relatório Semanal de Produtividade</h2>
-          <button class="btn-primary" onclick="gerarRelatorio()">
-            <i class="fa-solid fa-sync"></i> Atualizar Dados
-          </button>
+      <section id="view-relatorios" class="view-section hidden">
+        <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 15px;">
+          <h2><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h2>
+
+          <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+
+            <div style="display: flex; flex-direction: column;">
+              <label style="font-size: 12px; color: #ccc;">Data Início:</label>
+              <input type="date" id="rel-inicio" style="padding: 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+            </div>
+
+            <div style="display: flex; flex-direction: column;">
+              <label style="font-size: 12px; color: #ccc;">Data Fim:</label>
+              <input type="date" id="rel-fim" style="padding: 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+            </div>
+
+            <button id="btn-atualizar-relatorio" class="btn-primary" style="height: 38px; margin-top: 16px;">
+              <i class="fa-solid fa-filter"></i> Filtrar
+            </button>
+
+          </div>
         </div>
 
-        <div class="table-container">
-          <table id="tabela-relatorio">
+        <div class="panel-body">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>Oficial</th>
-                <th>Emissões</th>
-                <th>Revogações</th>
-                <th>Limpezas</th>
-                <th>Renovações</th>
+                <th>Portes</th>
+                <th>Renov.</th>
+                <th>Limp.</th>
+                <th>Revog.</th>
+                <th>TOTAL</th>
+                <th>Status da Meta</th>
               </tr>
             </thead>
             <tbody id="corpo-relatorio">
+              <tr>
+                <td colspan="7" align="center">Selecione as datas e clique em Filtrar.</td>
+              </tr>
             </tbody>
           </table>
         </div>

@@ -1005,32 +1005,79 @@ async function verificarPermissaoRelatorio() {
   }
 }
 
+// ==========================================
+// 📊 RELATÓRIO PERSONALIZADO (COM DATAS E META)
+// ==========================================
 window.gerarRelatorioSemanal = async function () {
   const corpo = document.getElementById("corpo-relatorio");
-  const user = JSON.parse(localStorage.getItem("pc_session"));
+  const dataInicio = document.getElementById("rel-inicio").value;
+  const dataFim = document.getElementById("rel-fim").value;
+  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
+  // Validações
   if (!corpo) return;
-  mostrarAlerta("Aguarde", "Gerando relatório de produtividade...", "warning");
+  if (!dataInicio || !dataFim) {
+    return mostrarAlerta(
+      "Atenção",
+      "Por favor, selecione a Data Início e a Data Fim.",
+      "warning"
+    );
+  }
+
+  mostrarAlerta(
+    "Processando",
+    "Buscando registros no período selecionado...",
+    "warning"
+  );
+  corpo.innerHTML = `<tr><td colspan="7" align="center">Carregando dados...</td></tr>`;
 
   try {
     const res = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: user.roles }),
+      body: JSON.stringify({
+        roles: user.roles,
+        dataInicio: dataInicio, // Envia as datas para o backend
+        dataFim: dataFim,
+      }),
     });
 
     if (res.status === 403) throw new Error("Acesso Negado");
-    if (!res.ok) throw new Error("Erro na API");
+    if (!res.ok) throw new Error("Erro API");
 
     const dados = await res.json();
     corpo.innerHTML = "";
 
+    // Verifica se veio vazio
     if (Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="5" align="center" style="padding:15px">Sem dados registrados nos últimos 7 dias.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado neste período.</td></tr>`;
+      mostrarAlerta(
+        "Concluído",
+        "Busca finalizada (sem resultados).",
+        "success"
+      );
+      return;
     }
 
+    // Monta a tabela
     Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
+
+      // Cálculo da Meta
+      const total =
+        (d.emissao || 0) +
+        (d.renovacao || 0) +
+        (d.limpeza || 0) +
+        (d.revogacao || 0);
+      const metaBatida = total >= 15;
+
+      // Estilização do Status
+      const statusHtml = metaBatida
+        ? `<span class="badge-success" style="background:#04d361; color:black; padding:2px 8px; border-radius:4px; font-weight:bold">✅ META BATIDA</span>`
+        : `<span class="badge-warning" style="background:#f1c40f; color:black; padding:2px 8px; border-radius:4px;">⚠️ PENDENTE (${
+            15 - total
+          } restantes)</span>`;
+
       corpo.innerHTML += `
         <tr>
           <td><strong>${oficial}</strong></td>
@@ -1038,17 +1085,17 @@ window.gerarRelatorioSemanal = async function () {
           <td>${d.renovacao || 0}</td>
           <td>${d.limpeza || 0}</td>
           <td>${d.revogacao || 0}</td>
+          <td><strong>${total}</strong></td>
+          <td>${statusHtml}</td>
         </tr>`;
     });
-    mostrarAlerta("Sucesso", "Relatório atualizado.", "success");
-  } catch (e) {
-    if (e.message === "Acesso Negado")
-      mostrarAlerta(
-        "Erro",
-        "Você não tem permissão para ver relatórios.",
-        "error"
-      );
-    else mostrarAlerta("Erro", "Falha ao gerar relatório.", "error");
+
+    mostrarAlerta("Sucesso", "Relatório gerado com sucesso!", "success");
+  } catch (err) {
+    console.error(err);
+    if (err.message === "Acesso Negado")
+      mostrarAlerta("Erro", "Sem permissão de acesso.", "error");
+    else mostrarAlerta("Erro", "Falha ao buscar dados.", "error");
   }
 };
 // ==========================================
