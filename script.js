@@ -1,19 +1,23 @@
+/**
+ * SISTEMA DE GESTÃO - POLÍCIA CIVIL
+ * Versão: 3.0 (Completa - Restaurada)
+ */
+
 // ==========================================
-// ⚙️ CONFIGURAÇÕES E DADOS GLOBAIS
+// 1. CONFIGURAÇÕES E CONSTANTES
 // ==========================================
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
-  // Link direto para o brasão (necessário para o Discord conseguir carregar no footer)
   BRASAO_URL:
     "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png/120px-Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png",
 };
 
-// 👇 RODAPÉ PADRÃO PARA TODOS OS EMBEDS 👇
 const FOOTER_PADRAO = {
-  text: "Sistema Policial",
+  text: "Sistema Policial - Polícia Civil",
   icon_url: CONFIG.BRASAO_URL,
 };
 
+// Canvas: Porte
 const POSICOES = {
   nome: { x: 370, y: 250, max: 400 },
   id: { x: 754, y: 433 },
@@ -24,6 +28,7 @@ const POSICOES = {
   fonte: "bold 26px 'Arial'",
 };
 
+// Canvas: Limpeza
 const POSICOES_LIMPEZA = {
   nome: { x: 180, y: 380 },
   id: { x: 550, y: 380 },
@@ -33,125 +38,596 @@ const POSICOES_LIMPEZA = {
   fonte: "bold 30px 'Arial'",
 };
 
-// TABELA DE PREÇOS
+// Tabela de Preços
 const PRECOS = {
-  GLOCK: { arma: 400000, laudo: 250000, municao: 100000 },
-  MP5: { arma: 600000, laudo: 300000, municao: 100000 },
-  TASER: { arma: 700000, laudo: 300000, municao: 0 },
+  "Glock-18": { arma: 40000, laudo: 10000, municao: 5000 },
+  "Colt-45": { arma: 60000, laudo: 15000, municao: 7000 },
+  "Desert Eagle": { arma: 100000, laudo: 25000, municao: 12000 },
+  Fuzil: { arma: 250000, laudo: 50000, municao: 20000 },
+  Taser: { arma: 15000, laudo: 5000, municao: 0 },
 };
 
 let dbPortes = [];
 
 // ==========================================
-// 🚀 INICIALIZAÇÃO
+// 2. INICIALIZAÇÃO E EVENTOS
 // ==========================================
-document.addEventListener("DOMContentLoaded", async function () {
-  console.log("🚀 Sistema Iniciado");
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("Sistema Iniciado. Carregando módulos...");
 
-  try {
-    configurarBotoes();
-    ativarFormatacaoDinheiro();
-    atualizarValoresPorte();
-  } catch (e) {
-    console.error("Erro config:", e);
+  verificarSessao();
+  carregarPortesDoDiscord();
+  configurarDatasAutomaticas();
+  verificarPermissaoRelatorio(); // Nova função de segurança
+
+  // Event Listeners (Vínculo seguro)
+  const bind = (id, evento, callback) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(evento, callback);
+  };
+
+  // Botões Emissão
+  bind("btn-gerar-porte", "click", gerarPreviewPorte);
+  bind("btn-finalizar-emissao", "click", processarEmissao);
+
+  // Botões Limpeza
+  bind("btn-gerar-limpeza", "click", gerarPreviewLimpeza);
+  bind("btn-finalizar-limpeza", "click", processarLimpeza);
+
+  // Botão Relatório (Novo)
+  bind("btn-atualizar-relatorio", "click", gerarRelatorioSemanal);
+
+  // Inputs de Cálculo (Atualização em tempo real)
+  ["porte-arma", "check-municao", "check-desconto"].forEach((id) => {
+    bind(id, "change", atualizarValoresPorte);
+  });
+
+  // Input de Busca
+  bind("input-busca", "input", renderTables);
+
+  // Máscara de dinheiro na limpeza
+  const inputValorLimp = document.getElementById("input-valor-limpeza");
+  if (inputValorLimp) {
+    inputValorLimp.addEventListener("input", (e) => {
+      let value = e.target.value.replace(/\D/g, "");
+      value = (Number(value) / 100).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+      e.target.value = value;
+    });
   }
-
-  const hash = window.location.hash;
-  const isLoginPage = window.location.pathname.includes("login.html");
-  const sessao = localStorage.getItem("pc_session");
-
-  // 1. Retorno do Discord (Callback)
-  if (hash.includes("access_token")) {
-    const fragment = new URLSearchParams(hash.slice(1));
-    const accessToken = fragment.get("access_token");
-    const tokenType = fragment.get("token_type");
-    window.history.replaceState({}, document.title, window.location.pathname);
-    await validarLoginNaAPI(`${tokenType} ${accessToken}`);
-    return;
-  }
-
-  // 2. Verificação de Sessão
-  if (sessao) {
-    if (isLoginPage) {
-      window.location.href = "index.html";
-    } else {
-      document.body.style.display = "block";
-      try {
-        const user = JSON.parse(sessao);
-        iniciarSistema(user);
-        await carregarPortesDoDiscord();
-      } catch (err) {
-        console.error("Sessão inválida:", err);
-        localStorage.removeItem("pc_session");
-        window.location.href = "login.html";
-      }
-    }
-  } else {
-    if (!isLoginPage) {
-      window.location.href = "login.html";
-    } else {
-      document.body.style.display = "flex";
-    }
-  }
-
-  if (!isLoginPage) configurarDatasAutomaticas();
 });
+
 // ==========================================
-// 🔐 SEGURANÇA E ACESSO
+// 3. SEGURANÇA E SESSÃO
 // ==========================================
 function verificarSessao() {
-  const user = JSON.parse(localStorage.getItem("pc_session"));
-  if (!user) {
-    window.location.href = "login.html";
+  const sessao = localStorage.getItem("pc_session");
+  const isLogin = window.location.pathname.includes("login.html");
+
+  if (!sessao) {
+    if (!isLogin) window.location.href = "login.html";
     return;
   }
-  const avatar = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-    : "https://cdn.discordapp.com/embed/avatars/0.png";
 
-  const perfil = document.getElementById("user-profile-info");
-  if (perfil) {
-    perfil.innerHTML = `
-      <div class="avatar-circle"><img src="${avatar}" style="width:100%"></div>
+  const user = JSON.parse(sessao);
+  const perfilDiv = document.getElementById("user-profile-info");
+
+  if (perfilDiv) {
+    const avatar = user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+      : "https://cdn.discordapp.com/embed/avatars/0.png";
+
+    perfilDiv.innerHTML = `
+      <div class="avatar-circle"><img src="${avatar}"></div>
       <div class="user-info"><p>${user.username}</p><small>● Online</small></div>
-      <button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto;cursor:pointer">
-        <i class="fa-solid fa-right-from-bracket"></i>
-      </button>`;
+      <button onclick="logout()" class="btn-logout" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>`;
   }
 }
 
 async function verificarPermissaoRelatorio() {
-  const user = JSON.parse(localStorage.getItem("pc_session"));
-  if (!user || !user.roles) return;
+  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  if (!user.roles) return;
 
   try {
+    // Verifica no Backend se o cargo é Admin/Coordenador
     const res = await fetch("/api/verificar-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roles: user.roles }),
     });
     const data = await res.json();
+
     if (data.isAdmin) {
-      document.getElementById("menu-relatorios")?.classList.remove("hidden");
+      const menu = document.getElementById("menu-relatorios");
+      if (menu) menu.classList.remove("hidden");
     }
   } catch (e) {
-    console.error("Erro na validação de administrador.");
+    console.error("Erro auth admin:", e);
   }
 }
 
+window.logout = () => {
+  localStorage.removeItem("pc_session");
+  window.location.href = "login.html";
+};
+
 // ==========================================
-// 📊 SISTEMA DE RELATÓRIOS (METAS)
+// 4. GESTÃO DE DADOS (Listagem e Tabelas)
+// ==========================================
+async function carregarPortesDoDiscord() {
+  try {
+    const res = await fetch("/api/listar");
+    if (!res.ok) throw new Error("Erro API");
+
+    const dados = await res.json();
+    // Garante compatibilidade de ID
+    dbPortes = dados.map((p) => ({
+      ...p,
+      message_id: p.message_id || p.id_mensagem || p.msg_id,
+    }));
+
+    renderTables();
+    atualizarStats();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function calcularDiasCorridos(dataExpedicaoStr) {
+  if (!dataExpedicaoStr) return 0;
+  const partes = dataExpedicaoStr.split("/");
+  // Data no formato PT-BR para objeto Date
+  const expedicao = new Date(partes[2], partes[1] - 1, partes[0]);
+  const hoje = new Date();
+
+  const diffTime = Math.abs(hoje - expedicao);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+function renderTables() {
+  const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
+  const tbodyRenovacao = document.getElementById("lista-renovacao"); // Se houver tabela separada
+  const filtro =
+    document.getElementById("input-busca")?.value.toLowerCase() || "";
+
+  if (tbodyAtivos) {
+    tbodyAtivos.innerHTML = "";
+
+    const lista = dbPortes.filter(
+      (p) =>
+        !filtro ||
+        p.nome.toLowerCase().includes(filtro) ||
+        p.id.includes(filtro)
+    );
+
+    lista.forEach((p) => {
+      const dias = calcularDiasCorridos(p.expedicao);
+      let statusHTML = p.validade;
+
+      // Lógica de Vencimento (Badges)
+      if (dias > 33) {
+        statusHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO</span>`;
+      } else if (dias >= 30) {
+        statusHTML = `<span class="badge-warning">VENCE HOJE/GRACE</span>`;
+      }
+
+      // Botão Renovar só aparece se estiver no prazo (30+ dias)
+      let btnRenovar = "";
+      if (dias >= 28) {
+        btnRenovar = `<button class="btn-primary-sm" onclick="renovarPorte('${p.id}')" title="Renovar"><i class="fa-solid fa-arrows-rotate"></i></button>`;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${p.nome}</strong></td>
+        <td>${p.id}</td>
+        <td>${p.arma}</td>
+        <td>${statusHTML}</td>
+        <td style="display:flex; gap:5px;">
+          ${btnRenovar}
+          <button class="btn-danger-sm" onclick="revogar('${p.id}')" title="Revogar"><i class="fa-solid fa-ban"></i></button>
+        </td>`;
+      tbodyAtivos.appendChild(tr);
+    });
+  }
+
+  // Histórico Local
+  const tbodyHist = document.getElementById("lista-ja-revogados");
+  if (tbodyHist) {
+    const hist = JSON.parse(
+      localStorage.getItem("historico_revogacoes") || "[]"
+    );
+    tbodyHist.innerHTML = hist
+      .slice()
+      .reverse()
+      .map(
+        (h) => `
+      <tr style="opacity:0.8">
+        <td>${h.nome}</td>
+        <td>${h.id}</td>
+        <td>${h.dataRevogacao}</td>
+        <td><span class="badge-revogado">REVOGADO POR ${
+          h.oficial || "Sistema"
+        }</span></td>
+      </tr>`
+      )
+      .join("");
+  }
+}
+
+function atualizarStats() {
+  const elA = document.getElementById("stat-ativos");
+  const elR = document.getElementById("stat-revogados");
+  if (elA) elA.innerText = dbPortes.length;
+  if (elR)
+    elR.innerText = JSON.parse(
+      localStorage.getItem("historico_revogacoes") || "[]"
+    ).length;
+}
+
+// ==========================================
+// 5. EMISSÃO (Lógica Completa)
+// ==========================================
+window.atualizarValoresPorte = () => {
+  const elArma = document.getElementById("porte-arma");
+  if (!elArma) return;
+
+  const arma = elArma.value;
+  const municao = document.getElementById("check-municao").checked;
+  const desconto = document.getElementById("check-desconto").checked;
+  const dados = PRECOS[arma];
+
+  if (arma === "Taser") {
+    document.getElementById("check-municao").checked = false;
+    document.getElementById("check-municao").disabled = true;
+  } else {
+    document.getElementById("check-municao").disabled = false;
+  }
+
+  const vArma = dados.arma;
+  const vLaudo = dados.laudo;
+  const vMunicao = arma !== "Taser" && municao ? dados.municao : 0;
+
+  const subtotal = vArma + vLaudo + vMunicao;
+  const valDesconto = desconto ? subtotal * 0.15 : 0;
+  const total = subtotal - valDesconto;
+
+  const container = document.getElementById("valores-container");
+  if (container) {
+    container.innerHTML = `
+      <div class="price-row"><span>Armamento (${arma})</span><span>R$ ${vArma.toLocaleString()}</span></div>
+      <div class="price-row"><span>Exame/Laudo</span><span>R$ ${vLaudo.toLocaleString()}</span></div>
+      ${
+        vMunicao > 0
+          ? `<div class="price-row"><span>Munição</span><span>R$ ${vMunicao.toLocaleString()}</span></div>`
+          : ""
+      }
+      ${
+        valDesconto > 0
+          ? `<div class="price-row discount"><span>Desconto Policial (15%)</span><span>- R$ ${valDesconto.toLocaleString()}</span></div>`
+          : ""
+      }
+    `;
+  }
+  document.getElementById(
+    "total-valor"
+  ).innerText = `R$ ${total.toLocaleString()}`;
+
+  const painel = document.getElementById("painel-valores");
+  painel.dataset.total = total;
+  painel.dataset.municao = municao ? "Sim" : "Não";
+};
+
+async function gerarPreviewPorte() {
+  const nome = document.getElementById("porte-nome").value;
+  const id = document.getElementById("porte-id").value;
+  const rg = document.getElementById("porte-rg").value;
+  const exp = document.getElementById("porte-expedicao").value;
+  const val = document.getElementById("porte-validade").value;
+
+  if (!nome || !id || !rg)
+    return mostrarAlerta(
+      "Dados Incompletos",
+      "Preencha Nome, ID e RG.",
+      "warning"
+    );
+
+  const canvas = document.getElementById("canvas-porte");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.src = "assets/modelo_porte.png";
+
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    ctx.font = POSICOES.fonte;
+    ctx.fillStyle = POSICOES.corTexto;
+
+    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
+    ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
+    ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
+    ctx.fillText(exp, POSICOES.expedicao.x, POSICOES.expedicao.y);
+    ctx.fillText(val, POSICOES.validade.x, POSICOES.validade.y);
+
+    document.getElementById("preview-porte-container").style.display = "block";
+    mostrarAlerta("Sucesso", "Prévia gerada. Confira os dados.", "success");
+  };
+  img.onerror = () =>
+    mostrarAlerta("Erro", "Imagem base não encontrada.", "error");
+}
+
+async function processarEmissao() {
+  const painel = document.getElementById("painel-valores");
+  if (!painel.dataset.total)
+    return mostrarAlerta(
+      "Erro",
+      "Gere a prévia para calcular valores.",
+      "warning"
+    );
+
+  const nome = document.getElementById("porte-nome").value;
+  const id = document.getElementById("porte-id").value;
+  const rg = document.getElementById("porte-rg").value;
+  const arma = document.getElementById("porte-arma").value;
+  const validade = document.getElementById("porte-validade").value;
+
+  mostrarAlerta("Processando", "Enviando registro...", "warning");
+
+  const canvas = document.getElementById("canvas-porte");
+  canvas.toBlob(async (blob) => {
+    const nomeArq = `porte_${id}.png`;
+    const sessao = JSON.parse(localStorage.getItem("pc_session"));
+    const mencao = sessao.id ? `<@${sessao.id}>` : `**${sessao.username}**`;
+
+    const embed = {
+      title: `📄 EMISSÃO DE PORTE: ${arma.toUpperCase()}`,
+      color: 3447003,
+      fields: [
+        { name: "👤 Cidadão", value: nome.toUpperCase(), inline: true },
+        { name: "🆔 ID", value: id, inline: true },
+        { name: "🪪 RG", value: rg, inline: true },
+        { name: "📅 Validade", value: validade, inline: true },
+        { name: "📦 Munição", value: painel.dataset.municao, inline: true },
+        {
+          name: "💰 Total",
+          value: `R$ ${parseInt(painel.dataset.total).toLocaleString()}`,
+          inline: true,
+        },
+        { name: "👮 Oficial", value: mencao, inline: false },
+      ],
+      image: { url: `attachment://${nomeArq}` },
+      footer: FOOTER_PADRAO,
+    };
+
+    const ok = await enviarParaAPI(
+      blob,
+      nomeArq,
+      "porte",
+      embed,
+      `✅ **Novo Porte Emitido:** ${nome}`
+    );
+    if (ok) {
+      await mostrarAlerta("Sucesso", "Porte emitido e meta salva!", "success");
+      location.reload();
+    }
+  });
+}
+
+// ==========================================
+// 6. LIMPEZA DE FICHA
+// ==========================================
+async function gerarPreviewLimpeza() {
+  const nome = document.getElementById("limpeza-nome").value;
+  const id = document.getElementById("limpeza-id").value;
+  const rg = document.getElementById("limpeza-rg").value;
+  const data = document.getElementById("limpeza-data").value;
+
+  if (!nome || !id)
+    return mostrarAlerta(
+      "Atenção",
+      "Preencha os campos obrigatórios.",
+      "warning"
+    );
+
+  const canvas = document.getElementById("canvas-limpeza");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.src = "assets/modelo_limpeza.png";
+
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0);
+    ctx.font = POSICOES_LIMPEZA.fonte;
+    ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
+    ctx.fillText(
+      nome.toUpperCase(),
+      POSICOES_LIMPEZA.nome.x,
+      POSICOES_LIMPEZA.nome.y
+    );
+    ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
+    ctx.fillText(rg, POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
+    ctx.fillText(data, POSICOES_LIMPEZA.data.x, POSICOES_LIMPEZA.data.y);
+    document.getElementById("preview-limpeza-container").style.display =
+      "block";
+  };
+}
+
+async function processarLimpeza() {
+  const nome = document.getElementById("limpeza-nome").value;
+  const id = document.getElementById("limpeza-id").value;
+
+  mostrarAlerta("Processando", "Registrando limpeza...", "warning");
+  const canvas = document.getElementById("canvas-limpeza");
+
+  canvas.toBlob(async (blob) => {
+    const nomeArq = `limpeza_${id}.png`;
+    const sessao = JSON.parse(localStorage.getItem("pc_session"));
+    const embed = {
+      title: "🧼 LIMPEZA DE FICHA",
+      description: "Antecedentes criminais removidos.",
+      color: 65280,
+      fields: [
+        { name: "👤 Cidadão", value: nome.toUpperCase(), inline: true },
+        { name: "🆔 ID", value: id, inline: true },
+        { name: "👮 Oficial", value: sessao.username, inline: true },
+      ],
+      image: { url: `attachment://${nomeArq}` },
+      footer: FOOTER_PADRAO,
+    };
+
+    const ok = await enviarParaAPI(
+      blob,
+      nomeArq,
+      "limpeza",
+      embed,
+      `🧼 **Limpeza:** ${nome}`
+    );
+    if (ok) {
+      await mostrarAlerta("Sucesso", "Limpeza registrada!", "success");
+      location.reload();
+    }
+  });
+}
+
+// ==========================================
+// 7. REVOGAÇÃO (DELETE MSG + LOG META)
+// ==========================================
+window.revogar = async function (idPassaporte) {
+  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
+  if (!p) return mostrarAlerta("Erro", "Porte não encontrado.", "error");
+
+  const ok = await confirmarAcao(
+    "REVOGAR?",
+    `Revogar porte de ${p.nome}? O registo visual será apagado, mas a meta mantida.`,
+    "danger"
+  );
+  if (!ok) return;
+
+  mostrarAlerta("Aguarde", "Atualizando sistema...", "warning");
+
+  try {
+    const sessao = JSON.parse(localStorage.getItem("pc_session"));
+    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
+
+    // 1. LOG DE REVOGAÇÃO (Salva a meta)
+    const embedRevog = {
+      title: "🚫 PORTE REVOGADO",
+      color: 15548997,
+      fields: [
+        { name: "👤 Cidadão", value: p.nome, inline: true },
+        { name: "🆔 ID", value: p.id, inline: true },
+        { name: "👮 Revogado por", value: mencao, inline: true },
+      ],
+      footer: FOOTER_PADRAO,
+      timestamp: new Date().toISOString(),
+    };
+
+    await fetch("/api/enviar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "revogacao",
+        embed: embedRevog,
+        content: `🚨 **Revogação:** ${p.nome} (ID: ${p.id})`,
+      }),
+    });
+
+    // 2. DELETE DA MENSAGEM ORIGINAL (Limpeza Visual)
+    if (p.message_id) {
+      await fetch("/api/deletar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: p.message_id }),
+      });
+    }
+
+    // 3. HISTÓRICO LOCAL
+    const hist = JSON.parse(
+      localStorage.getItem("historico_revogacoes") || "[]"
+    );
+    hist.push({
+      nome: p.nome,
+      id: p.id,
+      dataRevogacao: new Date().toLocaleString(),
+      oficial: sessao.username,
+    });
+    localStorage.setItem("historico_revogacoes", JSON.stringify(hist));
+
+    // 4. ATUALIZAR UI
+    dbPortes = dbPortes.filter(
+      (item) => String(item.id) !== String(idPassaporte)
+    );
+    renderTables();
+    atualizarStats();
+    mostrarAlerta("Sucesso", "Porte revogado!", "success");
+  } catch (err) {
+    mostrarAlerta("Erro", "Falha na comunicação.", "error");
+  }
+};
+
+// ==========================================
+// 8. RENOVAÇÃO DE PORTE (Restaurada)
+// ==========================================
+window.renovarPorte = async function (idPassaporte) {
+  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
+  if (!p) return;
+
+  if (
+    !(await confirmarAcao(
+      "RENOVAR?",
+      `Renovar o porte de ${p.nome} por +30 dias?`
+    ))
+  )
+    return;
+
+  mostrarAlerta("Processando", "Registrando renovação...", "warning");
+
+  const sessao = JSON.parse(localStorage.getItem("pc_session"));
+  const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
+
+  // Data Nova (+30 dias)
+  const novaData = new Date();
+  novaData.setDate(novaData.getDate() + 30);
+  const dataStr = novaData.toLocaleDateString("pt-BR");
+
+  const embed = {
+    title: "🔄 RENOVAÇÃO DE PORTE",
+    description: "O porte foi estendido dentro do prazo legal.",
+    color: 16776960, // Amarelo
+    fields: [
+      { name: "👤 Cidadão", value: p.nome, inline: true },
+      { name: "🆔 ID", value: p.id, inline: true },
+      { name: "📅 Nova Validade", value: dataStr, inline: true },
+      { name: "👮 Oficial", value: mencao, inline: false },
+    ],
+    footer: FOOTER_PADRAO,
+  };
+
+  const ok = await enviarParaAPI(
+    null,
+    null,
+    "porte",
+    embed,
+    `🔄 **Renovação:** ${p.nome}`
+  );
+  if (ok) {
+    mostrarAlerta("Sucesso", "Renovação registrada na meta!", "success");
+    // Aqui idealmente você deletaria o antigo e emitiria um novo se quiser atualizar a imagem,
+    // mas apenas logar a renovação já conta para a meta.
+  }
+};
+
+// ==========================================
+// 9. RELATÓRIOS (METAS)
 // ==========================================
 window.gerarRelatorioSemanal = async function () {
   const corpo = document.getElementById("corpo-relatorio");
   const user = JSON.parse(localStorage.getItem("pc_session"));
 
   if (!corpo) return;
-  mostrarAlerta(
-    "Processando",
-    "A recolher dados de produtividade dos últimos 7 dias...",
-    "warning"
-  );
+  mostrarAlerta("Aguarde", "Gerando relatório de produtividade...", "warning");
 
   try {
     const res = await fetch("/api/relatorio", {
@@ -160,10 +636,15 @@ window.gerarRelatorioSemanal = async function () {
       body: JSON.stringify({ roles: user.roles }),
     });
 
-    if (!res.ok) throw new Error("Sem permissão");
+    if (res.status === 403) throw new Error("Acesso Negado");
+    if (!res.ok) throw new Error("Erro API");
 
     const dados = await res.json();
     corpo.innerHTML = "";
+
+    if (Object.keys(dados).length === 0) {
+      corpo.innerHTML = `<tr><td colspan="5" align="center">Sem dados recentes.</td></tr>`;
+    }
 
     Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
@@ -176,781 +657,33 @@ window.gerarRelatorioSemanal = async function () {
           <td>${d.revogacao || 0}</td>
         </tr>`;
     });
-    mostrarAlerta("Sucesso", "Relatório de metas atualizado!", "success");
-  } catch (err) {
-    mostrarAlerta(
-      "Acesso Negado",
-      "Apenas coordenadores podem gerar relatórios.",
-      "error"
-    );
-  }
-};
-// ==========================================
-// 📅 UTILITÁRIOS DE DATA
-// ==========================================
-function parseData(dataStr) {
-  if (!dataStr) return new Date();
-  const partes = dataStr.split("/");
-  return new Date(partes[2], partes[1] - 1, partes[0]);
-}
-
-function calcularDiasCorridos(dataExpedicaoStr) {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-
-  const expedicao = parseData(dataExpedicaoStr);
-  expedicao.setHours(0, 0, 0, 0);
-
-  const diffTime = Math.abs(hoje - expedicao);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-}
-
-// ==========================================
-// 💲 CÁLCULO DE VALORES (EMISSÃO)
-// ==========================================
-window.atualizarValoresPorte = function () {
-  const selectArma = document.getElementById("porte-arma");
-  const checkMunicao = document.getElementById("check-municao");
-  const checkDesconto = document.getElementById("check-desconto");
-  const painel = document.getElementById("painel-valores");
-
-  if (!selectArma || !painel) return;
-
-  painel.classList.remove("hidden");
-  const armaSelecionada = selectArma.value;
-  const regras = PRECOS[armaSelecionada];
-
-  if (armaSelecionada === "TASER") {
-    checkMunicao.checked = false;
-    checkMunicao.disabled = true;
-  } else {
-    checkMunicao.disabled = false;
-  }
-
-  const valorArma = regras.arma;
-  const valorLaudo = regras.laudo;
-  const valorMunicao =
-    checkMunicao.checked && armaSelecionada !== "TASER" ? regras.municao : 0;
-
-  const subtotal = valorArma + valorLaudo + valorMunicao;
-
-  let valorDesconto = 0;
-  if (checkDesconto && checkDesconto.checked) {
-    valorDesconto = subtotal * 0.15;
-  }
-
-  const totalFinal = subtotal - valorDesconto;
-  const fmt = (v) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  document.getElementById("val-arma").innerText = fmt(valorArma);
-  document.getElementById("val-laudo").innerText = fmt(valorLaudo);
-  document.getElementById("val-municao").innerText = fmt(valorMunicao);
-
-  const rowDesconto = document.getElementById("row-desconto");
-  const elDesconto = document.getElementById("val-desconto");
-
-  if (valorDesconto > 0) {
-    rowDesconto.style.display = "flex";
-    elDesconto.innerText = "- " + fmt(valorDesconto);
-  } else {
-    rowDesconto.style.display = "none";
-  }
-
-  document.getElementById("val-total").innerText = fmt(totalFinal);
-
-  painel.dataset.total = totalFinal;
-  painel.dataset.desconto = valorDesconto;
-  painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
-  painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
-};
-
-// ==========================================
-// 🔘 BOTÕES E EVENTOS
-// ==========================================
-function configurarBotoes() {
-  const btnPreview = document.getElementById("btn-gerar-previa");
-  if (btnPreview) {
-    const novoBtn = btnPreview.cloneNode(true);
-    btnPreview.parentNode.replaceChild(novoBtn, btnPreview);
-    novoBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.gerarPreviewPorte();
-    });
-  }
-
-  const btnEmitir = document.getElementById("btn-emitir-final");
-  if (btnEmitir) {
-    const novoBtnEmitir = btnEmitir.cloneNode(true);
-    btnEmitir.parentNode.replaceChild(novoBtnEmitir, btnEmitir);
-    novoBtnEmitir.addEventListener("click", async () => {
-      await processarEmissao();
-    });
-  }
-}
-
-function ativarFormatacaoDinheiro() {
-  const inputValor = document.getElementById("input-valor-limpeza");
-  if (inputValor) {
-    inputValor.addEventListener("input", function (e) {
-      let value = e.target.value.replace(/\D/g, "");
-      value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      e.target.value = value;
-    });
-  }
-}
-
-// ==========================================
-// 📨 LÓGICA DE EMISSÃO
-// ==========================================
-async function processarEmissao() {
-  const nome = document.getElementById("porte-nome").value;
-  const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value; // <--- O valor é pego aqui
-  const arma = document.getElementById("porte-arma").value;
-  const validade = document.getElementById("porte-validade").value;
-  const expedicao = document.getElementById("porte-expedicao").value;
-
-  const painel = document.getElementById("painel-valores");
-  const total = painel ? painel.dataset.total || "0" : "0";
-  const desconto = painel ? painel.dataset.desconto || "0" : "0";
-  const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
-  const ehPolicial = painel ? painel.dataset.ehPolicial || "Não" : "Não";
-
-  const regras = PRECOS[arma];
-  const fmt = (v) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
-
-  mostrarAlerta("Aguarde", "Gerando documento...", "warning");
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const mencaoOficial = sessao.id
-    ? `<@${sessao.id}>`
-    : `**${sessao.username || "Oficial"}**`;
-  const msg = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
-
-  const canvas = document.getElementById("canvas-porte");
-  canvas.toBlob(async (blob) => {
-    const nomeArquivo = `porte_${id}.png`;
-
-    let textoValores = `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
-      regras.laudo
-    )}\`\nMunição: \`${
-      temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
-    }\``;
-    if (ehPolicial === "Sim") {
-      textoValores += `\nDesconto Policial (15%): \`-${fmt(
-        parseFloat(desconto)
-      )}\``;
-    }
-    textoValores += `\n**TOTAL: \`${parseInt(total).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    })}\`**`;
-
-    const embedData = {
-      title: `📄 EMISSÃO DE PORTE: ${arma}`,
-      description: `Documento oficial registrado.`,
-      color: 3447003,
-      fields: [
-        {
-          name: "👤 Cidadão",
-          value: `**${nome.toUpperCase()}**`,
-          inline: true,
-        },
-        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-
-        // 👇 AQUI ESTAVA FALTANDO SALVAR O RG 👇
-        { name: "🪪 RG", value: `\`${rg || "N/A"}\``, inline: true },
-
-        { name: "👮 Oficial", value: mencaoOficial, inline: true },
-        { name: "🔫 Armamento", value: arma, inline: true },
-        { name: "📦 Munição", value: temMunicao, inline: true },
-        { name: "📅 Validade", value: `\`${validade}\``, inline: true },
-        { name: "💰 Valores", value: textoValores, inline: false },
-      ],
-      image: { url: `attachment://${nomeArquivo}` },
-      footer: FOOTER_PADRAO,
-    };
-
-    const sucesso = await enviarParaAPI(
-      blob,
-      nomeArquivo,
-      "porte",
-      embedData,
-      msg
-    );
-    if (sucesso) {
-      await mostrarAlerta("Sucesso", "Porte emitido!", "success");
-      // Atualiza lista local já com o RG para não precisar recarregar
-      dbPortes.push({
-        nome,
-        id,
-        rg,
-        arma,
-        validade,
-        expedicao,
-        status: "Ativo",
-      });
-      renderTables();
-      atualizarStats();
-      window.navegar("dashboard");
-      document.getElementById("preview-porte-container").style.display = "none";
-      document.getElementById("porte-nome").value = "";
-      document.getElementById("porte-id").value = "";
-      document.getElementById("porte-rg").value = ""; // Limpa RG também
-      document.getElementById("check-desconto").checked = false;
-      atualizarValoresPorte();
-    }
-  });
-}
-
-// ==========================================
-// 🧼 LÓGICA DE LIMPEZA
-// ==========================================
-window.processarLimpeza = async function () {
-  const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
-  const id = (document.getElementById("limpeza-id")?.value || "").trim();
-  const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
-  const valor = (
-    document.getElementById("input-valor-limpeza")?.value || "0"
-  ).trim();
-
-  if (!nome || !id)
-    return mostrarAlerta(
-      "Dados Incompletos",
-      "Preencha NOME e PASSAPORTE.",
-      "warning"
-    );
-
-  const confirmou = await confirmarAcao(
-    "Limpar Ficha?",
-    `Confirmar limpeza para ${nome} (R$ ${valor})?`
-  );
-  if (!confirmou) return;
-
-  mostrarAlerta("Processando", "Gerando comprovante...", "warning");
-
-  try {
-    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
-    const nomeArquivo = `limpeza_${id}.png`;
-
-    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const mencaoOficial = sessao.id
-      ? `<@${sessao.id}>`
-      : `**${sessao.username || "Oficial"}**`;
-
-    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
-
-    const embedLimpeza = {
-      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
-      description: `O registro criminal foi limpo mediante pagamento de taxa.`,
-      color: 65280,
-      fields: [
-        {
-          name: "👤 Cidadão",
-          value: `**${nome.toUpperCase()}**`,
-          inline: true,
-        },
-        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
-        {
-          name: "📅 Data",
-          value: new Date().toLocaleDateString("pt-BR"),
-          inline: true,
-        },
-      ],
-      image: { url: `attachment://${nomeArquivo}` },
-      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
-      timestamp: new Date().toISOString(),
-    };
-
-    const sucesso = await enviarParaAPI(
-      blobLimpeza,
-      nomeArquivo,
-      "limpeza",
-      embedLimpeza,
-      mensagemExterna
-    );
-
-    if (sucesso) {
-      mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
-      document.getElementById("limpeza-nome").value = "";
-      document.getElementById("limpeza-id").value = "";
-      document.getElementById("input-valor-limpeza").value = "";
-    }
-  } catch (erro) {
-    console.error(erro);
-    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
-  }
-};
-
-function gerarBlobLimpeza(nome, id, rg) {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.src = "assets/bg_limpeza.png";
-
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      ctx.font = POSICOES_LIMPEZA.fonte;
-      ctx.fillStyle = POSICOES_LIMPEZA.corTexto;
-      ctx.textAlign = "left";
-
-      ctx.fillText(
-        nome.toUpperCase(),
-        POSICOES_LIMPEZA.nome.x,
-        POSICOES_LIMPEZA.nome.y
-      );
-      ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
-      ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
-      ctx.fillText(
-        new Date().toLocaleDateString("pt-BR"),
-        POSICOES_LIMPEZA.data.x,
-        POSICOES_LIMPEZA.data.y
-      );
-
-      canvas.toBlob((blob) => resolve(blob), "image/png");
-    };
-    img.onerror = () =>
-      reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
-  });
-}
-
-// ==========================================
-// 👁️ PREVIEW (VISUAL)
-// ==========================================
-window.gerarPreviewPorte = function () {
-  const container = document.getElementById("preview-porte-container");
-  const canvas = document.getElementById("canvas-porte");
-  const imgPreview = document.getElementById("img-porte-final");
-
-  const nome = document.getElementById("porte-nome").value;
-  const id = document.getElementById("porte-id").value;
-  const arma = document.getElementById("porte-arma").value;
-  const rg = document.getElementById("porte-rg").value;
-  const expedicao = document.getElementById("porte-expedicao").value;
-  const validade = document.getElementById("porte-validade").value;
-
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte", "warning");
-
-  const ctx = canvas.getContext("2d");
-  const imgBase = new Image();
-
-  if (arma === "GLOCK") imgBase.src = "assets/porte_glock.png";
-  else if (arma === "MP5") imgBase.src = "assets/porte_mp5.png";
-  else imgBase.src = "assets/porte_taser.png";
-
-  imgBase.onload = () => {
-    canvas.width = imgBase.width;
-    canvas.height = imgBase.height;
-    ctx.drawImage(imgBase, 0, 0);
-    ctx.font = POSICOES.fonte;
-    ctx.fillStyle = POSICOES.corTexto;
-
-    ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
-    ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
-    ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
-    ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
-    ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
-
-    const dataUrl = canvas.toDataURL("image/png");
-    imgPreview.src = dataUrl;
-    imgPreview.style.display = "block";
-    container.classList.remove("hidden");
-    container.style.display = "block";
-
-    configurarBotoes();
-  };
-
-  imgBase.onerror = () =>
-    mostrarAlerta("Erro", "Imagem do porte não encontrada.", "error");
-};
-
-// ==========================================
-// ☁️ DADOS E TABELAS
-// ==========================================
-async function carregarPortesDoDiscord() {
-  try {
-    const res = await fetch("/api/listar");
-    if (!res.ok) throw new Error(`Erro API: ${res.status}`);
-    const dados = await res.json();
-    dbPortes = dados;
-    renderTables();
-    atualizarStats();
-  } catch (erro) {
-    console.error("Erro ao listar:", erro);
-  }
-}
-
-window.renderTables = function () {
-  const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
-  const tbodyRenovacao = document.getElementById("lista-renovacao");
-  const filtro = document.getElementById("input-busca")
-    ? document.getElementById("input-busca").value.toLowerCase()
-    : "";
-
-  if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
-  if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
-
-  dbPortes
-    .slice()
-    .reverse()
-    .forEach((porte, index) => {
-      if (porte.status === "Revogado") return;
-
-      if (
-        filtro &&
-        !porte.nome.toLowerCase().includes(filtro) &&
-        !porte.id.includes(filtro)
-      )
-        return;
-
-      const diasCorridos = calcularDiasCorridos(porte.expedicao);
-
-      // 1. RENOVAÇÃO (30 a 33 dias)
-      if (diasCorridos >= 30 && diasCorridos <= 33) {
-        if (tbodyRenovacao) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-                <td>${porte.nome}</td>
-                <td>${porte.id}</td>
-                <td>${porte.expedicao}</td>
-                <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
-                <td>
-                    <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
-                        <i class="fa-solid fa-arrows-rotate"></i> Renovar
-                    </button>
-                </td>
-            `;
-          tbodyRenovacao.appendChild(tr);
-        }
-      }
-
-      // 2. REVOGAÇÃO (Todos ativos)
-      if (tbodyRevogacao) {
-        const trRev = document.createElement("tr");
-        let validadeHTML = porte.validade || "N/A";
-
-        if (diasCorridos > 33) {
-          validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
-        } else if (diasCorridos >= 30) {
-          validadeHTML = `<span class="badge-warning" style="color:orange">Período de Graça</span>`;
-        }
-
-        trRev.innerHTML = `
-            <td>${porte.nome}</td>
-            <td>${porte.id}</td>
-            <td>${porte.arma}</td>
-            <td>${validadeHTML}</td>
-            <td>
-                <button class="btn-danger" onclick="revogar('${porte.id}')">
-                    <i class="fa-solid fa-ban"></i>
-                </button>
-            </td>
-        `;
-        tbodyRevogacao.appendChild(trRev);
-      }
-    });
-
-  renderRevogadosHistorico();
-  atualizarStats();
-};
-
-function renderRevogadosHistorico() {
-  const tbodyJaRevogados = document.getElementById("lista-ja-revogados");
-  if (!tbodyJaRevogados) return;
-  tbodyJaRevogados.innerHTML = "";
-
-  dbPortes
-    .filter((p) => p.status === "Revogado")
-    .forEach((p) => {
-      tbodyJaRevogados.innerHTML += `
-            <tr style="opacity:0.7">
-                <td>${p.nome}</td>
-                <td>${p.id}</td>
-                <td>${p.expedicao || "N/A"}</td>
-                <td><span class="badge revogado">REVOGADO</span></td>
-            </tr>`;
-    });
-}
-
-// ==========================================
-// 🔄 AÇÃO DE RENOVAR
-// ==========================================
-window.renovarPorte = async function (idPorte) {
-  const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
-  if (!porte) return;
-
-  if (
-    !(await confirmarAcao(
-      "Renovar?",
-      `Renovar porte de ${porte.nome} por +30 dias?`
-    ))
-  )
-    return;
-
-  mostrarAlerta("Processando", "Renovando porte...", "warning");
-
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const mencaoOficial = sessao.id
-    ? `<@${sessao.id}>`
-    : `**${sessao.username}**`;
-
-  const hoje = new Date();
-  const novaValidade = new Date();
-  novaValidade.setDate(hoje.getDate() + 30);
-  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
-
-  const embedData = {
-    title: `🔄 RENOVAÇÃO DE PORTE`,
-    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
-    color: 16776960, // Amarelo
-    fields: [
-      { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
-      { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
-      { name: "👮 Renovado por", value: mencaoOficial, inline: true },
-      { name: "🔫 Arma", value: porte.arma, inline: true },
-      {
-        name: "📅 Nova Validade",
-        value: `\`${novaValidadeStr}\``,
-        inline: true,
-      },
-    ],
-    footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
-  };
-
-  const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
-
-  const sucesso = await enviarParaAPI(
-    blob,
-    "renovacao_log.txt",
-    "revogacao",
-    embedData,
-    `🔄 **PORTE RENOVADO:** ${porte.id}`
-  );
-
-  if (sucesso) {
-    porte.validade = novaValidadeStr;
-    porte.expedicao = new Date().toLocaleDateString("pt-BR");
-    renderTables();
-    mostrarAlerta("Sucesso", "Porte renovado!", "success");
-  } else {
-    mostrarAlerta("Erro", "Falha ao registrar renovação.", "error");
-  }
-};
-
-// ==========================================
-// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
-// ==========================================
-window.revogar = async function (idPassaporte) {
-  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
-  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
-
-  const confirmou = await confirmarAcao(
-    "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord.`,
-    "danger"
-  );
-
-  if (!confirmou) return;
-
-  mostrarAlerta("Processando", "Registrando revogação...", "warning");
-
-  try {
-    // 1. Gera imagem e envia log para o Discord
-    const blob = await gerarBlobRevogacao(p);
-    const nomeArq = `revogacao_${idPassaporte}.png`;
-
-    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
-
-    const embed = {
-      title: `🚫 PORTE REVOGADO`,
-      color: 15548997,
-      fields: [
-        { name: "👤 Cidadão", value: p.nome, inline: true },
-        { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Oficial", value: mencao, inline: true },
-      ],
-      image: { url: `attachment://${nomeArq}` },
-    };
-
-    const enviou = await enviarParaAPI(
-      blob,
-      nomeArq,
-      "revogacao",
-      embed,
-      `🚨 **PORTE REVOGADO**`
-    );
-
-    if (enviou) {
-      // 2. Tenta deletar a mensagem original do Discord
-      if (p.message_id) {
-        await fetch("/api/deletar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message_id: p.message_id }),
-        });
-      }
-
-      // 3. SALVAR NO HISTÓRICO LOCAL (LocalStorage)
-      const historico = JSON.parse(
-        localStorage.getItem("historico_revogacoes") || "[]"
-      );
-
-      const novoRegistro = {
-        nome: p.nome,
-        id: p.id,
-        arma: p.arma,
-        dataRevogacao:
-          new Date().toLocaleDateString("pt-BR") +
-          " " +
-          new Date().toLocaleTimeString("pt-BR"),
-        oficial: sessao.username || "Sistema",
-      };
-
-      historico.push(novoRegistro);
-      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
-
-      // 4. Atualizar interface
-      mostrarAlerta(
-        "Sucesso",
-        "Porte revogado e salvo no histórico!",
-        "success"
-      );
-
-      // Remove do array local de ativos para sumir da tela atual
-      dbPortes = dbPortes.filter(
-        (item) => String(item.id) !== String(idPassaporte)
-      );
-
-      renderTables();
-      atualizarStats();
-    }
+    mostrarAlerta("Pronto", "Relatório atualizado.", "success");
   } catch (e) {
-    console.error(e);
-    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
+    if (e.message === "Acesso Negado")
+      mostrarAlerta("Erro", "Permissão insuficiente.", "error");
+    else mostrarAlerta("Erro", "Falha ao gerar relatório.", "error");
   }
 };
 
-function gerarBlobRevogacao(p) {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    let imgName = "revogado_glock.png";
-    if (p.arma && p.arma.includes("MP5")) imgName = "revogado_mp5.png";
-    if (p.arma && p.arma.includes("TASER")) imgName = "revogado_taser.png";
-
-    img.src = `assets/${imgName}`;
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      ctx.font = POSICOES.fonte;
-      ctx.fillStyle = POSICOES.corTexto;
-      ctx.fillText(p.nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
-      ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
-      // RG Corrigido na imagem
-      ctx.fillText(p.rg || "N/A", POSICOES.rg.x, POSICOES.rg.y);
-
-      const dataHoje = new Date().toLocaleDateString("pt-BR");
-      const dataExp =
-        p.expedicao && p.expedicao !== "N/A" ? p.expedicao : dataHoje;
-      const dataVal =
-        p.validade && p.validade !== "N/A" ? p.validade : "Indeterminado";
-
-      ctx.fillText(dataExp, POSICOES.expedicao.x, POSICOES.expedicao.y);
-      ctx.fillText(dataVal, POSICOES.validade.x, POSICOES.validade.y);
-      canvas.toBlob(resolve, "image/png");
-    };
-    img.onerror = reject;
-  });
-}
-
 // ==========================================
-// 🔌 COMUNICAÇÃO API
+// 10. UTILITÁRIOS (API, Navegação, Modais)
 // ==========================================
-async function enviarParaAPI(blob, filename, tipo, embed, content) {
-  const form = new FormData();
-  form.append("file", blob, filename);
-  form.append("payload_json", JSON.stringify({ content, embeds: [embed] }));
+async function enviarParaAPI(blob, fileName, type, embed, content) {
+  const formData = new FormData();
+  if (blob) formData.append("file", blob, fileName);
+  formData.append("type", type);
+  formData.append("embed", JSON.stringify(embed));
+  formData.append("content", content);
+
   try {
-    const res = await fetch(`/api/enviar?tipo=${tipo}`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return true;
+    const res = await fetch("/api/enviar", { method: "POST", body: formData });
+    return res.ok;
   } catch (e) {
-    console.error(e);
-    mostrarAlerta("Erro", "Falha API (Verifique permissões do Bot)", "error");
     return false;
   }
 }
 
-async function validarLoginNaAPI(token) {
-  try {
-    const res = await fetch("/api/auth", { headers: { Authorization: token } });
-    const data = await res.json();
-    if (res.ok && data.authorized) {
-      localStorage.setItem("pc_session", JSON.stringify({ ...data, token }));
-      window.location.href = "index.html";
-    } else window.location.href = "login.html?error=unauthorized";
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-// ==========================================
-// 🛠️ FUNÇÕES DE SISTEMA & MODAL (VISUAL ATUALIZADO)
-// ==========================================
-function atualizarStats() {
-  const elA = document.getElementById("counter-ativos");
-  const elR = document.getElementById("counter-revogados");
-  if (elA) elA.innerText = dbPortes.filter((p) => p.status === "Ativo").length;
-  if (elR)
-    elR.innerText = dbPortes.filter((p) => p.status === "Revogado").length;
-}
-
-function configurarDatasAutomaticas() {
-  const hoje = new Date();
-  const cExp = document.getElementById("porte-expedicao");
-  if (cExp) cExp.value = hoje.toLocaleDateString("pt-BR");
-  const cVal = document.getElementById("porte-validade");
-  if (cVal) {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    cVal.value = d.toLocaleDateString("pt-BR");
-  }
-  const dt = document.getElementById("data-atual");
-  if (dt) dt.innerText = hoje.toLocaleDateString("pt-BR");
-}
-
-function iniciarSistema(user) {
-  const div = document.querySelector(".user-profile");
-  if (div) {
-    const avatar = user.avatar
-      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-      : "assets/logo_pc.png";
-    div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
-  }
-}
-
-window.logout = () => {
-  localStorage.removeItem("pc_session");
-  window.location.href = "login.html";
-};
-
-window.navegar = (t) => {
+window.navegar = (tela) => {
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.add("hidden"));
@@ -958,99 +691,123 @@ window.navegar = (t) => {
     .querySelectorAll(".nav-links li")
     .forEach((l) => l.classList.remove("active"));
 
-  const sec = document.getElementById(`sec-${t}`);
-  if (sec) sec.classList.remove("hidden");
-
-  const menu = document.getElementById(`menu-${t}`);
+  const target = document.getElementById(`sec-${tela}`);
+  const menu = document.getElementById(`menu-${tela}`);
+  if (target) target.classList.remove("hidden");
   if (menu) menu.classList.add("active");
 
-  if (t === "emissao") configurarDatasAutomaticas();
+  if (tela === "emissao" || tela === "limpeza") configurarDatasAutomaticas();
 };
 
-// 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
-window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
+function configurarDatasAutomaticas() {
+  const hoje = new Date();
+  const val = new Date();
+  val.setDate(hoje.getDate() + 30);
+  const fmt = (d) => d.toLocaleDateString("pt-BR");
+
+  const inputs = {
+    "porte-expedicao": hoje,
+    "porte-validade": val,
+    "limpeza-data": hoje,
+  };
+
+  for (const [id, date] of Object.entries(inputs)) {
+    const el = document.getElementById(id);
+    if (el && !el.value) el.value = fmt(date);
+  }
+
+  const topo = document.getElementById("data-atual");
+  if (topo) topo.innerText = fmt(hoje);
+}
+
+// Modal Customizado
+window.confirmarAcao = (titulo, mensagem, tipo) => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-    // Se não achar o modal no HTML, usa o nativo por segurança
-    if (!modal) return resolve(confirm(`${titulo}\n${mensagem}`));
+    if (!modal) return resolve(confirm(mensagem));
 
-    const elTitulo = document.getElementById("modal-title");
-    const elDesc = document.getElementById("modal-desc");
-    const elIcon = document.getElementById("modal-icon");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-    const btnCancel = document.getElementById("btn-modal-cancel");
+    const elements = {
+      title: document.getElementById("modal-title"),
+      desc: document.getElementById("modal-desc"),
+      icon: document.getElementById("modal-icon"),
+      btnConfirm: document.getElementById("btn-modal-confirm"),
+      btnCancel: document.getElementById("btn-modal-cancel"),
+    };
 
-    elTitulo.innerText = titulo;
-    elDesc.innerText = mensagem;
+    elements.title.innerText = titulo;
+    elements.desc.innerText = mensagem;
+    elements.btnCancel.classList.remove("hidden");
 
     if (tipo === "danger") {
-      elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
-      btnConfirm.className = "btn-danger-modal";
-      btnConfirm.innerText = "Sim, Revogar";
+      elements.icon.className =
+        "fa-solid fa-triangle-exclamation modal-icon danger";
+      elements.btnConfirm.className = "btn-danger-modal";
+      elements.btnConfirm.innerText = "Sim, Confirmar";
     } else {
-      elIcon.className = "fa-solid fa-circle-question modal-icon";
-      elIcon.style.color = "#fff";
-      btnConfirm.className = "btn-primary";
-      btnConfirm.innerText = "Confirmar";
+      elements.icon.className = "fa-solid fa-circle-question modal-icon";
+      elements.btnConfirm.className = "btn-primary";
+      elements.btnConfirm.innerText = "Confirmar";
     }
 
     modal.classList.remove("hidden");
-    btnCancel.classList.remove("hidden");
 
-    // Clona botões para limpar eventos antigos
-    const novoConfirm = btnConfirm.cloneNode(true);
-    const novoCancel = btnCancel.cloneNode(true);
-    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
-    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
+    const clean = () => {
+      const nConf = elements.btnConfirm.cloneNode(true);
+      const nCanc = elements.btnCancel.cloneNode(true);
+      elements.btnConfirm.parentNode.replaceChild(nConf, elements.btnConfirm);
+      elements.btnCancel.parentNode.replaceChild(nCanc, elements.btnCancel);
+      return { nConf, nCanc };
+    };
 
-    novoConfirm.onclick = () => {
+    const { nConf, nCanc } = clean();
+
+    nConf.onclick = () => {
       modal.classList.add("hidden");
-      novoCancel.classList.add("hidden");
       resolve(true);
     };
-    novoCancel.onclick = () => {
+    nCanc.onclick = () => {
       modal.classList.add("hidden");
-      novoCancel.classList.add("hidden");
       resolve(false);
     };
   });
 };
 
-// Alerta Simples (Só OK)
 window.mostrarAlerta = (titulo, mensagem, type) => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
     if (!modal) {
-      alert(`${titulo}\n${mensagem}`);
+      alert(mensagem);
       return resolve(true);
     }
 
-    const elTitulo = document.getElementById("modal-title");
-    const elDesc = document.getElementById("modal-desc");
-    const elIcon = document.getElementById("modal-icon");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-    const btnCancel = document.getElementById("btn-modal-cancel");
+    const elements = {
+      title: document.getElementById("modal-title"),
+      desc: document.getElementById("modal-desc"),
+      icon: document.getElementById("modal-icon"),
+      btnConfirm: document.getElementById("btn-modal-confirm"),
+      btnCancel: document.getElementById("btn-modal-cancel"),
+    };
 
-    elTitulo.innerText = titulo;
-    elDesc.innerText = mensagem;
+    elements.title.innerText = titulo;
+    elements.desc.innerText = mensagem;
+    elements.btnCancel.classList.add("hidden");
+    elements.btnConfirm.className = "btn-primary";
+    elements.btnConfirm.innerText = "OK";
 
     if (type === "error")
-      elIcon.className = "fa-solid fa-circle-xmark modal-icon error";
+      elements.icon.className = "fa-solid fa-circle-xmark modal-icon error";
     else if (type === "warning")
-      elIcon.className = "fa-solid fa-circle-exclamation modal-icon warning";
-    else elIcon.className = "fa-solid fa-circle-check modal-icon success";
-    elIcon.style.color = "";
+      elements.icon.className =
+        "fa-solid fa-circle-exclamation modal-icon warning";
+    else
+      elements.icon.className = "fa-solid fa-circle-check modal-icon success";
 
-    btnCancel.classList.add("hidden");
-    btnConfirm.className = "btn-primary";
-    btnConfirm.innerText = "OK";
-
+    elements.icon.style.color = "";
     modal.classList.remove("hidden");
 
-    const novoBtn = btnConfirm.cloneNode(true);
-    btnConfirm.parentNode.replaceChild(novoBtn, btnConfirm);
-
-    novoBtn.onclick = () => {
+    const nConf = elements.btnConfirm.cloneNode(true);
+    elements.btnConfirm.parentNode.replaceChild(nConf, elements.btnConfirm);
+    nConf.onclick = () => {
       modal.classList.add("hidden");
       resolve(true);
     };
