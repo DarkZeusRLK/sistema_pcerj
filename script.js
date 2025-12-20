@@ -272,7 +272,7 @@ async function processarEmissao() {
     })}\`**`;
 
     const embedData = {
-      title: `📄 EMISSÃO DE PORTE: ${arma}`,
+      title: `PORTE EMITIDO: ${arma}`,
       description: `Documento oficial registrado.`,
       color: 3447003,
       fields: [
@@ -366,7 +366,7 @@ window.processarLimpeza = async function () {
     const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
+      title: "LIMPEZA DE FICHA",
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
@@ -630,7 +630,7 @@ window.renovarPorte = async function (idPorte) {
   const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
 
   const embedData = {
-    title: `🔄 RENOVAÇÃO DE PORTE`,
+    title: "RENOVACAO DE PORTE",
     description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
     color: 16776960, // Amarelo
     fields: [
@@ -693,7 +693,7 @@ window.revogar = async function (idPassaporte) {
     const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
     const embed = {
-      title: `🚫 PORTE REVOGADO`,
+      title: "PORTE REVOGADO", // Sem emoji
       color: 15548997,
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
