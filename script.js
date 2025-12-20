@@ -1011,99 +1011,111 @@ async function verificarPermissaoRelatorio() {
   }
 }
 
-// ==========================================
-// 📊 RELATÓRIO PERSONALIZADO (COM DATAS E META)
-// ==========================================
-window.gerarRelatorioSemanal = async function () {
-  const corpo = document.getElementById("corpo-relatorio");
-  const dataInicio = document.getElementById("rel-inicio").value;
-  const dataFim = document.getElementById("rel-fim").value;
-  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
+// ===============================================
+// 📊 LÓGICA DE RELATÓRIOS (Atualizada)
+// ===============================================
 
-  // Validações
-  if (!corpo) return;
-  if (!dataInicio || !dataFim) {
-    return mostrarAlerta(
-      "Atenção",
-      "Por favor, selecione a Data Início e a Data Fim.",
-      "warning"
-    );
+// 1. Função Principal de Geração
+window.gerarRelatorio = async function () {
+  const corpo = document.getElementById("corpo-relatorio");
+  const inicioInput = document.getElementById("rel-inicio");
+  const fimInput = document.getElementById("rel-fim");
+
+  // Validação
+  if (!inicioInput.value || !fimInput.value) {
+    alert("⚠️ Por favor, selecione a Data Inicial e a Data Final.");
+    return;
   }
 
-  mostrarAlerta(
-    "Processando",
-    "Buscando registros no período selecionado...",
-    "warning"
-  );
-  corpo.innerHTML = `<tr><td colspan="7" align="center">Carregando dados...</td></tr>`;
+  // Feedback visual (Loading)
+  corpo.innerHTML = `
+        <tr>
+            <td colspan="7" align="center" style="padding: 40px;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--gold-accent);"></i>
+                <p style="margin-top: 10px; color: #ccc;">Analisando registros do Discord...</p>
+            </td>
+        </tr>
+    `;
 
   try {
-    const res = await fetch("/api/relatorio", {
+    const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
+
+    // Chamada API
+    const response = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roles: user.roles,
-        dataInicio: dataInicio, // Envia as datas para o backend
-        dataFim: dataFim,
+        dataInicio: inicioInput.value,
+        dataFim: fimInput.value,
       }),
     });
 
-    if (res.status === 403) throw new Error("Acesso Negado");
-    if (!res.ok) throw new Error("Erro API");
+    if (!response.ok) throw new Error("Erro na comunicação com a API");
 
-    const dados = await res.json();
+    const dados = await response.json();
+
+    // Limpa tabela
     corpo.innerHTML = "";
 
     // Verifica se veio vazio
     if (Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado neste período.</td></tr>`;
-      mostrarAlerta(
-        "Concluído",
-        "Busca finalizada (sem resultados).",
-        "success"
-      );
+      corpo.innerHTML = `<tr><td colspan="7" align="center" style="padding: 30px;">Nenhum registro encontrado neste período.</td></tr>`;
       return;
     }
 
-    // Monta a tabela
+    // Preenche Tabela
     Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
-
-      // Cálculo da Meta
       const total =
         (d.emissao || 0) +
         (d.renovacao || 0) +
         (d.limpeza || 0) +
         (d.revogacao || 0);
-      const metaBatida = total >= 15;
+      const meta = 15;
+      const bateuMeta = total >= meta;
 
-      // Estilização do Status
-      const statusHtml = metaBatida
-        ? `<span class="badge-success" style="background:#04d361; color:black; padding:2px 8px; border-radius:4px; font-weight:bold">✅ META BATIDA</span>`
-        : `<span class="badge-warning" style="background:#f1c40f; color:black; padding:2px 8px; border-radius:4px;">⚠️ PENDENTE (${
-            15 - total
-          } restantes)</span>`;
+      // Define o HTML do Status
+      const statusHtml = bateuMeta
+        ? `<span class="meta-badge meta-success"><i class="fa-solid fa-check"></i> Meta Batida</span>`
+        : `<span class="meta-badge meta-warning"><i class="fa-solid fa-clock"></i> Falta ${
+            meta - total
+          }</span>`;
 
-      corpo.innerHTML += `
-        <tr>
-          <td><strong>${oficial}</strong></td>
-          <td>${d.emissao || 0}</td>
-          <td>${d.renovacao || 0}</td>
-          <td>${d.limpeza || 0}</td>
-          <td>${d.revogacao || 0}</td>
-          <td><strong>${total}</strong></td>
-          <td>${statusHtml}</td>
-        </tr>`;
+      // Linha da Tabela
+      const row = `
+                <tr>
+                    <td style="font-weight: bold; color: var(--text-primary);">${oficial}</td>
+                    <td align="center">${d.emissao || 0}</td>
+                    <td align="center">${d.renovacao || 0}</td>
+                    <td align="center">${d.limpeza || 0}</td>
+                    <td align="center">${d.revogacao || 0}</td>
+                    <td align="center" style="background: rgba(255,255,255,0.05); font-weight: bold; color: var(--gold-accent); font-size: 1.1em;">${total}</td>
+                    <td align="center">${statusHtml}</td>
+                </tr>
+            `;
+      corpo.innerHTML += row;
     });
-
-    mostrarAlerta("Sucesso", "Relatório gerado com sucesso!", "success");
-  } catch (err) {
-    console.error(err);
-    if (err.message === "Acesso Negado")
-      mostrarAlerta("Erro", "Sem permissão de acesso.", "error");
-    else mostrarAlerta("Erro", "Falha ao buscar dados.", "error");
+  } catch (error) {
+    console.error(error);
+    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color: #e52e4d; padding: 20px;">Erro ao carregar dados. Tente novamente.</td></tr>`;
   }
 };
+
+// 2. Event Listener (CORREÇÃO DO CLIQUE)
+// Adicione isto no final do seu arquivo ou dentro da função que inicia o app
+document.addEventListener("DOMContentLoaded", () => {
+  const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
+
+  if (btnFiltrar) {
+    // Remove listeners antigos para evitar duplicação e adiciona o novo
+    btnFiltrar.replaceWith(btnFiltrar.cloneNode(true));
+    document
+      .getElementById("btn-filtrar-relatorio")
+      .addEventListener("click", window.gerarRelatorio);
+    console.log("Botão de Relatório ativado com sucesso!");
+  }
+});
 // ==========================================
 // 🛡️ SISTEMA DE PERMISSÃO (RELATÓRIOS)
 // ==========================================

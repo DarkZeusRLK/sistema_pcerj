@@ -725,3 +725,79 @@ th {
 #menu-relatorios.visible {
   display: flex !important; /* Torna visível e alinhado */
 }
+/* =========================================
+   ESTILIZAÇÃO DA TELA DE RELATÓRIOS
+   ========================================= */
+
+/* Barra de Filtros (Container) */
+.filter-bar {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: flex-end; /* Alinha os inputs e o botão na base */
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Estilo específico para Inputs de Data no Dark Mode */
+input[type="date"] {
+  background-color: #121214; /* Fundo mais escuro */
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-family: "Roboto", sans-serif;
+  cursor: pointer;
+  height: 45px; /* Altura fixa para alinhar com o botão */
+}
+
+/* Ícone do calendário dentro do input (Chrome/Edge) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1); /* Deixa o ícone branco */
+  cursor: pointer;
+}
+
+/* Ajuste do Botão de Filtrar para alinhar altura */
+#btn-filtrar-relatorio {
+  height: 45px;
+  padding: 0 30px;
+  background-color: var(--gold-accent);
+  color: #121214;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  flex: inherit; /* Impede que estique demais */
+}
+
+#btn-filtrar-relatorio:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+/* Badge de Status da Meta na Tabela */
+.meta-badge {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  display: inline-block;
+  min-width: 120px;
+  text-align: center;
+}
+
+.meta-success {
+  background: rgba(4, 211, 97, 0.15);
+  color: #04d361;
+  border: 1px solid #04d361;
+}
+
+.meta-warning {
+  background: rgba(251, 169, 76, 0.15);
+  color: #fba94c;
+  border: 1px solid #fba94c;
+}

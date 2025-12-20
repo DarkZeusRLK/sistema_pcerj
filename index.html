@@ -313,52 +313,55 @@
           </table>
         </div>
       </section>
-      <<section id="sec-relatorios" class="screen hidden">
+      <section id="sec-relatorios" class="screen hidden">
+
         <div class="top-bar">
           <h1><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h1>
+          <span class="date-display">Gestão de Metas e Atividades</span>
         </div>
 
-        <div class="panel-body" style="background: var(--bg-panel); padding: 20px; border-radius: 8px; border: 1px solid var(--border-light);">
+        <div class="filter-bar">
 
-          <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap;">
-            <div class="input-group" style="margin-bottom: 0;">
-              <label>Data Início</label>
-              <input type="date" id="rel-inicio">
-            </div>
-            <div class="input-group" style="margin-bottom: 0;">
-              <label>Data Fim</label>
-              <input type="date" id="rel-fim">
-            </div>
-            <button id="btn-filtrar-relatorio" class="btn-primary" style="height: 48px; min-width: 150px;">
-              <i class="fa-solid fa-filter"></i> Filtrar
-            </button>
+          <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
+            <label for="rel-inicio"><i class="fa-regular fa-calendar"></i> Data Início</label>
+            <input type="date" id="rel-inicio">
           </div>
 
-          <div class="table-container" style="margin-top: 0;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Oficial</th>
-                  <th>Portes</th>
-                  <th>Renov.</th>
-                  <th>Limp.</th>
-                  <th>Revog.</th>
-                  <th style="background: rgba(255,255,255,0.05)">TOTAL</th>
-                  <th>Status (Meta: 15)</th>
-                </tr>
-              </thead>
-              <tbody id="corpo-relatorio">
-                <tr>
-                  <td colspan="7" align="center" style="padding: 30px; color: #aaa;">
-                    Selecione as datas acima e clique em "Filtrar".
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
+            <label for="rel-fim"><i class="fa-regular fa-calendar"></i> Data Fim</label>
+            <input type="date" id="rel-fim">
           </div>
 
+          <button id="btn-filtrar-relatorio">
+            <i class="fa-solid fa-filter"></i> Gerar Relatório
+          </button>
         </div>
-        </section>
+
+        <div class="table-container">
+          <h3><i class="fa-solid fa-list"></i> Resultados da Equipe</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Oficial</th>
+                <th style="text-align: center;">Portes</th>
+                <th style="text-align: center;">Renov.</th>
+                <th style="text-align: center;">Limp.</th>
+                <th style="text-align: center;">Revog.</th>
+                <th style="text-align: center; background: rgba(255,255,255,0.05); color: var(--gold-accent);">TOTAL</th>
+                <th style="text-align: center;">Status (Meta: 15)</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-relatorio">
+              <tr>
+                <td colspan="7" align="center" style="padding: 40px; color: var(--text-secondary);">
+                  <i class="fa-solid fa-arrow-up" style="font-size: 20px; margin-bottom: 10px;"></i><br>
+                  Selecione o período acima e clique em <strong>GERAR RELATÓRIO</strong>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 
