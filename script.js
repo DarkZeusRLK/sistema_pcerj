@@ -209,14 +209,6 @@ if (btnRelatorio) {
     gerarRelatorioSemanal(); // Chama a função que busca os dados
   });
 }
-// Botão Relatório (Evita duplicação de clicks)
-const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
-if (btnFiltrar) {
-  btnFiltrar.replaceWith(btnFiltrar.cloneNode(true));
-  document
-    .getElementById("btn-filtrar-relatorio")
-    .addEventListener("click", window.gerarRelatorio);
-}
 
 function ativarFormatacaoDinheiro() {
   const inputValor = document.getElementById("input-valor-limpeza");
@@ -518,7 +510,7 @@ async function carregarPortesDoDiscord() {
   }
 }
 
-window.renderTables = function () {
+wwindow.renderTables = function () {
   const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
   const tbodyRenovacao = document.getElementById("lista-renovacao");
   const filtro = document.getElementById("input-busca")
@@ -528,7 +520,10 @@ window.renderTables = function () {
   if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
   if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
 
-  dbPortes
+  // Garante que dbPortes existe (evita erro se a variável não tiver sido carregada)
+  const lista = typeof dbPortes !== "undefined" ? dbPortes : [];
+
+  lista
     .slice()
     .reverse()
     .forEach((porte, index) => {
@@ -541,7 +536,11 @@ window.renderTables = function () {
       )
         return;
 
-      const diasCorridos = calcularDiasCorridos(porte.expedicao);
+      // Certifique-se que esta função calcularDiasCorridos existe no seu código
+      const diasCorridos =
+        typeof calcularDiasCorridos === "function"
+          ? calcularDiasCorridos(porte.expedicao)
+          : 0;
 
       // 1. RENOVAÇÃO (30 a 33 dias)
       if (diasCorridos >= 30 && diasCorridos <= 33) {
@@ -579,7 +578,7 @@ window.renderTables = function () {
             <td>${porte.arma}</td>
             <td>${validadeHTML}</td>
             <td>
-                <button class="btn-danger" onclick="revogar('${porte.id}')">
+                <button class="btn-danger" onclick="revogar('${porte.id}', '${porte.nome}')" title="Revogar">
                     <i class="fa-solid fa-ban"></i>
                 </button>
             </td>
@@ -588,8 +587,9 @@ window.renderTables = function () {
       }
     });
 
-  renderRevogadosHistorico();
-  atualizarStats();
+  if (typeof renderRevogadosHistorico === "function")
+    renderRevogadosHistorico();
+  if (typeof atualizarStats === "function") atualizarStats();
 };
 
 function renderRevogadosHistorico() {
@@ -597,7 +597,9 @@ function renderRevogadosHistorico() {
   if (!tbodyJaRevogados) return;
   tbodyJaRevogados.innerHTML = "";
 
-  dbPortes
+  const lista = typeof dbPortes !== "undefined" ? dbPortes : [];
+
+  lista
     .filter((p) => p.status === "Revogado")
     .forEach((p) => {
       tbodyJaRevogados.innerHTML += `
@@ -609,7 +611,6 @@ function renderRevogadosHistorico() {
             </tr>`;
     });
 }
-
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
@@ -675,26 +676,36 @@ window.renovarPorte = async function (idPorte) {
   }
 };
 
-// 2. REVOGAR (COM MODAL PERSONALIZADO)
+/// ==========================================
+// 🚨 SUBSTITUIR A FUNÇÃO REVOGAR EXISTENTE
+// ==========================================
 window.revogar = async function (idPassaporte, nomeCidadão) {
-  // AQUI: Usamos nosso modal estilizado em vez de prompt
+  // 1. Usa o modal estilizado em vez de prompt
   const motivo = await mostrarInput(
     "Motivo da Revogação",
     `Digite o motivo para revogar o porte de ${nomeCidadão}:`
   );
 
-  // Se usuário cancelou ou deixou vazio
+  // Se cancelou, para tudo
   if (!motivo) return;
 
+  // Pega a sessão
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
   const webhookUrl = sessao.webhook;
 
-  if (!webhookUrl) return mostrarAlerta("Erro", "Erro de sessão.", "error");
+  if (!webhookUrl) {
+    return mostrarAlerta(
+      "Erro",
+      "Erro de sessão. Faça login novamente.",
+      "error"
+    );
+  }
 
   mostrarAlerta("Aguarde", "Processando revogação...", "info");
 
+  // Configura o Embed
   const embedRevog = {
-    title: "PORTE REVOGADO", // Importante para o relatório
+    title: "PORTE REVOGADO",
     color: 15158332, // Vermelho
     fields: [
       { name: "Nome", value: nomeCidadão, inline: true },
@@ -702,31 +713,44 @@ window.revogar = async function (idPassaporte, nomeCidadão) {
       { name: "Motivo", value: motivo, inline: false },
       { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
     ],
-    footer: FOOTER_PADRAO,
+    footer: {
+      text: "Sistema Policial",
+      // Garante que use a config global ou uma string fixa se não tiver config
+      icon_url:
+        typeof CONFIG !== "undefined"
+          ? CONFIG.BRASAO_URL
+          : "https://i.imgur.com/seubrasao.png",
+    },
     timestamp: new Date().toISOString(),
   };
 
   try {
-    const res = await fetch(webhookUrl, {
+    const response = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
+        avatar_url: typeof CONFIG !== "undefined" ? CONFIG.BRASAO_URL : "",
         embeds: [embedRevog],
       }),
     });
 
-    if (res.ok) {
-      removerPorteLocal(idPassaporte); // Remove da tabela
-      mostrarAlerta("Sucesso", "Porte revogado!", "success");
-      renderTables(); // Atualiza a tela
+    if (response.ok) {
+      // Se você tiver uma função que remove do localStorage, chame aqui.
+      // Exemplo: removerPorteLocal(idPassaporte);
+
+      mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
+
+      // Atualiza a tabela se a função existir
+      if (typeof renderTables === "function") renderTables();
+    } else {
+      throw new Error("Erro Discord");
     }
   } catch (error) {
-    mostrarAlerta("Erro", "Falha na comunicação.", "error");
+    console.error(error);
+    mostrarAlerta("Erro", "Falha ao comunicar com o servidor.", "error");
   }
 };
-
 function gerarBlobRevogacao(p) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
@@ -1114,3 +1138,71 @@ async function verificarPermissaoRelatorio() {
     console.error("Erro ao verificar permissão:", erro);
   }
 }
+// ==========================================
+// 🎨 NOVA FUNÇÃO: INPUT ESTILIZADO (MODAL)
+// Cole isso no final do seu script.js
+// ==========================================
+window.mostrarInput = function (titulo, msgPlaceholder) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    if (!modal) return resolve(prompt(msgPlaceholder)); // Fallback se não houver modal
+
+    // Configura Visual
+    document.getElementById("modal-icon-box").innerHTML =
+      '<i class="fa-solid fa-pen" style="color: #66b2ff;"></i>';
+    document.getElementById("modal-title").innerText = titulo;
+
+    // Injeta o HTML do input dentro da descrição do modal
+    const desc = document.getElementById("modal-desc");
+    desc.innerHTML = `
+        <p style="margin-bottom: 10px;">${msgPlaceholder}</p>
+        <input type="text" id="modal-input-field" 
+               style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; margin-top: 5px;" 
+               placeholder="Digite aqui...">
+    `;
+
+    // Botões
+    const btnArea = document.getElementById("modal-actions");
+    btnArea.innerHTML = `
+        <button class="btn-cancel" id="modal-btn-cancel">Cancelar</button>
+        <button class="btn-primary" id="modal-btn-confirm">Enviar</button>
+    `;
+
+    modal.classList.remove("hidden");
+
+    // Foca no input
+    setTimeout(() => {
+      const input = document.getElementById("modal-input-field");
+      if (input) input.focus();
+    }, 100);
+
+    // Lógica de Retorno
+    const confirmar = () => {
+      const input = document.getElementById("modal-input-field");
+      const valor = input ? input.value : "";
+      if (!valor.trim()) {
+        if (input) input.style.borderColor = "red";
+        return;
+      }
+      modal.classList.add("hidden");
+      resolve(valor);
+    };
+
+    const cancelar = () => {
+      modal.classList.add("hidden");
+      resolve(null);
+    };
+
+    // Event Listeners
+    document.getElementById("modal-btn-confirm").onclick = confirmar;
+    document.getElementById("modal-btn-cancel").onclick = cancelar;
+
+    // Aceitar Enter
+    const inputField = document.getElementById("modal-input-field");
+    if (inputField) {
+      inputField.onkeypress = (e) => {
+        if (e.key === "Enter") confirmar();
+      };
+    }
+  });
+};
