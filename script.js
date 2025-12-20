@@ -332,54 +332,79 @@ async function processarEmissao() {
 // 🧼 LÓGICA DE LIMPEZA
 // ==========================================
 window.processarLimpeza = async function () {
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!sessao.webhook)
-    return mostrarAlerta("Erro", "Sessão inválida.", "error");
+  const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
+  const id = (document.getElementById("limpeza-id")?.value || "").trim();
+  const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
+  const valor = (
+    document.getElementById("input-valor-limpeza")?.value || "0"
+  ).trim();
 
-  const passaporte = document.getElementById("limpeza-passaporte").value;
-  const nome = document.getElementById("limpeza-nome").value;
-  const valor = document.getElementById("limpeza-valor").value;
+  if (!nome || !id)
+    return mostrarAlerta(
+      "Dados Incompletos",
+      "Preencha NOME e PASSAPORTE.",
+      "warning"
+    );
 
-  if (!passaporte || !nome || !valor) {
-    return mostrarAlerta("Erro", "Preencha todos os campos.", "error");
-  }
+  const confirmou = await confirmarAcao(
+    "Limpar Ficha?",
+    `Confirmar limpeza para ${nome} (R$ ${valor})?`
+  );
+  if (!confirmou) return;
 
-  mostrarAlerta("Aguarde", "Registrando limpeza...", "info");
-
-  const embedLimpeza = {
-    title: "LIMPEZA DE FICHA",
-    color: 3447003, // Azul
-    fields: [
-      { name: "Nome", value: nome, inline: true },
-      { name: "Passaporte", value: passaporte, inline: true },
-      { name: "Valor Pago", value: `R$ ${valor}`, inline: true },
-    ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
-  };
+  mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A MUDANÇA (FORA DO EMBED) 👇
-        content: `LIMPEZA EMITIDA POR <@${sessao.id}>`,
-        embeds: [embedLimpeza],
-      }),
-    });
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
+    const nomeArquivo = `limpeza_${id}.png`;
 
-    mostrarAlerta("Sucesso", "Limpeza registrada!", "success");
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
 
-    // Limpa os campos
-    document.getElementById("limpeza-passaporte").value = "";
-    document.getElementById("limpeza-nome").value = "";
-    document.getElementById("limpeza-valor").value = "";
-  } catch (error) {
-    console.error(error);
-    mostrarAlerta("Erro", "Falha ao registrar limpeza.", "error");
+    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+
+    const embedLimpeza = {
+      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
+      description: `O registro criminal foi limpo mediante pagamento de taxa.`,
+      color: 65280,
+      fields: [
+        {
+          name: "👤 Cidadão",
+          value: `**${nome.toUpperCase()}**`,
+          inline: true,
+        },
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        {
+          name: "📅 Data",
+          value: new Date().toLocaleDateString("pt-BR"),
+          inline: true,
+        },
+      ],
+      image: { url: `attachment://${nomeArquivo}` },
+      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
+      timestamp: new Date().toISOString(),
+    };
+
+    const sucesso = await enviarParaAPI(
+      blobLimpeza,
+      nomeArquivo,
+      "limpeza",
+      embedLimpeza,
+      mensagemExterna
+    );
+
+    if (sucesso) {
+      mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
+      document.getElementById("limpeza-nome").value = "";
+      document.getElementById("limpeza-id").value = "";
+      document.getElementById("input-valor-limpeza").value = "";
+    }
+  } catch (erro) {
+    console.error(erro);
+    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
   }
 };
 
@@ -541,16 +566,16 @@ window.renderTables = function () {
         }
 
         trRev.innerHTML = `
-    <td>${porte.nome}</td>
-    <td>${porte.id}</td>
-    <td>${porte.arma}</td>
-    <td>${validadeHTML}</td>
-    <td>
-        <button class="btn-danger" onclick="revogar('${porte.id}', '${porte.nome}')">
-            <i class="fa-solid fa-ban"></i>
-        </button>
-    </td>
-`;
+            <td>${porte.nome}</td>
+            <td>${porte.id}</td>
+            <td>${porte.arma}</td>
+            <td>${validadeHTML}</td>
+            <td>
+                <button class="btn-danger" onclick="revogar('${porte.id}')">
+                    <i class="fa-solid fa-ban"></i>
+                </button>
+            </td>
+        `;
         tbodyRevogacao.appendChild(trRev);
       }
     });
@@ -580,146 +605,161 @@ function renderRevogadosHistorico() {
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
-window.renovarPorte = async function (idPassaporte) {
+window.renovarPorte = async function (idPorte) {
+  const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
+  if (!porte) return;
+
+  if (
+    !(await confirmarAcao(
+      "Renovar?",
+      `Renovar porte de ${porte.nome} por +30 dias?`
+    ))
+  )
+    return;
+
+  mostrarAlerta("Processando", "Renovando porte...", "warning");
+
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!sessao.webhook)
-    return mostrarAlerta("Erro", "Sessão inválida.", "error");
+  const mencaoOficial = sessao.id
+    ? `<@${sessao.id}>`
+    : `**${sessao.username}**`;
 
-  // Busca os dados do porte salvo localmente
-  const lista = JSON.parse(localStorage.getItem("db_portes") || "[]");
-  const porte = lista.find((p) => p.id == idPassaporte);
+  const hoje = new Date();
+  const novaValidade = new Date();
+  novaValidade.setDate(hoje.getDate() + 30);
+  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
 
-  if (!porte)
-    return mostrarAlerta(
-      "Erro",
-      "Porte não encontrado nos dados locais.",
-      "error"
-    );
-
-  mostrarAlerta("Aguarde", "Processando renovação...", "info");
-
-  const embedRenovacao = {
-    title: "RENOVACAO DE PORTE",
-    color: 3066993, // Verde
+  const embedData = {
+    title: `🔄 RENOVAÇÃO DE PORTE`,
+    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
+    color: 16776960, // Amarelo
     fields: [
-      { name: "Nome", value: porte.nome, inline: true },
-      { name: "Passaporte", value: porte.id, inline: true },
-      { name: "Nova Validade", value: "30 Dias", inline: true },
+      { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
+      { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
+      { name: "👮 Renovado por", value: mencaoOficial, inline: true },
+      { name: "🔫 Arma", value: porte.arma, inline: true },
+      {
+        name: "📅 Nova Validade",
+        value: `\`${novaValidadeStr}\``,
+        inline: true,
+      },
     ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
+    footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
-  try {
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A MUDANÇA (FORA DO EMBED) 👇
-        content: `RENOVAÇÃO EMITIDA POR <@${sessao.id}>`,
-        embeds: [embedRenovacao],
-      }),
-    });
+  const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
 
-    // Atualiza a data de expedição para hoje (renovado)
-    porte.expedicao = new Date().toISOString().split("T")[0];
-    localStorage.setItem("db_portes", JSON.stringify(lista));
+  const sucesso = await enviarParaAPI(
+    blob,
+    "renovacao_log.txt",
+    "revogacao",
+    embedData,
+    `🔄 **PORTE RENOVADO:** ${porte.id}`
+  );
 
-    mostrarAlerta("Sucesso", "Porte renovado com sucesso!", "success");
-    if (typeof renderTables === "function") renderTables();
-  } catch (error) {
-    console.error(error);
-    mostrarAlerta("Erro", "Falha ao renovar.", "error");
+  if (sucesso) {
+    porte.validade = novaValidadeStr;
+    porte.expedicao = new Date().toLocaleDateString("pt-BR");
+    renderTables();
+    mostrarAlerta("Sucesso", "Porte renovado!", "success");
+  } else {
+    mostrarAlerta("Erro", "Falha ao registrar renovação.", "error");
   }
 };
 
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
 // ==========================================
-window.revogar = async function (idPassaporte, nomeCidadão) {
-  // 1. Alerta de Confirmação (Sem digitar motivo)
-  const confirmacao = await confirmarAcao(
-    "REVOGAR PORTE",
-    `Tem certeza que deseja revogar o porte de ${nomeCidadão}?`,
-    "danger" // Isso deixa o botão vermelho
+window.revogar = async function (idPassaporte) {
+  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+
+  const confirmou = await confirmarAcao(
+    "REVOGAR PORTE?",
+    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord.`,
+    "danger"
   );
 
-  // Se o usuário clicar em "Cancelar", para aqui.
-  if (!confirmacao) return;
+  if (!confirmou) return;
 
-  // 2. Verificação de Sessão
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-
-  // Verifica se tem token (login) E webhook
-  if (!sessao.token || !sessao.webhook) {
-    return mostrarAlerta(
-      "Erro de Permissão",
-      "Sessão inválida ou sem permissão de Webhook. Faça login novamente.",
-      "error"
-    );
-  }
-
-  mostrarAlerta("Aguarde", "Processando revogação...", "info");
-
-  // Motivo fixo, já que removemos a digitação
-  const motivoFixo = "Revogação Administrativa (Manual)";
-
-  const embedRevog = {
-    title: "PORTE REVOGADO",
-    color: 15158332, // Vermelho
-    fields: [
-      { name: "Nome", value: nomeCidadão, inline: true },
-      { name: "Passaporte", value: idPassaporte.toString(), inline: true },
-      { name: "Motivo", value: motivoFixo, inline: false },
-    ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
-  };
+  mostrarAlerta("Processando", "Registrando revogação...", "warning");
 
   try {
-    // Envia para o Webhook do Discord
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        content: `🚨 **REVOGAÇÃO EMITIDA POR** <@${sessao.id}>`,
-        embeds: [embedRevog],
-      }),
-    });
+    // 1. Gera imagem e envia log para o Discord
+    const blob = await gerarBlobRevogacao(p);
+    const nomeArq = `revogacao_${idPassaporte}.png`;
 
-    // Remove do banco local (memória do navegador)
-    // Função auxiliar para remover do array dbPortes e atualizar o localStorage
-    removerPorteLocal(idPassaporte);
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
-    mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
+    const embed = {
+      title: `🚫 PORTE REVOGADO`,
+      color: 15548997,
+      fields: [
+        { name: "👤 Cidadão", value: p.nome, inline: true },
+        { name: "🆔 ID", value: p.id, inline: true },
+        { name: "👮 Oficial", value: mencao, inline: true },
+      ],
+      image: { url: `attachment://${nomeArq}` },
+    };
 
-    // Atualiza a tabela na tela
-    if (typeof renderTables === "function") renderTables();
-  } catch (error) {
-    console.error(error);
-    mostrarAlerta("Erro", "Falha na comunicação com Discord.", "error");
+    const enviou = await enviarParaAPI(
+      blob,
+      nomeArq,
+      "revogacao",
+      embed,
+      `🚨 **PORTE REVOGADO**`
+    );
+
+    if (enviou) {
+      // 2. Tenta deletar a mensagem original do Discord
+      if (p.message_id) {
+        await fetch("/api/deletar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message_id: p.message_id }),
+        });
+      }
+
+      // 3. SALVAR NO HISTÓRICO LOCAL (LocalStorage)
+      const historico = JSON.parse(
+        localStorage.getItem("historico_revogacoes") || "[]"
+      );
+
+      const novoRegistro = {
+        nome: p.nome,
+        id: p.id,
+        arma: p.arma,
+        dataRevogacao:
+          new Date().toLocaleDateString("pt-BR") +
+          " " +
+          new Date().toLocaleTimeString("pt-BR"),
+        oficial: sessao.username || "Sistema",
+      };
+
+      historico.push(novoRegistro);
+      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
+
+      // 4. Atualizar interface
+      mostrarAlerta(
+        "Sucesso",
+        "Porte revogado e salvo no histórico!",
+        "success"
+      );
+
+      // Remove do array local de ativos para sumir da tela atual
+      dbPortes = dbPortes.filter(
+        (item) => String(item.id) !== String(idPassaporte)
+      );
+
+      renderTables();
+      atualizarStats();
+    }
+  } catch (e) {
+    console.error(e);
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
-
-// Função auxiliar necessária (caso você não tenha ela separada)
-function removerPorteLocal(idParaRemover) {
-  // Atualiza a variável global
-  const index = dbPortes.findIndex((p) => p.id == idParaRemover);
-  if (index !== -1) {
-    // Opção A: Apenas mudar status para manter histórico
-    dbPortes[index].status = "Revogado";
-
-    // Opção B: Se quiser deletar permanentemente, use: dbPortes.splice(index, 1);
-  }
-
-  // Salva no localStorage para persistir se der F5 (caso não use banco de dados real)
-  // Nota: Como você usa carregarPortesDoDiscord, isso altera apenas localmente até o próximo reload,
-  // a menos que sua API '/api/enviar' trate a deleção real.
-}
 
 function gerarBlobRevogacao(p) {
   return new Promise((resolve, reject) => {
@@ -1108,78 +1148,3 @@ async function verificarPermissaoRelatorio() {
     console.error("Erro ao verificar permissão:", erro);
   }
 }
-// ==========================================
-// 🎨 FUNÇÃO NECESSÁRIA PARA O BOTÃO FUNCIONAR
-// (Cole isso no final do script.js)
-// ==========================================
-// ==========================================
-// 🎨 FUNÇÃO CORRIGIDA (Substitua a do final do arquivo)
-// ==========================================
-window.mostrarInput = function (titulo, msgPlaceholder) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("custom-modal");
-    if (!modal) return resolve(prompt(msgPlaceholder)); // Fallback se não tiver modal
-
-    // CORREÇÃO AQUI: Usa 'modal-icon' em vez de 'modal-icon-box'
-    const icone = document.getElementById("modal-icon");
-    if (icone) {
-      icone.className = ""; // Limpa classes anteriores
-      icone.innerHTML =
-        '<i class="fa-solid fa-pen" style="color: #66b2ff; font-size: 40px;"></i>';
-    }
-
-    // Configura Título
-    const elTitulo = document.getElementById("modal-title");
-    if (elTitulo) elTitulo.innerText = titulo;
-
-    // Injeta o HTML do input na descrição
-    const desc = document.getElementById("modal-desc");
-    if (desc) {
-      desc.innerHTML = `
-            <p style="margin-bottom: 10px;">${msgPlaceholder}</p>
-            <input type="text" id="modal-input-field" 
-                   style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; margin-top: 5px; font-size: 16px;" 
-                   autocomplete="off" placeholder="Digite aqui...">
-        `;
-    }
-
-    // Configura Botões (Confere se existe o container de ações ou usa os botões padrão)
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-    const btnCancel = document.getElementById("btn-modal-cancel");
-
-    // Mostra o modal
-    modal.classList.remove("hidden");
-    if (btnCancel) btnCancel.classList.remove("hidden");
-
-    // Foca no input
-    setTimeout(() => {
-      const input = document.getElementById("modal-input-field");
-      if (input) input.focus();
-    }, 100);
-
-    // Lógica do Clique (Clonamos para remover eventos antigos)
-    const novoConfirm = btnConfirm.cloneNode(true);
-    const novoCancel = btnCancel.cloneNode(true);
-
-    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
-    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
-
-    // Define textos e estilos
-    novoConfirm.innerText = "Enviar";
-    novoConfirm.className = "btn-primary";
-
-    // Ação Confirmar
-    novoConfirm.onclick = () => {
-      const val = document.getElementById("modal-input-field").value;
-      if (!val) return; // Não deixa enviar vazio
-      modal.classList.add("hidden");
-      resolve(val);
-    };
-
-    // Ação Cancelar
-    novoCancel.onclick = () => {
-      modal.classList.add("hidden");
-      resolve(null);
-    };
-  });
-};
