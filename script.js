@@ -96,7 +96,95 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (!isLoginPage) configurarDatasAutomaticas();
 });
+// ==========================================
+// 🔐 SEGURANÇA E ACESSO
+// ==========================================
+function verificarSessao() {
+  const user = JSON.parse(localStorage.getItem("pc_session"));
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+  const avatar = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : "https://cdn.discordapp.com/embed/avatars/0.png";
 
+  const perfil = document.getElementById("user-profile-info");
+  if (perfil) {
+    perfil.innerHTML = `
+      <div class="avatar-circle"><img src="${avatar}" style="width:100%"></div>
+      <div class="user-info"><p>${user.username}</p><small>● Online</small></div>
+      <button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto;cursor:pointer">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>`;
+  }
+}
+
+async function verificarPermissaoRelatorio() {
+  const user = JSON.parse(localStorage.getItem("pc_session"));
+  if (!user || !user.roles) return;
+
+  try {
+    const res = await fetch("/api/verificar-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles: user.roles }),
+    });
+    const data = await res.json();
+    if (data.isAdmin) {
+      document.getElementById("menu-relatorios")?.classList.remove("hidden");
+    }
+  } catch (e) {
+    console.error("Erro na validação de administrador.");
+  }
+}
+
+// ==========================================
+// 📊 SISTEMA DE RELATÓRIOS (METAS)
+// ==========================================
+window.gerarRelatorioSemanal = async function () {
+  const corpo = document.getElementById("corpo-relatorio");
+  const user = JSON.parse(localStorage.getItem("pc_session"));
+
+  if (!corpo) return;
+  mostrarAlerta(
+    "Processando",
+    "A recolher dados de produtividade dos últimos 7 dias...",
+    "warning"
+  );
+
+  try {
+    const res = await fetch("/api/relatorio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles: user.roles }),
+    });
+
+    if (!res.ok) throw new Error("Sem permissão");
+
+    const dados = await res.json();
+    corpo.innerHTML = "";
+
+    Object.keys(dados).forEach((oficial) => {
+      const d = dados[oficial];
+      corpo.innerHTML += `
+        <tr>
+          <td><strong>${oficial}</strong></td>
+          <td>${d.emissao || 0}</td>
+          <td>${d.renovacao || 0}</td>
+          <td>${d.limpeza || 0}</td>
+          <td>${d.revogacao || 0}</td>
+        </tr>`;
+    });
+    mostrarAlerta("Sucesso", "Relatório de metas atualizado!", "success");
+  } catch (err) {
+    mostrarAlerta(
+      "Acesso Negado",
+      "Apenas coordenadores podem gerar relatórios.",
+      "error"
+    );
+  }
+};
 // ==========================================
 // 📅 UTILITÁRIOS DE DATA
 // ==========================================

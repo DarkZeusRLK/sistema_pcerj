@@ -307,6 +307,34 @@
           </table>
         </div>
       </section>
+      <li id="menu-relatorios" onclick="navegar('relatorios')" class="admin-only hidden">
+        <i class="fa-solid fa-chart-line"></i> Relatórios
+      </li>
+
+      <section id="sec-relatorios" class="screen hidden">
+        <div class="header-content">
+          <h2>Relatório Semanal de Produtividade</h2>
+          <button class="btn-primary" onclick="gerarRelatorio()">
+            <i class="fa-solid fa-sync"></i> Atualizar Dados
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table id="tabela-relatorio">
+            <thead>
+              <tr>
+                <th>Oficial</th>
+                <th>Emissões</th>
+                <th>Revogações</th>
+                <th>Limpezas</th>
+                <th>Renovações</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-relatorio">
+            </tbody>
+          </table>
+        </div>
+      </section>
 
     </main>
   </div>
