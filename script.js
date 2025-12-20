@@ -97,173 +97,48 @@ document.addEventListener("DOMContentLoaded", async function () {
   if (!isLoginPage) configurarDatasAutomaticas();
 });
 // ==========================================
-// 3. SEGURANÇA E SESSÃO
+// 🔐 SEGURANÇA E ACESSO
 // ==========================================
 function verificarSessao() {
-  const sessao = localStorage.getItem("pc_session");
-  const isLogin = window.location.pathname.includes("login.html");
-
-  if (!sessao) {
-    if (!isLogin) window.location.href = "login.html";
+  const user = JSON.parse(localStorage.getItem("pc_session"));
+  if (!user) {
+    window.location.href = "login.html";
     return;
   }
+  const avatar = user.avatar
+    ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+    : "https://cdn.discordapp.com/embed/avatars/0.png";
 
-  const user = JSON.parse(sessao);
-  const perfilDiv = document.getElementById("user-profile-info");
-
-  if (perfilDiv) {
-    const avatar = user.avatar
-      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-      : "https://cdn.discordapp.com/embed/avatars/0.png";
-
-    perfilDiv.innerHTML = `
-      <div class="avatar-circle"><img src="${avatar}"></div>
+  const perfil = document.getElementById("user-profile-info");
+  if (perfil) {
+    perfil.innerHTML = `
+      <div class="avatar-circle"><img src="${avatar}" style="width:100%"></div>
       <div class="user-info"><p>${user.username}</p><small>● Online</small></div>
-      <button onclick="logout()" class="btn-logout" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>`;
+      <button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto;cursor:pointer">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>`;
   }
 }
 
 async function verificarPermissaoRelatorio() {
-  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!user.roles) return;
+  const user = JSON.parse(localStorage.getItem("pc_session"));
+  if (!user || !user.roles) return;
 
   try {
-    // Verifica no Backend se o cargo é Admin/Coordenador
     const res = await fetch("/api/verificar-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roles: user.roles }),
     });
     const data = await res.json();
-
     if (data.isAdmin) {
-      const menu = document.getElementById("menu-relatorios");
-      if (menu) menu.classList.remove("hidden");
+      document.getElementById("menu-relatorios")?.classList.remove("hidden");
     }
   } catch (e) {
-    console.error("Erro auth admin:", e);
+    console.error("Erro na validação de administrador.");
   }
 }
 
-window.logout = () => {
-  localStorage.removeItem("pc_session");
-  window.location.href = "login.html";
-};
-
-// ==========================================
-// 4. GESTÃO DE DADOS (Listagem e Tabelas)
-// ==========================================
-async function carregarPortesDoDiscord() {
-  try {
-    const res = await fetch("/api/listar");
-    if (!res.ok) throw new Error("Erro API");
-
-    const dados = await res.json();
-    // Garante compatibilidade de ID
-    dbPortes = dados.map((p) => ({
-      ...p,
-      message_id: p.message_id || p.id_mensagem || p.msg_id,
-    }));
-
-    renderTables();
-    atualizarStats();
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-function calcularDiasCorridos(dataExpedicaoStr) {
-  if (!dataExpedicaoStr) return 0;
-  const partes = dataExpedicaoStr.split("/");
-  // Data no formato PT-BR para objeto Date
-  const expedicao = new Date(partes[2], partes[1] - 1, partes[0]);
-  const hoje = new Date();
-
-  const diffTime = Math.abs(hoje - expedicao);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-}
-
-function renderTables() {
-  const tbodyAtivos = document.getElementById("lista-ativos-para-revogar");
-  const tbodyRenovacao = document.getElementById("lista-renovacao"); // Se houver tabela separada
-  const filtro =
-    document.getElementById("input-busca")?.value.toLowerCase() || "";
-
-  if (tbodyAtivos) {
-    tbodyAtivos.innerHTML = "";
-
-    const lista = dbPortes.filter(
-      (p) =>
-        !filtro ||
-        p.nome.toLowerCase().includes(filtro) ||
-        p.id.includes(filtro)
-    );
-
-    lista.forEach((p) => {
-      const dias = calcularDiasCorridos(p.expedicao);
-      let statusHTML = p.validade;
-
-      // Lógica de Vencimento (Badges)
-      if (dias > 33) {
-        statusHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO</span>`;
-      } else if (dias >= 30) {
-        statusHTML = `<span class="badge-warning">VENCE HOJE/GRACE</span>`;
-      }
-
-      // Botão Renovar só aparece se estiver no prazo (30+ dias)
-      let btnRenovar = "";
-      if (dias >= 28) {
-        btnRenovar = `<button class="btn-primary-sm" onclick="renovarPorte('${p.id}')" title="Renovar"><i class="fa-solid fa-arrows-rotate"></i></button>`;
-      }
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><strong>${p.nome}</strong></td>
-        <td>${p.id}</td>
-        <td>${p.arma}</td>
-        <td>${statusHTML}</td>
-        <td style="display:flex; gap:5px;">
-          ${btnRenovar}
-          <button class="btn-danger-sm" onclick="revogar('${p.id}')" title="Revogar"><i class="fa-solid fa-ban"></i></button>
-        </td>`;
-      tbodyAtivos.appendChild(tr);
-    });
-  }
-
-  // Histórico Local
-  const tbodyHist = document.getElementById("lista-ja-revogados");
-  if (tbodyHist) {
-    const hist = JSON.parse(
-      localStorage.getItem("historico_revogacoes") || "[]"
-    );
-    tbodyHist.innerHTML = hist
-      .slice()
-      .reverse()
-      .map(
-        (h) => `
-      <tr style="opacity:0.8">
-        <td>${h.nome}</td>
-        <td>${h.id}</td>
-        <td>${h.dataRevogacao}</td>
-        <td><span class="badge-revogado">REVOGADO POR ${
-          h.oficial || "Sistema"
-        }</span></td>
-      </tr>`
-      )
-      .join("");
-  }
-}
-
-function atualizarStats() {
-  const elA = document.getElementById("stat-ativos");
-  const elR = document.getElementById("stat-revogados");
-  if (elA) elA.innerText = dbPortes.length;
-  if (elR)
-    elR.innerText = JSON.parse(
-      localStorage.getItem("historico_revogacoes") || "[]"
-    ).length;
-}
 // ==========================================
 // 📊 SISTEMA DE RELATÓRIOS (METAS)
 // ==========================================
