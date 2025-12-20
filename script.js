@@ -664,32 +664,31 @@ window.renovarPorte = async function (idPorte) {
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA PARA METAS)
 // ==========================================
+// --- FUNÇÃO DE REVOGAR COM STATUS "AGUARDE" ---
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
+    `Deseja revogar o porte de ${p.nome}?`,
     "danger"
   );
 
   if (!confirmou) return;
 
-  // Seleciona os elementos do seu modal nativo
+  // Estado de carregamento no modal
+  const mTitle = document.getElementById("modal-title");
+  const mDesc = document.getElementById("modal-desc");
+  const mIcon = document.getElementById("modal-icon");
+  const mFooter = document.getElementById("modal-footer");
   const modal = document.getElementById("custom-modal");
-  const modalTitle = document.getElementById("modal-title");
-  const modalDesc = document.getElementById("modal-desc");
-  const modalFooter = document.getElementById("modal-footer");
-  const modalIcon = document.getElementById("modal-icon");
 
-  // ESTADO DE "AGUARDE" (Igual aos demais alertas)
-  if (modalTitle) modalTitle.innerText = "Revogando Porte...";
-  if (modalDesc)
-    modalDesc.innerText =
-      "Por favor, aguarde enquanto o documento é revogado...";
-  if (modalIcon) modalIcon.className = "fa-solid fa-spinner fa-spin";
-  if (modalFooter) modalFooter.style.display = "none"; // Agora funciona com o ID novo
+  if (mTitle) mTitle.innerText = "Revogando...";
+  if (mDesc)
+    mDesc.innerText = "Por favor, aguarde o processamento no Discord...";
+  if (mIcon) mIcon.className = "fa-solid fa-spinner fa-spin";
+  if (mFooter) mFooter.style.display = "none"; // Esconde botões para evitar cliques duplos
   modal.classList.remove("hidden");
 
   try {
@@ -697,7 +696,6 @@ window.revogar = async function (idPassaporte) {
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
-    const emissorOriginal = p.oficial || "Não Identificado";
 
     const blob = await gerarBlobRevogacao(p);
     const nomeArquivo = `revogacao_${idPassaporte}.png`;
@@ -709,45 +707,31 @@ window.revogar = async function (idPassaporte) {
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
         { name: "👮 Revogado por", value: mencaoOficial, inline: true },
-        { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
       ],
       image: { url: `attachment://${nomeArquivo}` },
       footer: FOOTER_PADRAO,
       timestamp: new Date().toISOString(),
     };
 
-    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Revogado por: ${mencaoOficial}`;
-    const sucessoLog = await enviarParaAPI(
+    const sucesso = await enviarParaAPI(
       blob,
       nomeArquivo,
       "revogacao",
       embed,
-      logTexto
+      `🚨 Porte Revogado: ${p.nome}`
     );
 
-    if (sucessoLog) {
-      if (p.message_id) {
-        await fetch("/api/deletar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message_id: p.message_id }),
-        });
-      }
-
+    if (sucesso) {
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
       renderTables();
       atualizarStats();
-
-      // Volta os botões e mostra o sucesso padrão
-      if (modalFooter) modalFooter.style.display = "flex";
       mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
-    if (modalFooter) modalFooter.style.display = "flex";
-    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
+    mostrarAlerta("Erro", "Falha ao revogar.", "error");
   }
 };
 function gerarBlobRevogacao(p) {

@@ -96,11 +96,12 @@ module.exports = async (req, res) => {
           }
         }
         // ✅ CONTAGEM DE LIMPEZA (Título do seu sistema: "CERTIFICADO DE BONS ANTECEDENTES")
+        // ✅ CORREÇÃO PARA LIMPEZAS:
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
-          title.includes("ANTECEDENTES") ||
-          title.includes("BONS")
+          title.includes("BONS") ||
+          title.includes("ANTECEDENTES")
         ) {
           statsPorID[oficialId].limpeza++;
         } else if (title.includes("RENOVA")) {
