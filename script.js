@@ -202,9 +202,12 @@ function configurarBotoes() {
     });
   }
 }
+// Dentro de configurarBotoes() no script.js
 const btnRelatorio = document.getElementById("btn-atualizar-relatorio");
 if (btnRelatorio) {
-  btnRelatorio.addEventListener("click", window.gerarRelatorioSemanal);
+  btnRelatorio.addEventListener("click", () => {
+    gerarRelatorioSemanal(); // Chama a função que busca os dados
+  });
 }
 
 function ativarFormatacaoDinheiro() {
