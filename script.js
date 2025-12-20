@@ -1046,3 +1046,35 @@ window.gerarRelatorioSemanal = async function () {
     else mostrarAlerta("Erro", "Falha ao gerar relatório.", "error");
   }
 };
+// ==========================================
+// 🛡️ SISTEMA DE PERMISSÃO (RELATÓRIOS)
+// ==========================================
+async function verificarPermissaoRelatorio() {
+  // 1. Pega a sessão salva
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+
+  // Se não tiver roles salvos, nem tenta
+  if (!sessao.roles || sessao.roles.length === 0) return;
+
+  try {
+    // 2. Pergunta para a API se esses cargos podem ver o relatório
+    const res = await fetch("/api/verificar-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roles: sessao.roles }),
+    });
+
+    const data = await res.json();
+
+    // 3. Se a API disser "true", mostra o botão
+    if (data.isAdmin) {
+      const btnRelatorio = document.getElementById("menu-relatorios");
+      if (btnRelatorio) {
+        btnRelatorio.classList.add("visible"); // Usa a classe do CSS novo
+        console.log("🔓 Acesso a Relatórios LIBERADO.");
+      }
+    }
+  } catch (erro) {
+    console.error("Erro ao verificar permissão:", erro);
+  }
+}
