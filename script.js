@@ -666,43 +666,26 @@ window.renovarPorte = async function (idPorte) {
 // ==========================================
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
-  if (!p) return Swal.fire("Erro", "Registro não encontrado.", "error");
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  const confirmou = await Swal.fire({
-    title: "REVOGAR PORTE?",
-    text: `Deseja revogar o porte de ${p.nome}? O emissor original manterá o ponto na meta.`,
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#d33",
-    confirmButtonText: "Sim, revogar!",
-    cancelButtonText: "Cancelar",
-  });
+  // Usando seu modal padrão de confirmação
+  const confirmou = await confirmarAcao(
+    "REVOGAR PORTE?",
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas do emissor original.`,
+    "danger"
+  );
 
-  if (!confirmou.isConfirmed) return;
-
-  // 1. Alerta de Processamento (Fica na tela até o fim)
-  Swal.fire({
-    title: "Processando revogação",
-    text: "O porte está sendo revogado, por favor aguarde...",
-    icon: "info",
-    allowOutsideClick: false,
-    showConfirmButton: false,
-    didOpen: () => {
-      Swal.showLoading();
-    },
-  });
+  if (!confirmou) return;
 
   try {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const mencaoRevogador = sessao.id
+    const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
-
-    // Identifica o oficial original para salvar no log
     const emissorOriginal = p.oficial || "Não Identificado";
 
     const blob = await gerarBlobRevogacao(p);
-    const nomeArq = `revogacao_${idPassaporte}.png`;
+    const nomeArquivo = `revogacao_${idPassaporte}.png`;
 
     const embed = {
       title: `🚫 PORTE REVOGADO`,
@@ -710,25 +693,25 @@ window.revogar = async function (idPassaporte) {
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Revogado por", value: mencaoRevogador, inline: true },
-        { name: "📜 Emissor Original", value: emissorOriginal, inline: true }, // CAMPO PARA O RELATÓRIO
+        { name: "👮 Revogado por", value: mencaoOficial, inline: true },
+        { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
       ],
-      image: { url: `attachment://${nomeArq}` },
+      image: { url: `attachment://${nomeArquivo}` },
       footer: FOOTER_PADRAO,
       timestamp: new Date().toISOString(),
     };
 
-    const logTexto = `🚨 **REVOGAÇÃO** | Cidadão: ${p.nome} | Por: ${mencaoRevogador}`;
-    const enviou = await enviarParaAPI(
+    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Revogado por: ${mencaoOficial}`;
+
+    const sucessoLog = await enviarParaAPI(
       blob,
-      nomeArq,
+      nomeArquivo,
       "revogacao",
       embed,
       logTexto
     );
 
-    if (enviou) {
-      // Deleta a mensagem original
+    if (sucessoLog) {
       if (p.message_id) {
         await fetch("/api/deletar", {
           method: "POST",
@@ -743,17 +726,12 @@ window.revogar = async function (idPassaporte) {
       renderTables();
       atualizarStats();
 
-      // 2. Alerta de Sucesso (Substitui o de processamento)
-      Swal.fire({
-        title: "Sucesso!",
-        text: "Porte revogado e metas preservadas.",
-        icon: "success",
-        timer: 3000,
-      });
+      // Alerta padrão do seu sistema
+      mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
-    Swal.fire("Erro", "Falha ao processar revogação.", "error");
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
 function gerarBlobRevogacao(p) {

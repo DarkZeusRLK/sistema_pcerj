@@ -3,7 +3,6 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Configuração de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -22,10 +21,6 @@ module.exports = async (req, res) => {
 
   const { roles, dataInicio, dataFim } = req.body || {};
 
-  // Validação de Segurança e Variáveis
-  if (!Discord_Bot_Token)
-    return res.status(500).json({ error: "Token ausente no servidor." });
-
   const listaPermitida = (CARGOS_ADMIN_RELATORIO || "")
     .split(",")
     .map((c) => c.trim());
@@ -33,8 +28,6 @@ module.exports = async (req, res) => {
     Array.isArray(roles) && roles.some((r) => listaPermitida.includes(r));
 
   if (!temPermissao) return res.status(403).json({ error: "Acesso negado." });
-  if (!dataInicio || !dataFim)
-    return res.status(400).json({ error: "Datas obrigatórias." });
 
   try {
     const startObj = new Date(`${dataInicio}T00:00:00`);
@@ -67,10 +60,10 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // Identifica o Oficial que postou o log
+        // Detecção de Oficial (Expandida para incluir POLICIAL)
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
-          /OFICIAL|RESPONSAVEL|REVOGADO POR|RENOVADO POR/i.test(
+          /OFICIAL|RESPONSAVEL|POLICIAL|REVOGADO POR|RENOVADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
         );
@@ -88,41 +81,36 @@ module.exports = async (req, res) => {
             renovacao: 0,
           };
 
-        // --- CATEGORIZAÇÃO ---
+        // --- LÓGICA DE CONTAGEM ---
         if (title.includes("EMISSAO") || title.includes("EMITIDO")) {
           statsPorID[oficialId].emissao++;
         } else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
-
-          // 🛡️ PRESERVAÇÃO DE META: Devolve ponto ao emissor original
+          // Preservação de Meta
           const campoOrig = embed.fields?.find((f) =>
-            /EMISSOR ORIGINAL|EMITIDO POR/i.test(
-              f.name
-                .toUpperCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-            )
+            /EMISSOR ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
           );
           if (campoOrig) {
             const matchOrig = campoOrig.value.match(/<@!?(\d+)>/);
             if (matchOrig) {
-              const idOrig = matchOrig[1];
-              if (!statsPorID[idOrig])
-                statsPorID[idOrig] = {
+              const idO = matchOrig[1];
+              if (!statsPorID[idO])
+                statsPorID[idO] = {
                   emissao: 0,
                   revogacao: 0,
                   limpeza: 0,
                   renovacao: 0,
                 };
-              statsPorID[idOrig].emissao++;
+              statsPorID[idO].emissao++;
             }
           }
         }
-        // 🔍 DETECÇÃO DE LIMPEZA MELHORADA
+        // 🛡️ CORREÇÃO LIMPEZA: Pegando variações de títulos
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
-          title.includes("ANTECEDENTES")
+          title.includes("ANTECEDENTES") ||
+          title.includes("BONS")
         ) {
           statsPorID[oficialId].limpeza++;
         } else if (title.includes("RENOVACAO") || title.includes("RENOVADO")) {
@@ -131,7 +119,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Traduz IDs para nomes (Nicknames do Discord)
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
     await Promise.all(
@@ -139,14 +126,12 @@ module.exports = async (req, res) => {
         try {
           const resMem = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
+            {
+              headers: { Authorization: `Bot ${Discord_Bot_Token}` },
+            }
           );
-          if (resMem.ok) {
-            const d = await resMem.json();
-            mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
-          } else {
-            mapaNomes[id] = `ID: ${id}`;
-          }
+          const d = await resMem.json();
+          mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
         } catch {
           mapaNomes[id] = `ID: ${id}`;
         }
@@ -157,10 +142,8 @@ module.exports = async (req, res) => {
     ids.forEach((id) => {
       final[mapaNomes[id] || id] = statsPorID[id];
     });
-
     res.status(200).json(final);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Erro interno no servidor." });
+    res.status(500).json({ error: "Erro interno" });
   }
 };
