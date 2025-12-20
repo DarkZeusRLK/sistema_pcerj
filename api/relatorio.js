@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   const { roles, dataInicio, dataFim } = req.body || {};
 
-  // 1. Validação de Permissão (Suporta múltiplos cargos no .env)
+  // 1. Validação de Permissão
   const listaPermitida = (CARGOS_ADMIN_RELATORIO || "")
     .split(",")
     .map((c) => c.trim());
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Datas obrigatórias." });
 
   try {
-    // Ajuste de datas (Início do dia 00:00 até Fim do dia 23:59)
+    // Datas de Corte
     const startObj = new Date(`${dataInicio}T00:00:00`);
     const endObj = new Date(`${dataFim}T23:59:59`);
 
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         .toUpperCase();
     };
 
-    // --- Função de Busca com Paginação (Loop) ---
+    // --- Função de Busca "Infinita" (Até a Data Início) ---
     async function fetchMessages(channelId) {
       if (!channelId) return [];
       let allMessages = [];
@@ -48,8 +48,9 @@ export default async function handler(req, res) {
       let keepFetching = true;
       let attempts = 0;
 
-      // Busca até 10 páginas (1000 msgs) para garantir que pega todos
-      while (keepFetching && attempts < 10) {
+      // Aumentei o limite para 500 páginas (50.000 mensagens)
+      // O loop só para quando encontrar uma mensagem mais velha que a Data Início
+      while (keepFetching && attempts < 500) {
         try {
           let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
           if (lastId) url += `&before=${lastId}`;
@@ -58,18 +59,30 @@ export default async function handler(req, res) {
             headers: { Authorization: `Bot ${Discord_Bot_Token}` },
           });
 
+          // Rate Limit (Espera 1s se o Discord bloquear)
+          if (response.status === 429) {
+            await new Promise((r) => setTimeout(r, 1000));
+            continue; // Tenta de novo
+          }
+
           if (!response.ok) break;
           const msgs = await response.json();
 
           if (!msgs || msgs.length === 0) {
-            keepFetching = false;
+            keepFetching = false; // Acabaram as mensagens do canal
           } else {
             allMessages = allMessages.concat(msgs);
             lastId = msgs[msgs.length - 1].id;
 
-            // Se a última mensagem do lote for mais velha que a data inicial, pode parar
-            const lastMsgDate = new Date(msgs[msgs.length - 1].timestamp);
-            if (lastMsgDate < startObj) keepFetching = false;
+            // VERIFICAÇÃO CRUCIAL:
+            // Pega a data da mensagem mais velha desse pacote
+            const oldestMsgDate = new Date(msgs[msgs.length - 1].timestamp);
+
+            // Se a mensagem mais velha já for anterior à Data de Início escolhida,
+            // podemos parar de buscar, pois já temos tudo o que precisamos.
+            if (oldestMsgDate < startObj) {
+              keepFetching = false;
+            }
           }
           attempts++;
         } catch (e) {
@@ -80,16 +93,18 @@ export default async function handler(req, res) {
       return allMessages;
     }
 
-    // 2. Busca e Agregação Inicial (Por ID)
+    // 2. Busca e Contagem (Lógica separada para não perder dados)
     const canais = [CHANNEL_PORTE_ID, CHANNEL_LOGS_ID];
     const statsPorID = {}; // { "12345": { emissao: 1, ... } }
 
+    // Busca sequencial para evitar sobrecarga
     for (const id of canais) {
       const msgs = await fetchMessages(id);
 
       msgs.forEach((msg) => {
         const dataMsg = new Date(msg.timestamp);
-        // Filtro de Data
+
+        // Filtro Exato: Só conta se estiver DENTRO do período
         if (dataMsg < startObj || dataMsg > endObj) return;
 
         if (!msg.embeds || msg.embeds.length === 0) return;
@@ -97,7 +112,7 @@ export default async function handler(req, res) {
         const embed = msg.embeds[0];
         const title = normalizar(embed.title || "");
 
-        // Tenta achar o ID do Oficial
+        // Busca ID do Oficial (Compatível com vários formatos)
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) => {
           const nome = normalizar(f.name);
@@ -109,7 +124,7 @@ export default async function handler(req, res) {
           if (match) oficialId = match[1];
         }
 
-        if (!oficialId) return; // Se não achou ID, ignora
+        if (!oficialId) return;
 
         if (!statsPorID[oficialId]) {
           statsPorID[oficialId] = {
@@ -120,7 +135,7 @@ export default async function handler(req, res) {
           };
         }
 
-        // Contabiliza
+        // Contabilização
         if (title.includes("EMITIDO") || title.includes("NOVO PORTE")) {
           statsPorID[oficialId].emissao++;
         } else if (title.includes("REVOGADO")) {
@@ -133,14 +148,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3. Resolução de Nomes (Separada e Segura)
+    // 3. Resolução de Nomes (Busca os Nicks do Servidor)
     const idsEncontrados = Object.keys(statsPorID);
-    const mapaNomes = {}; // { "12345": "[CMD] Dark" }
+    const mapaNomes = {};
 
-    // Busca todos os nomes em paralelo
     await Promise.all(
       idsEncontrados.map(async (userId) => {
-        let nomeFinal = `Oficial (${userId})`; // Fallback
+        let nomeFinal = `Oficial (${userId})`;
 
         if (Discord_Guild_ID) {
           try {
@@ -151,30 +165,28 @@ export default async function handler(req, res) {
 
             if (resMember.ok) {
               const memberData = await resMember.json();
-              // Pega o Apelido (nick) ou Username
               nomeFinal =
                 memberData.nick ||
                 memberData.user.global_name ||
                 memberData.user.username;
             }
           } catch (e) {
-            console.error(`Erro ao buscar nome para ${userId}`);
+            console.error(`Erro nome ${userId}`);
           }
         }
         mapaNomes[userId] = nomeFinal;
       })
     );
 
-    // 4. Montagem do Relatório Final (Síncrona)
+    // 4. Montagem Final (Consolidação)
     const relatorioFinal = {};
 
     idsEncontrados.forEach((id) => {
       const nome = mapaNomes[id] || `Oficial ${id}`;
       const stats = statsPorID[id];
 
-      // Se o nome já existe (ex: duas contas com mesmo nick?), soma.
       if (!relatorioFinal[nome]) {
-        relatorioFinal[nome] = { ...stats }; // Cria cópia
+        relatorioFinal[nome] = { ...stats };
       } else {
         relatorioFinal[nome].emissao += stats.emissao;
         relatorioFinal[nome].revogacao += stats.revogacao;
@@ -186,6 +198,6 @@ export default async function handler(req, res) {
     res.status(200).json(relatorioFinal);
   } catch (error) {
     console.error("Erro Relatório:", error);
-    res.status(500).json({ error: "Erro interno ao gerar relatório." });
+    res.status(500).json({ error: "Erro interno. Verifique logs da Vercel." });
   }
 }
