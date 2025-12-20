@@ -328,47 +328,83 @@ async function processarEmissao() {
   });
 }
 
+// ==========================================
+// 🧼 LÓGICA DE LIMPEZA
+// ==========================================
 window.processarLimpeza = async function () {
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const passaporte = document.getElementById("limpeza-passaporte").value;
-  const nome = document.getElementById("limpeza-nome").value;
-  const valor = document.getElementById("limpeza-valor").value;
+  const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
+  const id = (document.getElementById("limpeza-id")?.value || "").trim();
+  const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
+  const valor = (
+    document.getElementById("input-valor-limpeza")?.value || "0"
+  ).trim();
 
-  if (!passaporte || !nome || !valor)
-    return mostrarAlerta("Erro", "Preencha tudo.", "error");
+  if (!nome || !id)
+    return mostrarAlerta(
+      "Dados Incompletos",
+      "Preencha NOME e PASSAPORTE.",
+      "warning"
+    );
 
-  const embedLimpeza = {
-    title: "LIMPEZA DE FICHA",
-    color: 3447003, // Azul
-    fields: [
-      { name: "Nome", value: nome, inline: true },
-      { name: "Passaporte", value: passaporte, inline: true },
-      { name: "Valor Pago", value: `R$ ${valor}`, inline: true },
-    ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
-  };
+  const confirmou = await confirmarAcao(
+    "Limpar Ficha?",
+    `Confirmar limpeza para ${nome} (R$ ${valor})?`
+  );
+  if (!confirmou) return;
+
+  mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A ALTERAÇÃO PARA O RELATÓRIO CONTAR 👇
-        content: `LIMPEZA DE FICHA POR <@${sessao.id}>`,
-        embeds: [embedLimpeza],
-      }),
-    });
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
+    const nomeArquivo = `limpeza_${id}.png`;
 
-    mostrarAlerta("Sucesso", "Limpeza registrada!", "success");
-    // Limpa os campos
-    document.getElementById("limpeza-passaporte").value = "";
-    document.getElementById("limpeza-nome").value = "";
-    document.getElementById("limpeza-valor").value = "";
-  } catch (error) {
-    mostrarAlerta("Erro", "Falha ao registrar limpeza.", "error");
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencaoOficial = sessao.id
+      ? `<@${sessao.id}>`
+      : `**${sessao.username || "Oficial"}**`;
+
+    const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
+
+    const embedLimpeza = {
+      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
+      description: `O registro criminal foi limpo mediante pagamento de taxa.`,
+      color: 65280,
+      fields: [
+        {
+          name: "👤 Cidadão",
+          value: `**${nome.toUpperCase()}**`,
+          inline: true,
+        },
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        {
+          name: "📅 Data",
+          value: new Date().toLocaleDateString("pt-BR"),
+          inline: true,
+        },
+      ],
+      image: { url: `attachment://${nomeArquivo}` },
+      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
+      timestamp: new Date().toISOString(),
+    };
+
+    const sucesso = await enviarParaAPI(
+      blobLimpeza,
+      nomeArquivo,
+      "limpeza",
+      embedLimpeza,
+      mensagemExterna
+    );
+
+    if (sucesso) {
+      mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
+      document.getElementById("limpeza-nome").value = "";
+      document.getElementById("limpeza-id").value = "";
+      document.getElementById("input-valor-limpeza").value = "";
+    }
+  } catch (erro) {
+    console.error(erro);
+    mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
   }
 };
 
@@ -566,105 +602,162 @@ function renderRevogadosHistorico() {
     });
 }
 
-window.revogar = async function (idPassaporte, nomeCidadão) {
-  // 1. Pede o motivo (mantendo seu modal ou prompt)
-  const motivo = await mostrarInput(
-    "Revogar Porte",
-    `Motivo para revogar ${nomeCidadão}:`
-  );
-  if (!motivo) return;
+// ==========================================
+// 🔄 AÇÃO DE RENOVAR
+// ==========================================
+window.renovarPorte = async function (idPorte) {
+  const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
+  if (!porte) return;
+
+  if (
+    !(await confirmarAcao(
+      "Renovar?",
+      `Renovar porte de ${porte.nome} por +30 dias?`
+    ))
+  )
+    return;
+
+  mostrarAlerta("Processando", "Renovando porte...", "warning");
 
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!sessao.webhook)
-    return mostrarAlerta("Erro", "Sessão inválida.", "error");
+  const mencaoOficial = sessao.id
+    ? `<@${sessao.id}>`
+    : `**${sessao.username}**`;
 
-  mostrarAlerta("Aguarde", "Processando revogação...", "info");
+  const hoje = new Date();
+  const novaValidade = new Date();
+  novaValidade.setDate(hoje.getDate() + 30);
+  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
 
-  const embedRevog = {
-    title: "PORTE REVOGADO",
-    color: 15158332, // Vermelho
+  const embedData = {
+    title: `🔄 RENOVAÇÃO DE PORTE`,
+    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
+    color: 16776960, // Amarelo
     fields: [
-      { name: "Nome", value: nomeCidadão, inline: true },
-      { name: "Passaporte", value: idPassaporte.toString(), inline: true },
-      { name: "Motivo", value: motivo, inline: false },
+      { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
+      { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
+      { name: "👮 Renovado por", value: mencaoOficial, inline: true },
+      { name: "🔫 Arma", value: porte.arma, inline: true },
+      {
+        name: "📅 Nova Validade",
+        value: `\`${novaValidadeStr}\``,
+        inline: true,
+      },
     ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
+    footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
-  try {
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A ALTERAÇÃO PARA O RELATÓRIO CONTAR 👇
-        content: `PORTE REVOGADO POR <@${sessao.id}>`,
-        embeds: [embedRevog],
-      }),
-    });
+  const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
 
-    // Remove local e atualiza
-    let lista = JSON.parse(localStorage.getItem("db_portes") || "[]");
-    lista = lista.filter((p) => p.id != idPassaporte);
-    localStorage.setItem("db_portes", JSON.stringify(lista));
+  const sucesso = await enviarParaAPI(
+    blob,
+    "renovacao_log.txt",
+    "revogacao",
+    embedData,
+    `🔄 **PORTE RENOVADO:** ${porte.id}`
+  );
 
-    mostrarAlerta("Sucesso", "Porte revogado!", "success");
-    if (typeof renderTables === "function") renderTables();
-  } catch (error) {
-    mostrarAlerta("Erro", "Falha na comunicação.", "error");
+  if (sucesso) {
+    porte.validade = novaValidadeStr;
+    porte.expedicao = new Date().toLocaleDateString("pt-BR");
+    renderTables();
+    mostrarAlerta("Sucesso", "Porte renovado!", "success");
+  } else {
+    mostrarAlerta("Erro", "Falha ao registrar renovação.", "error");
   }
 };
 
-window.revogar = async function (idPassaporte, nomeCidadão) {
-  // 1. Pede o motivo (mantendo seu modal ou prompt)
-  const motivo = await mostrarInput(
-    "Revogar Porte",
-    `Motivo para revogar ${nomeCidadão}:`
+// ==========================================
+// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
+// ==========================================
+window.revogar = async function (idPassaporte) {
+  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+
+  const confirmou = await confirmarAcao(
+    "REVOGAR PORTE?",
+    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord.`,
+    "danger"
   );
-  if (!motivo) return;
 
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!sessao.webhook)
-    return mostrarAlerta("Erro", "Sessão inválida.", "error");
+  if (!confirmou) return;
 
-  mostrarAlerta("Aguarde", "Processando revogação...", "info");
-
-  const embedRevog = {
-    title: "PORTE REVOGADO",
-    color: 15158332, // Vermelho
-    fields: [
-      { name: "Nome", value: nomeCidadão, inline: true },
-      { name: "Passaporte", value: idPassaporte.toString(), inline: true },
-      { name: "Motivo", value: motivo, inline: false },
-    ],
-    footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
-    timestamp: new Date().toISOString(),
-  };
+  mostrarAlerta("Processando", "Registrando revogação...", "warning");
 
   try {
-    await fetch(sessao.webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: "Sistema Policial",
-        avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A ALTERAÇÃO PARA O RELATÓRIO CONTAR 👇
-        content: `PORTE REVOGADO POR <@${sessao.id}>`,
-        embeds: [embedRevog],
-      }),
-    });
+    // 1. Gera imagem e envia log para o Discord
+    const blob = await gerarBlobRevogacao(p);
+    const nomeArq = `revogacao_${idPassaporte}.png`;
 
-    // Remove local e atualiza
-    let lista = JSON.parse(localStorage.getItem("db_portes") || "[]");
-    lista = lista.filter((p) => p.id != idPassaporte);
-    localStorage.setItem("db_portes", JSON.stringify(lista));
+    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
-    mostrarAlerta("Sucesso", "Porte revogado!", "success");
-    if (typeof renderTables === "function") renderTables();
-  } catch (error) {
-    mostrarAlerta("Erro", "Falha na comunicação.", "error");
+    const embed = {
+      title: `🚫 PORTE REVOGADO`,
+      color: 15548997,
+      fields: [
+        { name: "👤 Cidadão", value: p.nome, inline: true },
+        { name: "🆔 ID", value: p.id, inline: true },
+        { name: "👮 Oficial", value: mencao, inline: true },
+      ],
+      image: { url: `attachment://${nomeArq}` },
+    };
+
+    const enviou = await enviarParaAPI(
+      blob,
+      nomeArq,
+      "revogacao",
+      embed,
+      `🚨 **PORTE REVOGADO**`
+    );
+
+    if (enviou) {
+      // 2. Tenta deletar a mensagem original do Discord
+      if (p.message_id) {
+        await fetch("/api/deletar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message_id: p.message_id }),
+        });
+      }
+
+      // 3. SALVAR NO HISTÓRICO LOCAL (LocalStorage)
+      const historico = JSON.parse(
+        localStorage.getItem("historico_revogacoes") || "[]"
+      );
+
+      const novoRegistro = {
+        nome: p.nome,
+        id: p.id,
+        arma: p.arma,
+        dataRevogacao:
+          new Date().toLocaleDateString("pt-BR") +
+          " " +
+          new Date().toLocaleTimeString("pt-BR"),
+        oficial: sessao.username || "Sistema",
+      };
+
+      historico.push(novoRegistro);
+      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
+
+      // 4. Atualizar interface
+      mostrarAlerta(
+        "Sucesso",
+        "Porte revogado e salvo no histórico!",
+        "success"
+      );
+
+      // Remove do array local de ativos para sumir da tela atual
+      dbPortes = dbPortes.filter(
+        (item) => String(item.id) !== String(idPassaporte)
+      );
+
+      renderTables();
+      atualizarStats();
+    }
+  } catch (e) {
+    console.error(e);
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
 
