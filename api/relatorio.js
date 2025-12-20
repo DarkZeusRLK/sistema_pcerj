@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // --- Configurações de CORS e Headers ---
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -16,7 +15,7 @@ export default async function handler(req, res) {
 
   const { roles, dataInicio, dataFim } = req.body || {};
 
-  // 1. Validação de Permissão
+  // Validação de Permissão
   const listaPermitida = (CARGOS_ADMIN_RELATORIO || "")
     .split(",")
     .map((c) => c.trim());
@@ -28,10 +27,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Datas obrigatórias." });
 
   try {
-    // Datas de Corte
+    // Ajusta datas para cobrir o dia inteiro
     const startObj = new Date(`${dataInicio}T00:00:00`);
     const endObj = new Date(`${dataFim}T23:59:59`);
 
+    // Função que remove acentos e deixa tudo MAIÚSCULO para facilitar comparação
     const normalizar = (str) => {
       if (!str) return "";
       return str
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         .toUpperCase();
     };
 
-    // --- Função de Busca "Infinita" (Até a Data Início) ---
+    // --- FETCH COM LOOP INFINITO (Até a data selecionada) ---
     async function fetchMessages(channelId) {
       if (!channelId) return [];
       let allMessages = [];
@@ -48,8 +48,7 @@ export default async function handler(req, res) {
       let keepFetching = true;
       let attempts = 0;
 
-      // Aumentei o limite para 500 páginas (50.000 mensagens)
-      // O loop só para quando encontrar uma mensagem mais velha que a Data Início
+      // Limite de segurança: 500 páginas (50k mensagens)
       while (keepFetching && attempts < 500) {
         try {
           let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
@@ -59,64 +58,62 @@ export default async function handler(req, res) {
             headers: { Authorization: `Bot ${Discord_Bot_Token}` },
           });
 
-          // Rate Limit (Espera 1s se o Discord bloquear)
+          // Se der Rate Limit (429), espera um pouco
           if (response.status === 429) {
             await new Promise((r) => setTimeout(r, 1000));
-            continue; // Tenta de novo
+            continue;
           }
 
           if (!response.ok) break;
           const msgs = await response.json();
 
           if (!msgs || msgs.length === 0) {
-            keepFetching = false; // Acabaram as mensagens do canal
+            keepFetching = false;
           } else {
             allMessages = allMessages.concat(msgs);
             lastId = msgs[msgs.length - 1].id;
 
-            // VERIFICAÇÃO CRUCIAL:
-            // Pega a data da mensagem mais velha desse pacote
-            const oldestMsgDate = new Date(msgs[msgs.length - 1].timestamp);
-
-            // Se a mensagem mais velha já for anterior à Data de Início escolhida,
-            // podemos parar de buscar, pois já temos tudo o que precisamos.
-            if (oldestMsgDate < startObj) {
-              keepFetching = false;
-            }
+            // Se chegamos em mensagens mais velhas que o filtro, para.
+            const lastMsgDate = new Date(msgs[msgs.length - 1].timestamp);
+            if (lastMsgDate < startObj) keepFetching = false;
           }
           attempts++;
         } catch (e) {
-          console.error("Erro no fetch loop:", e);
           keepFetching = false;
         }
       }
       return allMessages;
     }
 
-    // 2. Busca e Contagem (Lógica separada para não perder dados)
     const canais = [CHANNEL_PORTE_ID, CHANNEL_LOGS_ID];
-    const statsPorID = {}; // { "12345": { emissao: 1, ... } }
+    const statsPorID = {};
 
-    // Busca sequencial para evitar sobrecarga
+    // --- LOOP PRINCIPAL DE CONTAGEM ---
     for (const id of canais) {
       const msgs = await fetchMessages(id);
 
       msgs.forEach((msg) => {
         const dataMsg = new Date(msg.timestamp);
 
-        // Filtro Exato: Só conta se estiver DENTRO do período
+        // 1. Filtro de Data
         if (dataMsg < startObj || dataMsg > endObj) return;
 
+        // 2. Validação de Embed
         if (!msg.embeds || msg.embeds.length === 0) return;
-
         const embed = msg.embeds[0];
+
+        // Normaliza o Título (Ex: "Revogação" vira "REVOGACAO")
         const title = normalizar(embed.title || "");
 
-        // Busca ID do Oficial (Compatível com vários formatos)
+        // 3. Busca o ID do Oficial
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) => {
           const nome = normalizar(f.name);
-          return nome.includes("OFICIAL") || nome.includes("REVOGADO POR");
+          return (
+            nome.includes("OFICIAL") ||
+            nome.includes("REVOGADO POR") ||
+            nome.includes("AUTOR")
+          );
         });
 
         if (campoOficial) {
@@ -135,34 +132,50 @@ export default async function handler(req, res) {
           };
         }
 
-        // Contabilização
-        if (title.includes("EMITIDO") || title.includes("NOVO PORTE")) {
+        // ====================================================
+        // 4. LÓGICA DE PALAVRAS-CHAVE (CORRIGIDA E AMPLIADA)
+        // ====================================================
+
+        // EMISSÃO
+        if (
+          title.includes("EMITIDO") ||
+          title.includes("NOVO PORTE") ||
+          title.includes("CONCESSAO")
+        ) {
           statsPorID[oficialId].emissao++;
-        } else if (title.includes("REVOGADO")) {
+        }
+        // REVOGAÇÃO (Agora aceita REVOGACAO, REVOGADO, CANCELADO)
+        else if (
+          title.includes("REVOGADO") ||
+          title.includes("REVOGACAO") ||
+          title.includes("CANCELADO")
+        ) {
           statsPorID[oficialId].revogacao++;
-        } else if (title.includes("LIMPEZA")) {
+        }
+        // LIMPEZA
+        else if (title.includes("LIMPEZA") || title.includes("LIMPO")) {
           statsPorID[oficialId].limpeza++;
-        } else if (title.includes("RENOVACAO")) {
+        }
+        // RENOVAÇÃO
+        else if (title.includes("RENOVACAO") || title.includes("RENOVADO")) {
           statsPorID[oficialId].renovacao++;
         }
       });
     }
 
-    // 3. Resolução de Nomes (Busca os Nicks do Servidor)
+    // --- RESOLUÇÃO DE NOMES ---
     const idsEncontrados = Object.keys(statsPorID);
     const mapaNomes = {};
 
     await Promise.all(
       idsEncontrados.map(async (userId) => {
         let nomeFinal = `Oficial (${userId})`;
-
         if (Discord_Guild_ID) {
           try {
             const resMember = await fetch(
               `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${userId}`,
               { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
             );
-
             if (resMember.ok) {
               const memberData = await resMember.json();
               nomeFinal =
@@ -170,17 +183,14 @@ export default async function handler(req, res) {
                 memberData.user.global_name ||
                 memberData.user.username;
             }
-          } catch (e) {
-            console.error(`Erro nome ${userId}`);
-          }
+          } catch (e) {}
         }
         mapaNomes[userId] = nomeFinal;
       })
     );
 
-    // 4. Montagem Final (Consolidação)
+    // --- MONTAGEM FINAL ---
     const relatorioFinal = {};
-
     idsEncontrados.forEach((id) => {
       const nome = mapaNomes[id] || `Oficial ${id}`;
       const stats = statsPorID[id];
@@ -197,7 +207,7 @@ export default async function handler(req, res) {
 
     res.status(200).json(relatorioFinal);
   } catch (error) {
-    console.error("Erro Relatório:", error);
-    res.status(500).json({ error: "Erro interno. Verifique logs da Vercel." });
+    console.error("Erro API Relatorio:", error);
+    res.status(500).json({ error: "Erro interno no servidor." });
   }
 }
