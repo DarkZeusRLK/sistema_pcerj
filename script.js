@@ -541,16 +541,16 @@ window.renderTables = function () {
         }
 
         trRev.innerHTML = `
-            <td>${porte.nome}</td>
-            <td>${porte.id}</td>
-            <td>${porte.arma}</td>
-            <td>${validadeHTML}</td>
-            <td>
-                <button class="btn-danger" onclick="revogar('${porte.id}')">
-                    <i class="fa-solid fa-ban"></i>
-                </button>
-            </td>
-        `;
+    <td>${porte.nome}</td>
+    <td>${porte.id}</td>
+    <td>${porte.arma}</td>
+    <td>${validadeHTML}</td>
+    <td>
+        <button class="btn-danger" onclick="revogar('${porte.id}', '${porte.nome}')">
+            <i class="fa-solid fa-ban"></i>
+        </button>
+    </td>
+`;
         tbodyRevogacao.appendChild(trRev);
       }
     });
@@ -639,19 +639,32 @@ window.renovarPorte = async function (idPassaporte) {
 // 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
 // ==========================================
 window.revogar = async function (idPassaporte, nomeCidadão) {
-  // Pede o motivo usando seu modal customizado
-  const motivo = await mostrarInput(
-    "Revogar Porte",
-    `Motivo para revogar o porte de ${nomeCidadão}:`
+  // 1. Alerta de Confirmação (Sem digitar motivo)
+  const confirmacao = await confirmarAcao(
+    "REVOGAR PORTE",
+    `Tem certeza que deseja revogar o porte de ${nomeCidadão}?`,
+    "danger" // Isso deixa o botão vermelho
   );
 
-  if (!motivo) return; // Se cancelar ou deixar vazio, para aqui.
+  // Se o usuário clicar em "Cancelar", para aqui.
+  if (!confirmacao) return;
 
+  // 2. Verificação de Sessão
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!sessao.webhook)
-    return mostrarAlerta("Erro", "Sessão inválida. Faça login.", "error");
+
+  // Verifica se tem token (login) E webhook
+  if (!sessao.token || !sessao.webhook) {
+    return mostrarAlerta(
+      "Erro de Permissão",
+      "Sessão inválida ou sem permissão de Webhook. Faça login novamente.",
+      "error"
+    );
+  }
 
   mostrarAlerta("Aguarde", "Processando revogação...", "info");
+
+  // Motivo fixo, já que removemos a digitação
+  const motivoFixo = "Revogação Administrativa (Manual)";
 
   const embedRevog = {
     title: "PORTE REVOGADO",
@@ -659,34 +672,54 @@ window.revogar = async function (idPassaporte, nomeCidadão) {
     fields: [
       { name: "Nome", value: nomeCidadão, inline: true },
       { name: "Passaporte", value: idPassaporte.toString(), inline: true },
-      { name: "Motivo", value: motivo, inline: false },
+      { name: "Motivo", value: motivoFixo, inline: false },
     ],
     footer: { text: "Sistema Policial", icon_url: CONFIG.BRASAO_URL },
     timestamp: new Date().toISOString(),
   };
 
   try {
+    // Envia para o Webhook do Discord
     await fetch(sessao.webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: "Sistema Policial",
         avatar_url: CONFIG.BRASAO_URL,
-        // 👇 AQUI ESTÁ A MUDANÇA (FORA DO EMBED) 👇
-        content: `REVOGAÇÃO EMITIDA POR <@${sessao.id}>`,
+        content: `🚨 **REVOGAÇÃO EMITIDA POR** <@${sessao.id}>`,
         embeds: [embedRevog],
       }),
     });
 
-    // Remove do banco local e atualiza a tela
+    // Remove do banco local (memória do navegador)
+    // Função auxiliar para remover do array dbPortes e atualizar o localStorage
     removerPorteLocal(idPassaporte);
-    mostrarAlerta("Sucesso", "Porte revogado!", "success");
+
+    mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
+
+    // Atualiza a tabela na tela
     if (typeof renderTables === "function") renderTables();
   } catch (error) {
     console.error(error);
     mostrarAlerta("Erro", "Falha na comunicação com Discord.", "error");
   }
 };
+
+// Função auxiliar necessária (caso você não tenha ela separada)
+function removerPorteLocal(idParaRemover) {
+  // Atualiza a variável global
+  const index = dbPortes.findIndex((p) => p.id == idParaRemover);
+  if (index !== -1) {
+    // Opção A: Apenas mudar status para manter histórico
+    dbPortes[index].status = "Revogado";
+
+    // Opção B: Se quiser deletar permanentemente, use: dbPortes.splice(index, 1);
+  }
+
+  // Salva no localStorage para persistir se der F5 (caso não use banco de dados real)
+  // Nota: Como você usa carregarPortesDoDiscord, isso altera apenas localmente até o próximo reload,
+  // a menos que sua API '/api/enviar' trate a deleção real.
+}
 
 function gerarBlobRevogacao(p) {
   return new Promise((resolve, reject) => {
