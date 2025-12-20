@@ -272,7 +272,7 @@ async function processarEmissao() {
     })}\`**`;
 
     const embedData = {
-      title: `PORTE EMITIDO: ${arma}`,
+      title: `📄 EMISSÃO DE PORTE: ${arma}`,
       description: `Documento oficial registrado.`,
       color: 3447003,
       fields: [
@@ -375,7 +375,6 @@ window.processarLimpeza = async function () {
           value: `**${nome.toUpperCase()}**`,
           inline: true,
         },
-        { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
         { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
         {
@@ -699,7 +698,7 @@ window.revogar = async function (idPassaporte) {
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Oficial", value: mencaoOficial, inline: true },
+        { name: "👮 Oficial", value: mencao, inline: true },
       ],
       image: { url: `attachment://${nomeArq}` },
     };
