@@ -314,20 +314,20 @@
         <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 15px;">
           <h2><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h2>
 
-          <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; width: 100%;">
 
             <div style="display: flex; flex-direction: column;">
-              <label style="font-size: 12px; color: #ccc;">Data Início:</label>
-              <input type="date" id="rel-inicio" style="padding: 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+              <label style="font-size: 12px; color: #aaa; margin-bottom: 5px;">Data Início:</label>
+              <input type="date" id="rel-inicio" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
             </div>
 
             <div style="display: flex; flex-direction: column;">
-              <label style="font-size: 12px; color: #ccc;">Data Fim:</label>
-              <input type="date" id="rel-fim" style="padding: 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+              <label style="font-size: 12px; color: #aaa; margin-bottom: 5px;">Data Fim:</label>
+              <input type="date" id="rel-fim" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
             </div>
 
-            <button id="btn-atualizar-relatorio" class="btn-primary" style="height: 38px; margin-top: 16px;">
-              <i class="fa-solid fa-filter"></i> Filtrar
+            <button id="btn-filtrar-relatorio" class="btn-primary" style="height: 38px;">
+              <i class="fa-solid fa-filter"></i> Gerar Relatório
             </button>
 
           </div>
@@ -342,13 +342,15 @@
                 <th>Renov.</th>
                 <th>Limp.</th>
                 <th>Revog.</th>
-                <th>TOTAL</th>
-                <th>Status da Meta</th>
+                <th style="background: rgba(255,255,255,0.05)">TOTAL</th>
+                <th>Status (Meta: 15)</th>
               </tr>
             </thead>
             <tbody id="corpo-relatorio">
               <tr>
-                <td colspan="7" align="center">Selecione as datas e clique em Filtrar.</td>
+                <td colspan="7" align="center" style="padding: 20px; color: #aaa;">
+                  <i class="fa-solid fa-calendar-days"></i> Selecione as datas acima e clique em "Gerar Relatório".
+                </td>
               </tr>
             </tbody>
           </table>
