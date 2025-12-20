@@ -668,29 +668,25 @@ window.renovarPorte = async function (idPorte) {
 };
 
 // ==========================================
-// 🚨 FUNÇÃO DE REVOGAR (CORRIGIDA)
+// 🚨 FUNÇÃO DE REVOGAR (VIA TABELA)
 // ==========================================
-window.revogar = async function () {
-  const passaporteAlvo = document.getElementById("rev-passaporte").value;
-  const motivo = document.getElementById("rev-motivo").value;
+window.revogar = async function (idPassaporte, nomeCidadão) {
+  // 1. Pergunta o Motivo usando o navegador (Simples e rápido)
+  const motivo = prompt(`Qual o motivo da revogação para ${nomeCidadão}?`);
 
-  // 1. CORREÇÃO: Criamos a variável que estava faltando.
-  // Como não tem input de nome na revogação, usamos "Indefinido" ou o próprio passaporte.
-  const nomeAlvo = "Cidadão (Passaporte " + passaporteAlvo + ")";
+  // Se o usuário clicar em Cancelar ou deixar vazio, para tudo.
+  if (!motivo) return;
 
-  if (!passaporteAlvo || !motivo) {
-    return mostrarAlerta("Erro", "Preencha o Passaporte e o Motivo.", "error");
-  }
-
+  // 2. Pede confirmação visual
   const confirmacao = await mostrarConfirmacao(
     "Confirmar Revogação",
-    `Deseja revogar o porte do passaporte ${passaporteAlvo}?`
+    `Tem certeza que deseja revogar o porte de ${nomeCidadão} (ID: ${idPassaporte})?`
   );
 
   if (!confirmacao) return;
 
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const webhookUrl = sessao.webhook; // Pega o Webhook salvo no Login
+  const webhookUrl = sessao.webhook;
 
   if (!webhookUrl) {
     return mostrarAlerta(
@@ -702,19 +698,19 @@ window.revogar = async function () {
 
   mostrarAlerta("Aguarde", "Processando revogação...", "info");
 
+  // Cria o Embed
   const embedRevog = {
-    title: "PORTE REVOGADO", // Título exato para o relatório contar
+    title: "PORTE REVOGADO",
     color: 15158332, // Vermelho
     fields: [
-      { name: "Nome", value: nomeAlvo, inline: true }, // Agora a variável existe e não vai dar erro
-      { name: "Passaporte", value: passaporteAlvo, inline: true },
+      { name: "Nome", value: nomeCidadão, inline: true },
+      { name: "Passaporte", value: idPassaporte.toString(), inline: true },
       { name: "Motivo", value: motivo, inline: false },
-      // Campo crucial para o Relatório saber quem revogou:
       { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
     ],
     footer: {
       text: "Sistema Policial",
-      icon_url: CONFIG.BRASAO_URL, // Usa a config global
+      icon_url: CONFIG.BRASAO_URL,
     },
     timestamp: new Date().toISOString(),
   };
@@ -731,14 +727,9 @@ window.revogar = async function () {
     });
 
     if (response.ok) {
-      mostrarAlerta(
-        "Sucesso",
-        "Porte revogado e registrado no Discord!",
-        "success"
-      );
-      // Limpa os campos
-      document.getElementById("rev-passaporte").value = "";
-      document.getElementById("rev-motivo").value = "";
+      mostrarAlerta("Sucesso", "Porte revogado!", "success");
+      // Aqui você pode chamar a função para atualizar a tabela, se tiver
+      if (typeof renderTables === "function") renderTables();
     } else {
       throw new Error("Erro no Discord");
     }
