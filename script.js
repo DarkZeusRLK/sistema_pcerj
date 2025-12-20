@@ -209,6 +209,14 @@ if (btnRelatorio) {
     gerarRelatorioSemanal(); // Chama a função que busca os dados
   });
 }
+// Botão Relatório (Evita duplicação de clicks)
+const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
+if (btnFiltrar) {
+  btnFiltrar.replaceWith(btnFiltrar.cloneNode(true));
+  document
+    .getElementById("btn-filtrar-relatorio")
+    .addEventListener("click", window.gerarRelatorio);
+}
 
 function ativarFormatacaoDinheiro() {
   const inputValor = document.getElementById("input-valor-limpeza");
@@ -667,40 +675,26 @@ window.renovarPorte = async function (idPorte) {
   }
 };
 
-// ==========================================
-// 🚨 FUNÇÃO DE REVOGAR (VIA TABELA)
-// ==========================================
+// 2. REVOGAR (COM MODAL PERSONALIZADO)
 window.revogar = async function (idPassaporte, nomeCidadão) {
-  // 1. Pergunta o Motivo usando o navegador (Simples e rápido)
-  const motivo = prompt(`Qual o motivo da revogação para ${nomeCidadão}?`);
-
-  // Se o usuário clicar em Cancelar ou deixar vazio, para tudo.
-  if (!motivo) return;
-
-  // 2. Pede confirmação visual
-  const confirmacao = await mostrarConfirmacao(
-    "Confirmar Revogação",
-    `Tem certeza que deseja revogar o porte de ${nomeCidadão} (ID: ${idPassaporte})?`
+  // AQUI: Usamos nosso modal estilizado em vez de prompt
+  const motivo = await mostrarInput(
+    "Motivo da Revogação",
+    `Digite o motivo para revogar o porte de ${nomeCidadão}:`
   );
 
-  if (!confirmacao) return;
+  // Se usuário cancelou ou deixou vazio
+  if (!motivo) return;
 
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
   const webhookUrl = sessao.webhook;
 
-  if (!webhookUrl) {
-    return mostrarAlerta(
-      "Erro",
-      "Erro de sessão. Faça login novamente.",
-      "error"
-    );
-  }
+  if (!webhookUrl) return mostrarAlerta("Erro", "Erro de sessão.", "error");
 
   mostrarAlerta("Aguarde", "Processando revogação...", "info");
 
-  // Cria o Embed
   const embedRevog = {
-    title: "PORTE REVOGADO",
+    title: "PORTE REVOGADO", // Importante para o relatório
     color: 15158332, // Vermelho
     fields: [
       { name: "Nome", value: nomeCidadão, inline: true },
@@ -708,15 +702,12 @@ window.revogar = async function (idPassaporte, nomeCidadão) {
       { name: "Motivo", value: motivo, inline: false },
       { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
     ],
-    footer: {
-      text: "Sistema Policial",
-      icon_url: CONFIG.BRASAO_URL,
-    },
+    footer: FOOTER_PADRAO,
     timestamp: new Date().toISOString(),
   };
 
   try {
-    const response = await fetch(webhookUrl, {
+    const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -726,16 +717,13 @@ window.revogar = async function (idPassaporte, nomeCidadão) {
       }),
     });
 
-    if (response.ok) {
+    if (res.ok) {
+      removerPorteLocal(idPassaporte); // Remove da tabela
       mostrarAlerta("Sucesso", "Porte revogado!", "success");
-      // Aqui você pode chamar a função para atualizar a tabela, se tiver
-      if (typeof renderTables === "function") renderTables();
-    } else {
-      throw new Error("Erro no Discord");
+      renderTables(); // Atualiza a tela
     }
   } catch (error) {
-    console.error(error);
-    mostrarAlerta("Erro", "Falha ao comunicar com o servidor.", "error");
+    mostrarAlerta("Erro", "Falha na comunicação.", "error");
   }
 };
 
