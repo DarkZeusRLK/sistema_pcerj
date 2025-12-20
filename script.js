@@ -1079,46 +1079,72 @@ async function verificarPermissaoRelatorio() {
 // 🎨 FUNÇÃO NECESSÁRIA PARA O BOTÃO FUNCIONAR
 // (Cole isso no final do script.js)
 // ==========================================
+// ==========================================
+// 🎨 FUNÇÃO CORRIGIDA (Substitua a do final do arquivo)
+// ==========================================
 window.mostrarInput = function (titulo, msgPlaceholder) {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
+    if (!modal) return resolve(prompt(msgPlaceholder)); // Fallback se não tiver modal
 
-    // Configura Visual
-    document.getElementById("modal-icon-box").innerHTML =
-      '<i class="fa-solid fa-pen" style="color: #66b2ff;"></i>';
-    document.getElementById("modal-title").innerText = titulo;
+    // CORREÇÃO AQUI: Usa 'modal-icon' em vez de 'modal-icon-box'
+    const icone = document.getElementById("modal-icon");
+    if (icone) {
+      icone.className = ""; // Limpa classes anteriores
+      icone.innerHTML =
+        '<i class="fa-solid fa-pen" style="color: #66b2ff; font-size: 40px;"></i>';
+    }
 
-    // Injeta o HTML do input
+    // Configura Título
+    const elTitulo = document.getElementById("modal-title");
+    if (elTitulo) elTitulo.innerText = titulo;
+
+    // Injeta o HTML do input na descrição
     const desc = document.getElementById("modal-desc");
-    desc.innerHTML = `
-        <p style="margin-bottom: 10px;">${msgPlaceholder}</p>
-        <input type="text" id="modal-input-field" 
-               style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; margin-top: 5px;" 
-               placeholder="Digite aqui...">
-    `;
+    if (desc) {
+      desc.innerHTML = `
+            <p style="margin-bottom: 10px;">${msgPlaceholder}</p>
+            <input type="text" id="modal-input-field" 
+                   style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; margin-top: 5px; font-size: 16px;" 
+                   autocomplete="off" placeholder="Digite aqui...">
+        `;
+    }
 
-    // Botões
-    const btnArea = document.getElementById("modal-actions");
-    btnArea.innerHTML = `
-        <button class="btn-cancel" id="modal-btn-cancel">Cancelar</button>
-        <button class="btn-primary" id="modal-btn-confirm">Enviar</button>
-    `;
+    // Configura Botões (Confere se existe o container de ações ou usa os botões padrão)
+    const btnConfirm = document.getElementById("btn-modal-confirm");
+    const btnCancel = document.getElementById("btn-modal-cancel");
 
+    // Mostra o modal
     modal.classList.remove("hidden");
-    setTimeout(
-      () => document.getElementById("modal-input-field")?.focus(),
-      100
-    );
+    if (btnCancel) btnCancel.classList.remove("hidden");
 
-    const confirmar = () => {
+    // Foca no input
+    setTimeout(() => {
+      const input = document.getElementById("modal-input-field");
+      if (input) input.focus();
+    }, 100);
+
+    // Lógica do Clique (Clonamos para remover eventos antigos)
+    const novoConfirm = btnConfirm.cloneNode(true);
+    const novoCancel = btnCancel.cloneNode(true);
+
+    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
+    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
+
+    // Define textos e estilos
+    novoConfirm.innerText = "Enviar";
+    novoConfirm.className = "btn-primary";
+
+    // Ação Confirmar
+    novoConfirm.onclick = () => {
       const val = document.getElementById("modal-input-field").value;
-      if (!val) return;
+      if (!val) return; // Não deixa enviar vazio
       modal.classList.add("hidden");
       resolve(val);
     };
 
-    document.getElementById("modal-btn-confirm").onclick = confirmar;
-    document.getElementById("modal-btn-cancel").onclick = () => {
+    // Ação Cancelar
+    novoCancel.onclick = () => {
       modal.classList.add("hidden");
       resolve(null);
     };
