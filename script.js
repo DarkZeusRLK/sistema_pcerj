@@ -870,21 +870,27 @@ window.logout = () => {
   window.location.href = "login.html";
 };
 
-window.navegar = (t) => {
+window.navegar = (tela) => {
+  // 1. Esconde todas as telas
   document
     .querySelectorAll(".screen")
     .forEach((s) => s.classList.add("hidden"));
+
+  // 2. Remove ativo dos menus
   document
     .querySelectorAll(".nav-links li")
     .forEach((l) => l.classList.remove("active"));
 
-  const sec = document.getElementById(`sec-${t}`);
+  // 3. Mostra a tela certa (Agora vai achar o sec-relatorios!)
+  const sec = document.getElementById(`sec-${tela}`);
   if (sec) sec.classList.remove("hidden");
 
-  const menu = document.getElementById(`menu-${t}`);
+  // 4. Ativa o menu (opcional, se quiser destaque)
+  const menu = document.getElementById(`menu-${tela}`);
   if (menu) menu.classList.add("active");
 
-  if (t === "emissao") configurarDatasAutomaticas();
+  // Recarrega datas se for emissão, etc.
+  if (tela === "emissao") configurarDatasAutomaticas();
 };
 
 // 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇

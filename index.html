@@ -52,8 +52,11 @@
           <li id="menu-revogacao" onclick="navegar('revogacao')">
             <i class="fa-solid fa-ban"></i> Revogações
           </li>
-          <li id="menu-relatorios" class="hidden" onclick="navegar('relatorios')">
-            <i class="fa-solid fa-chart-line"></i> Relatórios
+          <li id="menu-relatorios" onclick="navegar('relatorios')">
+            <a href="#">
+              <i class="fa-solid fa-chart-line"></i>
+              <span class="link-name">Relatórios</span>
+            </a>
           </li>
         </ul>
       </nav>
@@ -310,52 +313,52 @@
           </table>
         </div>
       </section>
-      <section id="view-relatorios" class="view-section hidden">
-        <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 15px;">
-          <h2><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h2>
+      <<section id="sec-relatorios" class="screen hidden">
+        <div class="top-bar">
+          <h1><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h1>
+        </div>
 
-          <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; width: 100%;">
+        <div class="panel-body" style="background: var(--bg-panel); padding: 20px; border-radius: 8px; border: 1px solid var(--border-light);">
 
-            <div style="display: flex; flex-direction: column;">
-              <label style="font-size: 12px; color: #aaa; margin-bottom: 5px;">Data Início:</label>
-              <input type="date" id="rel-inicio" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+          <div style="display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label>Data Início</label>
+              <input type="date" id="rel-inicio">
             </div>
-
-            <div style="display: flex; flex-direction: column;">
-              <label style="font-size: 12px; color: #aaa; margin-bottom: 5px;">Data Fim:</label>
-              <input type="date" id="rel-fim" style="padding: 8px; border-radius: 4px; border: 1px solid #444; background: #222; color: white;">
+            <div class="input-group" style="margin-bottom: 0;">
+              <label>Data Fim</label>
+              <input type="date" id="rel-fim">
             </div>
-
-            <button id="btn-filtrar-relatorio" class="btn-primary" style="height: 38px;">
-              <i class="fa-solid fa-filter"></i> Gerar Relatório
+            <button id="btn-filtrar-relatorio" class="btn-primary" style="height: 48px; min-width: 150px;">
+              <i class="fa-solid fa-filter"></i> Filtrar
             </button>
-
           </div>
-        </div>
 
-        <div class="panel-body">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Oficial</th>
-                <th>Portes</th>
-                <th>Renov.</th>
-                <th>Limp.</th>
-                <th>Revog.</th>
-                <th style="background: rgba(255,255,255,0.05)">TOTAL</th>
-                <th>Status (Meta: 15)</th>
-              </tr>
-            </thead>
-            <tbody id="corpo-relatorio">
-              <tr>
-                <td colspan="7" align="center" style="padding: 20px; color: #aaa;">
-                  <i class="fa-solid fa-calendar-days"></i> Selecione as datas acima e clique em "Gerar Relatório".
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="table-container" style="margin-top: 0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Oficial</th>
+                  <th>Portes</th>
+                  <th>Renov.</th>
+                  <th>Limp.</th>
+                  <th>Revog.</th>
+                  <th style="background: rgba(255,255,255,0.05)">TOTAL</th>
+                  <th>Status (Meta: 15)</th>
+                </tr>
+              </thead>
+              <tbody id="corpo-relatorio">
+                <tr>
+                  <td colspan="7" align="center" style="padding: 30px; color: #aaa;">
+                    Selecione as datas acima e clique em "Filtrar".
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
-      </section>
+        </section>
     </main>
   </div>
 
