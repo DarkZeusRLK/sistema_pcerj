@@ -665,16 +665,28 @@ window.renovarPorte = async function (idPorte) {
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA PARA METAS)
 // ==========================================
 window.revogar = async function (idPassaporte) {
-  // 1. Localiza o porte
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}?`,
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro original.`,
     "danger"
   );
+
   if (!confirmou) return;
+
+  // 1. ALERTA DE PROCESSAMENTO (Não fecha sozinho)
+  Swal.fire({
+    title: "Processando revogação",
+    text: "O porte está sendo revogado e as metas preservadas, por favor aguarde...",
+    icon: "info",
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    },
+  });
 
   try {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -682,45 +694,37 @@ window.revogar = async function (idPassaporte) {
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
 
-    // 👇 BUSCA O EMISSOR (Tenta várias nomenclaturas comuns de API)
-    const emissorOriginal =
-      p.oficial || p.oficial_mencao || p.responsavel || "Oficial Desconhecido";
+    // Captura o oficial que emitiu originalmente (campo vindo da API listar)
+    const emissorOriginal = p.oficial || "Não Identificado";
 
     const blob = await gerarBlobRevogacao(p);
     const nomeArq = `revogacao_${idPassaporte}.png`;
 
     const embed = {
-      title: `🚫 PORTE REVOGADO`,
+      title: `🚫 RELATÓRIO DE REVOGAÇÃO`,
       color: 15548997,
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
         { name: "👮 Revogado por", value: mencaoRevogador, inline: true },
-        { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
+        { name: "📜 Emissor Original", value: emissorOriginal, inline: true }, // 👈 CAMPO CHAVE PARA A API
       ],
       image: { url: `attachment://${nomeArq}` },
       footer: FOOTER_PADRAO,
     };
 
-    // ========================================================================
-    // 🛡️ O SEGREDO DAS METAS:
-    // Criamos um log que contém as DUAS frases que o seu bot de relatório busca.
-    // Assim, ao deletar a msg original, este novo log garante o ponto dos dois.
-    // ========================================================================
-    const mensagemParaMetas =
-      `🚨 **PORTE REVOGADO** por ${mencaoRevogador}\n` +
-      `♻️ **PONTO PRESERVADO:** ✅ **PORTE APROVADO** por ${emissorOriginal}`;
+    const logTexto = `🚨 **REVOGAÇÃO EFETUADA**\nO oficial ${mencaoRevogador} revogou o porte que havia sido emitido por ${emissorOriginal}.`;
 
     const enviou = await enviarParaAPI(
       blob,
       nomeArq,
       "revogacao",
       embed,
-      mensagemParaMetas
+      logTexto
     );
 
     if (enviou) {
-      // Deleta a original para limpar o canal de ativos
+      // Deleta a mensagem original
       if (p.message_id) {
         await fetch("/api/deletar", {
           method: "POST",
@@ -729,21 +733,24 @@ window.revogar = async function (idPassaporte) {
         });
       }
 
-      // Remove da lista local e atualiza
+      // Atualiza lista local
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
       renderTables();
       atualizarStats();
-      mostrarAlerta(
-        "Sucesso",
-        "Revogação concluída e metas preservadas!",
-        "success"
-      );
+
+      // 2. ATUALIZA O ALERTA PARA SUCESSO
+      Swal.fire({
+        title: "Sucesso!",
+        text: "Porte revogado. As metas originais foram preservadas no relatório.",
+        icon: "success",
+        timer: 3000,
+      });
     }
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha na revogação.", "error");
+    Swal.fire("Erro", "Falha ao processar a revogação.", "error");
   }
 };
 function gerarBlobRevogacao(p) {
