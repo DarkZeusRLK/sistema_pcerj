@@ -52,6 +52,9 @@
           <li id="menu-revogacao" onclick="navegar('revogacao')">
             <i class="fa-solid fa-ban"></i> Revogações
           </li>
+          <li id="menu-relatorios" class="hidden" onclick="navegar('relatorios')">
+            <i class="fa-solid fa-chart-line"></i> Relatórios
+          </li>
         </ul>
       </nav>
 
@@ -307,17 +310,13 @@
           </table>
         </div>
       </section>
-      <li id="menu-relatorios" class="hidden" onclick="navegar('relatorios')">
-        <i class="fa-solid fa-chart-line"></i> Relatórios
-      </li>
-
       <section id="sec-relatorios" class="screen hidden">
-        <header class="top-bar">
+        <div class="header-top">
           <h2>Relatório Semanal de Produtividade</h2>
           <button class="btn-primary" onclick="gerarRelatorio()">
             <i class="fa-solid fa-sync"></i> Atualizar Dados
           </button>
-        </header>
+        </div>
 
         <div class="table-container">
           <table id="tabela-relatorio">
