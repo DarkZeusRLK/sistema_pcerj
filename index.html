@@ -270,15 +270,37 @@
           <span>Atenção: O ato de revogar um porte é irreversível.</span>
         </div>
 
-        <div class="search-area">
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="input-busca" placeholder="Pesquisar por nome ou ID..." onkeyup="renderTables()">
+        <div class="form-container" style="margin-bottom: 30px;">
+          <div class="form-content">
+            <h3 style="margin-bottom: 15px; color: var(--text-secondary); border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+              <i class="fa-solid fa-pen-to-square"></i> Revogação Manual
+            </h3>
+
+            <div class="row">
+              <div class="input-group">
+                <label>Passaporte (ID) do Cidadão</label>
+                <input type="number" id="rev-passaporte" placeholder="Ex: 123">
+              </div>
+              <div class="input-group">
+                <label>Motivo da Revogação</label>
+                <input type="text" id="rev-motivo" placeholder="Ex: Abuso de armamento, Prisão, etc.">
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn-primary" style="background-color: var(--red-accent);" onclick="revogar()">
+                <i class="fa-solid fa-ban"></i> Confirmar Revogação
+              </button>
+            </div>
           </div>
         </div>
-
         <div class="table-container">
-          <h3>Portes Ativos</h3>
+          <div class="search-box" style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px; background: var(--bg-dark); padding: 10px; border-radius: 6px; border: 1px solid var(--border-light);">
+            <i class="fa-solid fa-magnifying-glass" style="color: #aaa;"></i>
+            <input type="text" id="input-busca" placeholder="Pesquisar porte ativo..." onkeyup="renderTables()" style="background: transparent; border: none; color: white; width: 100%; outline: none;">
+          </div>
+
+          <h3>Portes Ativos (Consulta)</h3>
           <table>
             <thead>
               <tr>
