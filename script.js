@@ -668,7 +668,7 @@ window.renovarPorte = async function (idPorte) {
 };
 
 // ==========================================
-// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
+// 🚫 AÇÃO DE REVOGAR (ATUALIZADA)
 // ==========================================
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
@@ -690,6 +690,8 @@ window.revogar = async function (idPassaporte) {
     const nomeArq = `revogacao_${idPassaporte}.png`;
 
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+
+    // Define a menção (se tiver ID usa <@ID>, senão usa o nome)
     const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
     const embed = {
@@ -703,12 +705,14 @@ window.revogar = async function (idPassaporte) {
       image: { url: `attachment://${nomeArq}` },
     };
 
+    // 👇 AQUI FOI A ALTERAÇÃO 👇
+    // Adicionamos "por ${mencao}" na mensagem externa (content)
     const enviou = await enviarParaAPI(
       blob,
       nomeArq,
       "revogacao",
       embed,
-      `🚨 **PORTE REVOGADO**`
+      `🚨 **PORTE REVOGADO** por ${mencao}`
     );
 
     if (enviou) {
