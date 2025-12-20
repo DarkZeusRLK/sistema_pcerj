@@ -313,6 +313,7 @@ async function processarEmissao() {
         arma,
         validade,
         expedicao,
+        oficial: mencaoOficial, // 👈 ADICIONE ESTA LINHA AQUI
         status: "Ativo",
       });
       renderTables();
@@ -671,78 +672,62 @@ window.renovarPorte = async function (idPorte) {
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA PARA METAS)
 // ==========================================
 window.revogar = async function (idPassaporte) {
-  // Encontra o porte na memória local
+  // 1. Localiza o porte
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
-
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord e gerará o log.`,
+    `Deseja revogar o porte de ${p.nome}?`,
     "danger"
   );
-
   if (!confirmou) return;
-
-  mostrarAlerta(
-    "Processando",
-    "Registrando revogação e salvando histórico...",
-    "warning"
-  );
 
   try {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const revogadorMencao = sessao.id
+    const mencaoRevogador = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
 
-    // 👇 PULO DO GATO 1: Tenta pegar quem emitiu originalmente
-    // O objeto 'p' vem da API. Geralmente ele tem um campo 'oficial' ou 'oficial_id'.
-    // Se o seu 'p' não tiver isso, o sistema tentará usar "Oficial Desconhecido".
-    // Nota: O parser do relatório precisa ler "Emitido por" para contar.
+    // 👇 BUSCA O EMISSOR (Tenta várias nomenclaturas comuns de API)
     const emissorOriginal =
-      p.oficial || p.responsavel || "Oficial Desconhecido";
+      p.oficial || p.oficial_mencao || p.responsavel || "Oficial Desconhecido";
 
-    // 1. Gera imagem
     const blob = await gerarBlobRevogacao(p);
     const nomeArq = `revogacao_${idPassaporte}.png`;
 
-    // 2. Monta o Embed
     const embed = {
-      title: `🚫 RELATÓRIO DE REVOGAÇÃO`,
-      description: `O porte foi anulado e a mensagem original removida.`,
-      color: 15548997, // Vermelho
+      title: `🚫 PORTE REVOGADO`,
+      color: 15548997,
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Revogado por", value: revogadorMencao, inline: true },
-        // Adicionamos o emissor original no Embed também para garantir visualização
+        { name: "👮 Revogado por", value: mencaoRevogador, inline: true },
         { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
       ],
       image: { url: `attachment://${nomeArq}` },
-      footer: {
-        text: "Sistema de Metas - Polícia Civil",
-        icon_url: CONFIG.BRASAO_URL,
-      },
-      timestamp: new Date().toISOString(),
+      footer: FOOTER_PADRAO,
     };
 
-    // 👇 PULO DO GATO 2: MENSAGEM EXTERNA ESTRATÉGICA
-    // Colocamos as palavras-chave exatas para o seu bot de relatório ler.
-    // "Revogado por X" -> Conta ponto de revogação para você.
-    // "Emitido por Y" -> Conta ponto de emissão para o oficial original (já que a msg original será deletada).
-    const mensagemEstrategica = `🚨 **LOG DE REVOGAÇÃO**\n\n👮 **Ação realizada por:** ${revogadorMencao} (Revogação)\n📄 **Crédito da Emissão Original:** ${emissorOriginal}`;
+    // ========================================================================
+    // 🛡️ O SEGREDO DAS METAS:
+    // Criamos um log que contém as DUAS frases que o seu bot de relatório busca.
+    // Assim, ao deletar a msg original, este novo log garante o ponto dos dois.
+    // ========================================================================
+    const mensagemParaMetas =
+      `🚨 **PORTE REVOGADO** por ${mencaoRevogador}\n` +
+      `♻️ **PONTO PRESERVADO:** ✅ **PORTE APROVADO** por ${emissorOriginal}`;
 
     const enviou = await enviarParaAPI(
       blob,
       nomeArq,
       "revogacao",
       embed,
-      mensagemEstrategica
+      mensagemParaMetas
     );
 
     if (enviou) {
-      // 3. Deleta a mensagem original (Onde estava o ponto do emissor antigo)
+      // Deleta a original para limpar o canal de ativos
       if (p.message_id) {
         await fetch("/api/deletar", {
           method: "POST",
@@ -751,41 +736,21 @@ window.revogar = async function (idPassaporte) {
         });
       }
 
-      // 4. Salva no Histórico Local
-      const historico = JSON.parse(
-        localStorage.getItem("historico_revogacoes") || "[]"
-      );
-
-      const novoRegistro = {
-        nome: p.nome,
-        id: p.id,
-        arma: p.arma,
-        dataRevogacao:
-          new Date().toLocaleDateString("pt-BR") +
-          " " +
-          new Date().toLocaleTimeString("pt-BR"),
-        oficial: sessao.username || "Sistema",
-      };
-
-      historico.push(novoRegistro);
-      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
-
-      mostrarAlerta(
-        "Sucesso",
-        "Porte revogado! As metas de ambos foram preservadas.",
-        "success"
-      );
-
-      // Atualiza visual
+      // Remove da lista local e atualiza
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
       renderTables();
       atualizarStats();
+      mostrarAlerta(
+        "Sucesso",
+        "Revogação concluída e metas preservadas!",
+        "success"
+      );
     }
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
+    mostrarAlerta("Erro", "Falha na revogação.", "error");
   }
 };
 function gerarBlobRevogacao(p) {
