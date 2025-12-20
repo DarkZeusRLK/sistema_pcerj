@@ -664,31 +664,32 @@ window.renovarPorte = async function (idPorte) {
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA PARA METAS)
 // ==========================================
-// --- FUNÇÃO DE REVOGAR COM STATUS "AGUARDE" ---
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}?`,
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
     "danger"
   );
 
   if (!confirmou) return;
 
-  // Estado de carregamento no modal
-  const mTitle = document.getElementById("modal-title");
-  const mDesc = document.getElementById("modal-desc");
-  const mIcon = document.getElementById("modal-icon");
-  const mFooter = document.getElementById("modal-footer");
+  // Seleciona os elementos do seu modal nativo
   const modal = document.getElementById("custom-modal");
+  const modalTitle = document.getElementById("modal-title");
+  const modalDesc = document.getElementById("modal-desc");
+  const modalFooter = document.getElementById("modal-footer");
+  const modalIcon = document.getElementById("modal-icon");
 
-  if (mTitle) mTitle.innerText = "Revogando...";
-  if (mDesc)
-    mDesc.innerText = "Por favor, aguarde o processamento no Discord...";
-  if (mIcon) mIcon.className = "fa-solid fa-spinner fa-spin";
-  if (mFooter) mFooter.style.display = "none"; // Esconde botões para evitar cliques duplos
+  // ESTADO DE "AGUARDE" (Igual aos demais alertas)
+  if (modalTitle) modalTitle.innerText = "Revogando Porte...";
+  if (modalDesc)
+    modalDesc.innerText =
+      "Por favor, aguarde enquanto o documento é revogado...";
+  if (modalIcon) modalIcon.className = "fa-solid fa-spinner fa-spin";
+  if (modalFooter) modalFooter.style.display = "none"; // Agora funciona com o ID novo
   modal.classList.remove("hidden");
 
   try {
@@ -696,6 +697,7 @@ window.revogar = async function (idPassaporte) {
     const mencaoOficial = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
+    const emissorOriginal = p.oficial || "Não Identificado";
 
     const blob = await gerarBlobRevogacao(p);
     const nomeArquivo = `revogacao_${idPassaporte}.png`;
@@ -707,31 +709,45 @@ window.revogar = async function (idPassaporte) {
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
         { name: "👮 Revogado por", value: mencaoOficial, inline: true },
+        { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
       ],
       image: { url: `attachment://${nomeArquivo}` },
       footer: FOOTER_PADRAO,
       timestamp: new Date().toISOString(),
     };
 
-    const sucesso = await enviarParaAPI(
+    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Revogado por: ${mencaoOficial}`;
+    const sucessoLog = await enviarParaAPI(
       blob,
       nomeArquivo,
       "revogacao",
       embed,
-      `🚨 Porte Revogado: ${p.nome}`
+      logTexto
     );
 
-    if (sucesso) {
+    if (sucessoLog) {
+      if (p.message_id) {
+        await fetch("/api/deletar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message_id: p.message_id }),
+        });
+      }
+
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
       renderTables();
       atualizarStats();
+
+      // Volta os botões e mostra o sucesso padrão
+      if (modalFooter) modalFooter.style.display = "flex";
       mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha ao revogar.", "error");
+    if (modalFooter) modalFooter.style.display = "flex";
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
 function gerarBlobRevogacao(p) {
@@ -866,84 +882,94 @@ window.navegar = (tela) => {
   if (tela === "emissao") configurarDatasAutomaticas();
 };
 
-// ⚠️ FUNÇÃO CORRIGIDA: confirmarAcao
-// ==========================================
-window.confirmarAcao = function (titulo, desc, tipo = "info") {
+// 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
+window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-    const mTitle = document.getElementById("modal-title");
-    const mDesc = document.getElementById("modal-desc");
-    const mIcon = document.getElementById("modal-icon");
-    const btnConfirm = document.getElementById("modal-btn-confirm"); // ID CORRIGIDO
-    const btnCancel = document.getElementById("modal-btn-cancel"); // ID CORRIGIDO
+    // Se não achar o modal no HTML, usa o nativo por segurança
+    if (!modal) return resolve(confirm(`${titulo}\n${mensagem}`));
 
-    if (!modal || !btnConfirm || !btnCancel) {
-      console.error("Erro: Elementos do modal não encontrados no HTML.");
-      return resolve(false);
+    const elTitulo = document.getElementById("modal-title");
+    const elDesc = document.getElementById("modal-desc");
+    const elIcon = document.getElementById("modal-icon");
+    const btnConfirm = document.getElementById("modal-btn-confirm");
+    const btnCancel = document.getElementById("modal-btn-cancel");
+
+    elTitulo.innerText = titulo;
+    elDesc.innerText = mensagem;
+
+    if (tipo === "danger") {
+      elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
+      btnConfirm.className = "btn-danger-modal";
+      btnConfirm.innerText = "Sim, Revogar";
+    } else {
+      elIcon.className = "fa-solid fa-circle-question modal-icon";
+      elIcon.style.color = "#fff";
+      btnConfirm.className = "btn-primary";
+      btnConfirm.innerText = "Confirmar";
     }
 
-    // Configura Textos
-    if (mTitle) mTitle.innerText = titulo;
-    if (mDesc) mDesc.innerText = desc;
-
-    // Configura Ícone e Cores
-    if (mIcon) {
-      mIcon.className =
-        tipo === "danger"
-          ? "fa-solid fa-triangle-exclamation"
-          : "fa-solid fa-circle-question";
-
-      const iconBox = document.getElementById("modal-icon-box");
-      if (iconBox) {
-        iconBox.style.color = tipo === "danger" ? "#e52e4d" : "#d4af37";
-      }
-    }
-
-    // Mostra o Modal
-    btnCancel.classList.remove("hidden");
     modal.classList.remove("hidden");
+    btnCancel.classList.remove("hidden");
 
-    btnConfirm.onclick = () => {
+    // Clona botões para limpar eventos antigos
+    const novoConfirm = btnConfirm.cloneNode(true);
+    const novoCancel = btnCancel.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
+    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
+
+    novoConfirm.onclick = () => {
       modal.classList.add("hidden");
+      novoCancel.classList.add("hidden");
       resolve(true);
     };
-
-    btnCancel.onclick = () => {
+    novoCancel.onclick = () => {
       modal.classList.add("hidden");
+      novoCancel.classList.add("hidden");
       resolve(false);
     };
   });
 };
 
-// ==========================================
-// ⚠️ FUNÇÃO CORRIGIDA: mostrarAlerta
-// ==========================================
-window.mostrarAlerta = function (titulo, mensagem, type = "success") {
-  const modal = document.getElementById("custom-modal");
-  const elTitulo = document.getElementById("modal-title");
-  const elDesc = document.getElementById("modal-desc");
-  const elIcon = document.getElementById("modal-icon");
-  const btnConfirm = document.getElementById("modal-btn-confirm"); // ID CORRIGIDO
-  const btnCancel = document.getElementById("modal-btn-cancel"); // ID CORRIGIDO
+// Alerta Simples (Só OK)
+window.mostrarAlerta = (titulo, mensagem, type) => {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+    if (!modal) {
+      alert(`${titulo}\n${mensagem}`);
+      return resolve(true);
+    }
 
-  if (!modal) return;
+    const elTitulo = document.getElementById("modal-title");
+    const elDesc = document.getElementById("modal-desc");
+    const elIcon = document.getElementById("modal-icon");
+    const btnConfirm = document.getElementById("modal-btn-confirm");
+    const btnCancel = document.getElementById("modal-btn-cancel");
 
-  if (elTitulo) elTitulo.innerText = titulo;
-  if (elDesc) elDesc.innerText = mensagem;
+    elTitulo.innerText = titulo;
+    elDesc.innerText = mensagem;
 
-  if (elIcon) {
-    if (type === "error") elIcon.className = "fa-solid fa-circle-xmark";
+    if (type === "error")
+      elIcon.className = "fa-solid fa-circle-xmark modal-icon error";
     else if (type === "warning")
-      elIcon.className = "fa-solid fa-circle-exclamation";
-    else elIcon.className = "fa-solid fa-circle-check";
-  }
+      elIcon.className = "fa-solid fa-circle-exclamation modal-icon warning";
+    else elIcon.className = "fa-solid fa-circle-check modal-icon success";
+    elIcon.style.color = "";
 
-  if (btnCancel) btnCancel.classList.add("hidden"); // Esconde cancelar em alertas simples
-  modal.classList.remove("hidden");
+    btnCancel.classList.add("hidden");
+    btnConfirm.className = "btn-primary";
+    btnConfirm.innerText = "OK";
 
-  if (btnConfirm) {
-    btnConfirm.onclick = () => modal.classList.add("hidden");
-  }
+    modal.classList.remove("hidden");
+
+    const novoBtn = btnConfirm.cloneNode(true);
+    btnConfirm.parentNode.replaceChild(novoBtn, btnConfirm);
+
+    novoBtn.onclick = () => {
+      modal.classList.add("hidden");
+      resolve(true);
+    };
+  });
 };
 async function verificarPermissaoRelatorio() {
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
