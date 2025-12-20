@@ -202,14 +202,6 @@ function configurarBotoes() {
     });
   }
 }
-// Dentro de configurarBotoes() no script.js
-const btnRelatorio = document.getElementById("btn-atualizar-relatorio");
-if (btnRelatorio) {
-  btnRelatorio.addEventListener("click", () => {
-    gerarRelatorioSemanal(); // Chama a função que busca os dados
-  });
-}
-
 function ativarFormatacaoDinheiro() {
   const inputValor = document.getElementById("input-valor-limpeza");
   if (inputValor) {
@@ -367,7 +359,7 @@ window.processarLimpeza = async function () {
     const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: ` CERTIFICADO DE BONS ANTECEDENTES`,
+      title: `📜 CERTIFICADO DE BONS ANTECEDENTES`, // Adicionado ícone para facilitar busca
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
@@ -378,6 +370,7 @@ window.processarLimpeza = async function () {
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
         { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true }, // 👈 OBRIGATÓRIO PARA O RELATÓRIO
         {
           name: "📅 Data",
           value: new Date().toLocaleDateString("pt-BR"),
@@ -385,7 +378,7 @@ window.processarLimpeza = async function () {
         },
       ],
       image: { url: `attachment://${nomeArquivo}` },
-      footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
+      footer: FOOTER_PADRAO,
       timestamp: new Date().toISOString(),
     };
 
@@ -1013,50 +1006,36 @@ window.gerarRelatorio = async function () {
   const inicioInput = document.getElementById("rel-inicio");
   const fimInput = document.getElementById("rel-fim");
 
-  // Validação
   if (!inicioInput.value || !fimInput.value) {
-    alert("⚠️ Por favor, selecione a Data Inicial e a Data Final.");
-    return;
+    return mostrarAlerta(
+      "Atenção",
+      "Selecione o período inicial e final.",
+      "warning"
+    );
   }
 
-  // Feedback visual (Loading)
-  corpo.innerHTML = `
-        <tr>
-            <td colspan="7" align="center" style="padding: 40px;">
-                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; color: var(--gold-accent);"></i>
-                <p style="margin-top: 10px; color: #ccc;">Analisando registros do Discord...</p>
-            </td>
-        </tr>
-    `;
+  corpo.innerHTML = `<tr><td colspan="7" align="center">🔎 Analisando registros...</td></tr>`;
 
   try {
     const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
-
-    // Chamada API
     const response = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        roles: user.roles,
         dataInicio: inicioInput.value,
         dataFim: fimInput.value,
+        roles: user.roles,
       }),
     });
 
-    if (!response.ok) throw new Error("Erro na comunicação com a API");
-
     const dados = await response.json();
-
-    // Limpa tabela
     corpo.innerHTML = "";
 
-    // Verifica se veio vazio
     if (Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" align="center" style="padding: 30px;">Nenhum registro encontrado neste período.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado.</td></tr>`;
       return;
     }
 
-    // Preenche Tabela
     Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
       const total =
@@ -1065,32 +1044,24 @@ window.gerarRelatorio = async function () {
         (d.limpeza || 0) +
         (d.revogacao || 0);
       const meta = 15;
-      const bateuMeta = total >= meta;
+      const status =
+        total >= meta
+          ? `<span class="badge-success">Meta Batida</span>`
+          : `<span class="badge-warning">Faltam ${meta - total}</span>`;
 
-      // Define o HTML do Status
-      const statusHtml = bateuMeta
-        ? `<span class="meta-badge meta-success"><i class="fa-solid fa-check"></i> Meta Batida</span>`
-        : `<span class="meta-badge meta-warning"><i class="fa-solid fa-clock"></i> Falta ${
-            meta - total
-          }</span>`;
-
-      // Linha da Tabela
-      const row = `
-                <tr>
-                    <td style="font-weight: bold; color: var(--text-primary);">${oficial}</td>
-                    <td align="center">${d.emissao || 0}</td>
-                    <td align="center">${d.renovacao || 0}</td>
-                    <td align="center">${d.limpeza || 0}</td>
-                    <td align="center">${d.revogacao || 0}</td>
-                    <td align="center" style="background: rgba(255,255,255,0.05); font-weight: bold; color: var(--gold-accent); font-size: 1.1em;">${total}</td>
-                    <td align="center">${statusHtml}</td>
-                </tr>
-            `;
-      corpo.innerHTML += row;
+      corpo.innerHTML += `
+        <tr>
+          <td>${oficial}</td>
+          <td align="center">${d.emissao || 0}</td>
+          <td align="center">${d.renovacao || 0}</td>
+          <td align="center">${d.limpeza || 0}</td>
+          <td align="center">${d.revogacao || 0}</td>
+          <td align="center"><strong>${total}</strong></td>
+          <td align="center">${status}</td>
+        </tr>`;
     });
   } catch (error) {
-    console.error(error);
-    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color: #e52e4d; padding: 20px;">Erro ao carregar dados. Tente novamente.</td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color:red">Erro ao carregar relatório.</td></tr>`;
   }
 };
 
