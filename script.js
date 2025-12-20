@@ -973,30 +973,32 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
     };
   });
 };
-// 📊 SISTEMA DE RELATÓRIOS E METAS
-// ==========================================
 async function verificarPermissaoRelatorio() {
-  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  if (!user || !user.roles) return;
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+
+  // Se não tiver roles, não faz nada (continua hidden)
+  if (!sessao.roles) return;
 
   try {
-    // Verifica no Backend se o cargo é Admin/Coordenador
     const res = await fetch("/api/verificar-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: user.roles }),
+      body: JSON.stringify({ roles: sessao.roles }),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.isAdmin) {
-        // Remove a classe 'hidden' do menu lateral
-        const menu = document.getElementById("menu-relatorios");
-        if (menu) menu.classList.remove("hidden");
+    const data = await res.json();
+
+    if (data.isAdmin) {
+      const btnRelatorio = document.getElementById("menu-relatorios");
+      if (btnRelatorio) {
+        // Apenas removemos a classe que esconde.
+        // O estilo visual virá do seu style.css padrão.
+        btnRelatorio.classList.remove("hidden");
+        console.log("🔓 Aba Relatórios liberada.");
       }
     }
-  } catch (e) {
-    console.error("Erro ao verificar admin:", e);
+  } catch (erro) {
+    console.error("Erro permissão:", erro);
   }
 }
 
