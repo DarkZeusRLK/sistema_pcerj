@@ -202,10 +202,12 @@ function configurarBotoes() {
     });
   }
 }
-// Dentro de configurarBotoes()
-const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
-if (btnFiltrar) {
-  btnFiltrar.addEventListener("click", gerarRelatorioSemanal);
+// Dentro de configurarBotoes() no script.js
+const btnRelatorio = document.getElementById("btn-atualizar-relatorio");
+if (btnRelatorio) {
+  btnRelatorio.addEventListener("click", () => {
+    gerarRelatorioSemanal(); // Chama a função que busca os dados
+  });
 }
 
 function ativarFormatacaoDinheiro() {
@@ -1008,70 +1010,73 @@ async function verificarPermissaoRelatorio() {
 // ==========================================
 window.gerarRelatorioSemanal = async function () {
   const corpo = document.getElementById("corpo-relatorio");
-  const elInicio = document.getElementById("rel-inicio");
-  const elFim = document.getElementById("rel-fim");
+  const dataInicio = document.getElementById("rel-inicio").value;
+  const dataFim = document.getElementById("rel-fim").value;
+  const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
-  // Validação Básica
-  if (!elInicio || !elFim || !corpo)
-    return console.error("Elementos HTML do relatório não encontrados!");
-
-  const dataInicio = elInicio.value;
-  const dataFim = elFim.value;
-
+  // Validações
+  if (!corpo) return;
   if (!dataInicio || !dataFim) {
     return mostrarAlerta(
       "Atenção",
-      "Selecione a Data de Início e a Data de Fim.",
+      "Por favor, selecione a Data Início e a Data Fim.",
       "warning"
     );
   }
 
-  // Feedback visual de carregamento
-  corpo.innerHTML = `<tr><td colspan="7" align="center" style="padding:20px"><i class="fa-solid fa-spinner fa-spin"></i> Buscando dados no sistema...</td></tr>`;
+  mostrarAlerta(
+    "Processando",
+    "Buscando registros no período selecionado...",
+    "warning"
+  );
+  corpo.innerHTML = `<tr><td colspan="7" align="center">Carregando dados...</td></tr>`;
 
   try {
-    const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
-
-    // Chama a API
     const res = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roles: user.roles,
-        dataInicio: dataInicio,
+        dataInicio: dataInicio, // Envia as datas para o backend
         dataFim: dataFim,
       }),
     });
 
     if (res.status === 403) throw new Error("Acesso Negado");
-    if (!res.ok) throw new Error("Erro na API");
+    if (!res.ok) throw new Error("Erro API");
 
     const dados = await res.json();
-    corpo.innerHTML = ""; // Limpa o carregando
+    corpo.innerHTML = "";
 
-    // Se não tiver dados
+    // Verifica se veio vazio
     if (Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" align="center" style="padding:20px">Nenhum registro encontrado neste período.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado neste período.</td></tr>`;
+      mostrarAlerta(
+        "Concluído",
+        "Busca finalizada (sem resultados).",
+        "success"
+      );
       return;
     }
 
-    // Preenche a tabela
+    // Monta a tabela
     Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
+
+      // Cálculo da Meta
       const total =
         (d.emissao || 0) +
         (d.renovacao || 0) +
         (d.limpeza || 0) +
         (d.revogacao || 0);
-      const meta = 15;
-      const batida = total >= meta;
+      const metaBatida = total >= 15;
 
-      // Badge Visual da Meta
-      const statusMeta = batida
-        ? `<span style="background:#04d361; color:#000; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:12px">✅ BATIDA</span>`
-        : `<span style="background:#fba94c; color:#000; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:12px">⚠️ FALTA ${
-            meta - total
-          }</span>`;
+      // Estilização do Status
+      const statusHtml = metaBatida
+        ? `<span class="badge-success" style="background:#04d361; color:black; padding:2px 8px; border-radius:4px; font-weight:bold">✅ META BATIDA</span>`
+        : `<span class="badge-warning" style="background:#f1c40f; color:black; padding:2px 8px; border-radius:4px;">⚠️ PENDENTE (${
+            15 - total
+          } restantes)</span>`;
 
       corpo.innerHTML += `
         <tr>
@@ -1080,13 +1085,17 @@ window.gerarRelatorioSemanal = async function () {
           <td>${d.renovacao || 0}</td>
           <td>${d.limpeza || 0}</td>
           <td>${d.revogacao || 0}</td>
-          <td style="background: rgba(255,255,255,0.05); font-weight:bold;">${total}</td>
-          <td>${statusMeta}</td>
+          <td><strong>${total}</strong></td>
+          <td>${statusHtml}</td>
         </tr>`;
     });
-  } catch (erro) {
-    console.error(erro);
-    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color:#e52e4d">Erro ao carregar dados. Tente novamente.</td></tr>`;
+
+    mostrarAlerta("Sucesso", "Relatório gerado com sucesso!", "success");
+  } catch (err) {
+    console.error(err);
+    if (err.message === "Acesso Negado")
+      mostrarAlerta("Erro", "Sem permissão de acesso.", "error");
+    else mostrarAlerta("Erro", "Falha ao buscar dados.", "error");
   }
 };
 // ==========================================
