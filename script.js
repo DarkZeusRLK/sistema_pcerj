@@ -1075,3 +1075,52 @@ async function verificarPermissaoRelatorio() {
     console.error("Erro ao verificar permissão:", erro);
   }
 }
+// ==========================================
+// 🎨 FUNÇÃO NECESSÁRIA PARA O BOTÃO FUNCIONAR
+// (Cole isso no final do script.js)
+// ==========================================
+window.mostrarInput = function (titulo, msgPlaceholder) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("custom-modal");
+
+    // Configura Visual
+    document.getElementById("modal-icon-box").innerHTML =
+      '<i class="fa-solid fa-pen" style="color: #66b2ff;"></i>';
+    document.getElementById("modal-title").innerText = titulo;
+
+    // Injeta o HTML do input
+    const desc = document.getElementById("modal-desc");
+    desc.innerHTML = `
+        <p style="margin-bottom: 10px;">${msgPlaceholder}</p>
+        <input type="text" id="modal-input-field" 
+               style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white; margin-top: 5px;" 
+               placeholder="Digite aqui...">
+    `;
+
+    // Botões
+    const btnArea = document.getElementById("modal-actions");
+    btnArea.innerHTML = `
+        <button class="btn-cancel" id="modal-btn-cancel">Cancelar</button>
+        <button class="btn-primary" id="modal-btn-confirm">Enviar</button>
+    `;
+
+    modal.classList.remove("hidden");
+    setTimeout(
+      () => document.getElementById("modal-input-field")?.focus(),
+      100
+    );
+
+    const confirmar = () => {
+      const val = document.getElementById("modal-input-field").value;
+      if (!val) return;
+      modal.classList.add("hidden");
+      resolve(val);
+    };
+
+    document.getElementById("modal-btn-confirm").onclick = confirmar;
+    document.getElementById("modal-btn-cancel").onclick = () => {
+      modal.classList.add("hidden");
+      resolve(null);
+    };
+  });
+};
