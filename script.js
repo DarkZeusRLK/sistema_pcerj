@@ -668,99 +668,83 @@ window.renovarPorte = async function (idPorte) {
 };
 
 // ==========================================
-// 🚫 AÇÃO DE REVOGAR (COM MODAL PERIGO)
+// 🚨 FUNÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
-window.revogar = async function (idPassaporte) {
-  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
-  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+window.revogar = async function () {
+  const passaporteAlvo = document.getElementById("rev-passaporte").value;
+  const motivo = document.getElementById("rev-motivo").value;
 
-  const confirmou = await confirmarAcao(
-    "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Esta ação removerá o registro do Discord.`,
-    "danger"
+  // 1. CORREÇÃO: Criamos a variável que estava faltando.
+  // Como não tem input de nome na revogação, usamos "Indefinido" ou o próprio passaporte.
+  const nomeAlvo = "Cidadão (Passaporte " + passaporteAlvo + ")";
+
+  if (!passaporteAlvo || !motivo) {
+    return mostrarAlerta("Erro", "Preencha o Passaporte e o Motivo.", "error");
+  }
+
+  const confirmacao = await mostrarConfirmacao(
+    "Confirmar Revogação",
+    `Deseja revogar o porte do passaporte ${passaporteAlvo}?`
   );
 
-  if (!confirmou) return;
+  if (!confirmacao) return;
 
-  mostrarAlerta("Processando", "Registrando revogação...", "warning");
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  const webhookUrl = sessao.webhook; // Pega o Webhook salvo no Login
+
+  if (!webhookUrl) {
+    return mostrarAlerta(
+      "Erro",
+      "Erro de sessão. Faça login novamente.",
+      "error"
+    );
+  }
+
+  mostrarAlerta("Aguarde", "Processando revogação...", "info");
+
+  const embedRevog = {
+    title: "PORTE REVOGADO", // Título exato para o relatório contar
+    color: 15158332, // Vermelho
+    fields: [
+      { name: "Nome", value: nomeAlvo, inline: true }, // Agora a variável existe e não vai dar erro
+      { name: "Passaporte", value: passaporteAlvo, inline: true },
+      { name: "Motivo", value: motivo, inline: false },
+      // Campo crucial para o Relatório saber quem revogou:
+      { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
+    ],
+    footer: {
+      text: "Sistema Policial",
+      icon_url: CONFIG.BRASAO_URL, // Usa a config global
+    },
+    timestamp: new Date().toISOString(),
+  };
 
   try {
-    // 1. Gera imagem e envia log para o Discord
-    const blob = await gerarBlobRevogacao(p);
-    const nomeArq = `revogacao_${idPassaporte}.png`;
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "Sistema Policial",
+        avatar_url: CONFIG.BRASAO_URL,
+        embeds: [embedRevog],
+      }),
+    });
 
-    const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
-
-    const embed = {
-      title: "PORTE REVOGADO", // A API vai ler isso
-      color: 15158332, // Vermelho
-      fields: [
-        { name: "Nome", value: nomeAlvo, inline: true },
-        { name: "Passaporte", value: passaporteAlvo, inline: true },
-        { name: "Motivo", value: motivo, inline: false },
-        // 👇 ESSE CAMPO É OBRIGATÓRIO PARA A CONTAGEM 👇
-        { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
-      ],
-      footer: { text: "Sistema Policial", icon_url: "..." },
-      timestamp: new Date().toISOString(),
-    };
-
-    const enviou = await enviarParaAPI(
-      blob,
-      nomeArq,
-      "revogacao",
-      embed,
-      `🚨 **PORTE REVOGADO**`
-    );
-
-    if (enviou) {
-      // 2. Tenta deletar a mensagem original do Discord
-      if (p.message_id) {
-        await fetch("/api/deletar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message_id: p.message_id }),
-        });
-      }
-
-      // 3. SALVAR NO HISTÓRICO LOCAL (LocalStorage)
-      const historico = JSON.parse(
-        localStorage.getItem("historico_revogacoes") || "[]"
-      );
-
-      const novoRegistro = {
-        nome: p.nome,
-        id: p.id,
-        arma: p.arma,
-        dataRevogacao:
-          new Date().toLocaleDateString("pt-BR") +
-          " " +
-          new Date().toLocaleTimeString("pt-BR"),
-        oficial: sessao.username || "Sistema",
-      };
-
-      historico.push(novoRegistro);
-      localStorage.setItem("historico_revogacoes", JSON.stringify(historico));
-
-      // 4. Atualizar interface
+    if (response.ok) {
       mostrarAlerta(
         "Sucesso",
-        "Porte revogado e salvo no histórico!",
+        "Porte revogado e registrado no Discord!",
         "success"
       );
-
-      // Remove do array local de ativos para sumir da tela atual
-      dbPortes = dbPortes.filter(
-        (item) => String(item.id) !== String(idPassaporte)
-      );
-
-      renderTables();
-      atualizarStats();
+      // Limpa os campos
+      document.getElementById("rev-passaporte").value = "";
+      document.getElementById("rev-motivo").value = "";
+    } else {
+      throw new Error("Erro no Discord");
     }
-  } catch (e) {
-    console.error(e);
-    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
+  } catch (error) {
+    console.error(error);
+    mostrarAlerta("Erro", "Falha ao comunicar com o servidor.", "error");
   }
 };
 
