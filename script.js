@@ -668,7 +668,6 @@ window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  // 1. Pergunta confirmação (Seu modal nativo)
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
     `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
@@ -677,17 +676,20 @@ window.revogar = async function (idPassaporte) {
 
   if (!confirmou) return;
 
-  // 2. MOSTRAR "AGUARDE" NO SEU MODAL NATIVO
+  // Seleciona os elementos do seu modal nativo
   const modal = document.getElementById("custom-modal");
   const modalTitle = document.getElementById("modal-title");
   const modalDesc = document.getElementById("modal-desc");
   const modalFooter = document.getElementById("modal-footer");
   const modalIcon = document.getElementById("modal-icon");
 
-  modalTitle.innerText = "Revogando Porte...";
-  modalDesc.innerText = "Por favor, aguarde enquanto o documento é revogado...";
-  modalIcon.className = "fa-solid fa-spinner fa-spin"; // Ícone de carregamento girando
-  modalFooter.style.display = "none"; // Esconde botões para evitar cliques duplos
+  // ESTADO DE "AGUARDE" (Igual aos demais alertas)
+  if (modalTitle) modalTitle.innerText = "Revogando Porte...";
+  if (modalDesc)
+    modalDesc.innerText =
+      "Por favor, aguarde enquanto o documento é revogado...";
+  if (modalIcon) modalIcon.className = "fa-solid fa-spinner fa-spin";
+  if (modalFooter) modalFooter.style.display = "none"; // Agora funciona com o ID novo
   modal.classList.remove("hidden");
 
   try {
@@ -738,13 +740,13 @@ window.revogar = async function (idPassaporte) {
       renderTables();
       atualizarStats();
 
-      // 3. Finaliza mostrando Sucesso
-      modalFooter.style.display = "flex"; // Devolve os botões
+      // Volta os botões e mostra o sucesso padrão
+      if (modalFooter) modalFooter.style.display = "flex";
       mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
     console.error(e);
-    modalFooter.style.display = "flex";
+    if (modalFooter) modalFooter.style.display = "flex";
     mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
