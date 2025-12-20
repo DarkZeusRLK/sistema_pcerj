@@ -973,7 +973,6 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
     };
   });
 };
-/ ==========================================
 // 📊 SISTEMA DE RELATÓRIOS E METAS
 // ==========================================
 async function verificarPermissaoRelatorio() {
@@ -985,9 +984,9 @@ async function verificarPermissaoRelatorio() {
     const res = await fetch("/api/verificar-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: user.roles })
+      body: JSON.stringify({ roles: user.roles }),
     });
-    
+
     if (res.ok) {
       const data = await res.json();
       if (data.isAdmin) {
@@ -996,15 +995,15 @@ async function verificarPermissaoRelatorio() {
         if (menu) menu.classList.remove("hidden");
       }
     }
-  } catch (e) { 
-    console.error("Erro ao verificar admin:", e); 
+  } catch (e) {
+    console.error("Erro ao verificar admin:", e);
   }
 }
 
 window.gerarRelatorioSemanal = async function () {
   const corpo = document.getElementById("corpo-relatorio");
   const user = JSON.parse(localStorage.getItem("pc_session"));
-  
+
   if (!corpo) return;
   mostrarAlerta("Aguarde", "Gerando relatório de produtividade...", "warning");
 
@@ -1012,7 +1011,7 @@ window.gerarRelatorioSemanal = async function () {
     const res = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: user.roles })
+      body: JSON.stringify({ roles: user.roles }),
     });
 
     if (res.status === 403) throw new Error("Acesso Negado");
@@ -1020,12 +1019,12 @@ window.gerarRelatorioSemanal = async function () {
 
     const dados = await res.json();
     corpo.innerHTML = "";
-    
-    if(Object.keys(dados).length === 0) {
-        corpo.innerHTML = `<tr><td colspan="5" align="center" style="padding:15px">Sem dados registrados nos últimos 7 dias.</td></tr>`;
+
+    if (Object.keys(dados).length === 0) {
+      corpo.innerHTML = `<tr><td colspan="5" align="center" style="padding:15px">Sem dados registrados nos últimos 7 dias.</td></tr>`;
     }
 
-    Object.keys(dados).forEach(oficial => {
+    Object.keys(dados).forEach((oficial) => {
       const d = dados[oficial];
       corpo.innerHTML += `
         <tr>
@@ -1037,9 +1036,13 @@ window.gerarRelatorioSemanal = async function () {
         </tr>`;
     });
     mostrarAlerta("Sucesso", "Relatório atualizado.", "success");
-
   } catch (e) {
-    if(e.message === "Acesso Negado") mostrarAlerta("Erro", "Você não tem permissão para ver relatórios.", "error");
+    if (e.message === "Acesso Negado")
+      mostrarAlerta(
+        "Erro",
+        "Você não tem permissão para ver relatórios.",
+        "error"
+      );
     else mostrarAlerta("Erro", "Falha ao gerar relatório.", "error");
   }
 };
