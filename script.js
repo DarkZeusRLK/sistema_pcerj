@@ -692,15 +692,19 @@ window.revogar = async function (idPassaporte) {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
     const mencao = sessao.id ? `<@${sessao.id}>` : sessao.username;
 
-    const embed = {
-      title: "PORTE REVOGADO", // Sem emoji
-      color: 15548997,
+    // Exemplo de como deve estar o objeto embed dentro da função revogar()
+    const embedRevog = {
+      title: "PORTE REVOGADO", // A API vai ler isso
+      color: 15158332, // Vermelho
       fields: [
-        { name: "👤 Cidadão", value: p.nome, inline: true },
-        { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Oficial", value: mencao, inline: true },
+        { name: "Nome", value: nomeAlvo, inline: true },
+        { name: "Passaporte", value: passaporteAlvo, inline: true },
+        { name: "Motivo", value: motivo, inline: false },
+        // 👇 ESSE CAMPO É OBRIGATÓRIO PARA A CONTAGEM 👇
+        { name: "Revogado por", value: `<@${sessao.id}>`, inline: false },
       ],
-      image: { url: `attachment://${nomeArq}` },
+      footer: { text: "Sistema Policial", icon_url: "..." },
+      timestamp: new Date().toISOString(),
     };
 
     const enviou = await enviarParaAPI(
