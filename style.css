@@ -579,7 +579,7 @@ th {
   margin-bottom: 15px;
 }
 
-/* Utilitários */
+/* No final do style.css */
 .hidden {
   display: none !important;
 }
@@ -711,4 +711,17 @@ th {
   .row {
     grid-template-columns: 1fr;
   }
+}
+/* Garante que o menu de relatórios não tenha bolinha e fique alinhado */
+#menu-relatorios {
+  list-style: none !important; /* Remove a bolinha */
+  display: none; /* Começa invisível por segurança */
+  align-items: center;
+  gap: 10px; /* Espaço entre ícone e texto */
+  cursor: pointer;
+}
+
+/* Classe que o Javascript vai adicionar quando o usuário for Admin */
+#menu-relatorios.visible {
+  display: flex !important; /* Torna visível e alinhado */
 }
