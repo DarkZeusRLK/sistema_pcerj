@@ -866,94 +866,84 @@ window.navegar = (tela) => {
   if (tela === "emissao") configurarDatasAutomaticas();
 };
 
-// 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
-window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
+// ⚠️ FUNÇÃO CORRIGIDA: confirmarAcao
+// ==========================================
+window.confirmarAcao = function (titulo, desc, tipo = "info") {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-    // Se não achar o modal no HTML, usa o nativo por segurança
-    if (!modal) return resolve(confirm(`${titulo}\n${mensagem}`));
+    const mTitle = document.getElementById("modal-title");
+    const mDesc = document.getElementById("modal-desc");
+    const mIcon = document.getElementById("modal-icon");
+    const btnConfirm = document.getElementById("modal-btn-confirm"); // ID CORRIGIDO
+    const btnCancel = document.getElementById("modal-btn-cancel"); // ID CORRIGIDO
 
-    const elTitulo = document.getElementById("modal-title");
-    const elDesc = document.getElementById("modal-desc");
-    const elIcon = document.getElementById("modal-icon");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-    const btnCancel = document.getElementById("btn-modal-cancel");
-
-    elTitulo.innerText = titulo;
-    elDesc.innerText = mensagem;
-
-    if (tipo === "danger") {
-      elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
-      btnConfirm.className = "btn-danger-modal";
-      btnConfirm.innerText = "Sim, Revogar";
-    } else {
-      elIcon.className = "fa-solid fa-circle-question modal-icon";
-      elIcon.style.color = "#fff";
-      btnConfirm.className = "btn-primary";
-      btnConfirm.innerText = "Confirmar";
+    if (!modal || !btnConfirm || !btnCancel) {
+      console.error("Erro: Elementos do modal não encontrados no HTML.");
+      return resolve(false);
     }
 
-    modal.classList.remove("hidden");
+    // Configura Textos
+    if (mTitle) mTitle.innerText = titulo;
+    if (mDesc) mDesc.innerText = desc;
+
+    // Configura Ícone e Cores
+    if (mIcon) {
+      mIcon.className =
+        tipo === "danger"
+          ? "fa-solid fa-triangle-exclamation"
+          : "fa-solid fa-circle-question";
+
+      const iconBox = document.getElementById("modal-icon-box");
+      if (iconBox) {
+        iconBox.style.color = tipo === "danger" ? "#e52e4d" : "#d4af37";
+      }
+    }
+
+    // Mostra o Modal
     btnCancel.classList.remove("hidden");
+    modal.classList.remove("hidden");
 
-    // Clona botões para limpar eventos antigos
-    const novoConfirm = btnConfirm.cloneNode(true);
-    const novoCancel = btnCancel.cloneNode(true);
-    btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
-    btnCancel.parentNode.replaceChild(novoCancel, btnCancel);
-
-    novoConfirm.onclick = () => {
+    btnConfirm.onclick = () => {
       modal.classList.add("hidden");
-      novoCancel.classList.add("hidden");
       resolve(true);
     };
-    novoCancel.onclick = () => {
+
+    btnCancel.onclick = () => {
       modal.classList.add("hidden");
-      novoCancel.classList.add("hidden");
       resolve(false);
     };
   });
 };
 
-// Alerta Simples (Só OK)
-window.mostrarAlerta = (titulo, mensagem, type) => {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("custom-modal");
-    if (!modal) {
-      alert(`${titulo}\n${mensagem}`);
-      return resolve(true);
-    }
+// ==========================================
+// ⚠️ FUNÇÃO CORRIGIDA: mostrarAlerta
+// ==========================================
+window.mostrarAlerta = function (titulo, mensagem, type = "success") {
+  const modal = document.getElementById("custom-modal");
+  const elTitulo = document.getElementById("modal-title");
+  const elDesc = document.getElementById("modal-desc");
+  const elIcon = document.getElementById("modal-icon");
+  const btnConfirm = document.getElementById("modal-btn-confirm"); // ID CORRIGIDO
+  const btnCancel = document.getElementById("modal-btn-cancel"); // ID CORRIGIDO
 
-    const elTitulo = document.getElementById("modal-title");
-    const elDesc = document.getElementById("modal-desc");
-    const elIcon = document.getElementById("modal-icon");
-    const btnConfirm = document.getElementById("btn-modal-confirm");
-    const btnCancel = document.getElementById("btn-modal-cancel");
+  if (!modal) return;
 
-    elTitulo.innerText = titulo;
-    elDesc.innerText = mensagem;
+  if (elTitulo) elTitulo.innerText = titulo;
+  if (elDesc) elDesc.innerText = mensagem;
 
-    if (type === "error")
-      elIcon.className = "fa-solid fa-circle-xmark modal-icon error";
+  if (elIcon) {
+    if (type === "error") elIcon.className = "fa-solid fa-circle-xmark";
     else if (type === "warning")
-      elIcon.className = "fa-solid fa-circle-exclamation modal-icon warning";
-    else elIcon.className = "fa-solid fa-circle-check modal-icon success";
-    elIcon.style.color = "";
+      elIcon.className = "fa-solid fa-circle-exclamation";
+    else elIcon.className = "fa-solid fa-circle-check";
+  }
 
-    btnCancel.classList.add("hidden");
-    btnConfirm.className = "btn-primary";
-    btnConfirm.innerText = "OK";
+  if (btnCancel) btnCancel.classList.add("hidden"); // Esconde cancelar em alertas simples
+  modal.classList.remove("hidden");
 
-    modal.classList.remove("hidden");
-
-    const novoBtn = btnConfirm.cloneNode(true);
-    btnConfirm.parentNode.replaceChild(novoBtn, btnConfirm);
-
-    novoBtn.onclick = () => {
-      modal.classList.add("hidden");
-      resolve(true);
-    };
-  });
+  if (btnConfirm) {
+    btnConfirm.onclick = () => modal.classList.add("hidden");
+  }
 };
 async function verificarPermissaoRelatorio() {
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
