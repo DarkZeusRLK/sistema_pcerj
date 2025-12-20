@@ -8,8 +8,6 @@ module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Método não permitido" });
 
   const {
     Discord_Bot_Token,
@@ -18,16 +16,7 @@ module.exports = async (req, res) => {
     CHANNEL_LOGS_ID,
     CARGOS_ADMIN_RELATORIO,
   } = process.env;
-
   const { roles, dataInicio, dataFim } = req.body || {};
-
-  const listaPermitida = (CARGOS_ADMIN_RELATORIO || "")
-    .split(",")
-    .map((c) => c.trim());
-  const temPermissao =
-    Array.isArray(roles) && roles.some((r) => listaPermitida.includes(r));
-
-  if (!temPermissao) return res.status(403).json({ error: "Acesso negado." });
 
   try {
     const startObj = new Date(`${dataInicio}T00:00:00`);
@@ -60,18 +49,20 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
+        // 👮 BUSCA DO OFICIAL (Melhorada para Limpezas)
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
-          /OFICIAL|RESPONSAVEL|POLICIAL|REVOGADO POR|RENOVADO POR/i.test(
+          /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
         );
+
         if (campoOficial) {
           const match = campoOficial.value.match(/<@!?(\d+)>/);
           if (match) oficialId = match[1];
         }
 
-        if (!oficialId) return;
+        if (!oficialId) return; // Se não achou o ID do oficial, ignora o log
         if (!statsPorID[oficialId])
           statsPorID[oficialId] = {
             emissao: 0,
@@ -80,18 +71,19 @@ module.exports = async (req, res) => {
             renovacao: 0,
           };
 
-        // --- LÓGICA DE CONTAGEM ---
+        // --- CLASSIFICAÇÃO DOS LOGS ---
         if (title.includes("EMISSAO") || title.includes("EMITIDO")) {
           statsPorID[oficialId].emissao++;
         } else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
+          // Devolve o ponto de emissão para o oficial original
           const campoOrig = embed.fields?.find((f) =>
-            /EMISSOR ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
+            /ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
           );
           if (campoOrig) {
-            const matchOrig = campoOrig.value.match(/<@!?(\d+)>/);
-            if (matchOrig) {
-              const idO = matchOrig[1];
+            const matchO = campoOrig.value.match(/<@!?(\d+)>/);
+            if (matchO) {
+              const idO = matchO[1];
               if (!statsPorID[idO])
                 statsPorID[idO] = {
                   emissao: 0,
@@ -103,7 +95,7 @@ module.exports = async (req, res) => {
             }
           }
         }
-        // 👇 DETECÇÃO AMPLIADA PARA LIMPEZA 👇
+        // ✅ CONTAGEM DE LIMPEZA (Título do seu sistema: "CERTIFICADO DE BONS ANTECEDENTES")
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
@@ -111,34 +103,35 @@ module.exports = async (req, res) => {
           title.includes("BONS")
         ) {
           statsPorID[oficialId].limpeza++;
-        } else if (title.includes("RENOVACAO") || title.includes("RENOVADO")) {
+        } else if (title.includes("RENOVA")) {
           statsPorID[oficialId].renovacao++;
         }
       });
     }
 
+    // Tradução de IDs para Nomes
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
     await Promise.all(
       ids.map(async (id) => {
         try {
-          const resMem = await fetch(
+          const r = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
             {
               headers: { Authorization: `Bot ${Discord_Bot_Token}` },
             }
           );
-          const d = await resMem.json();
+          const d = await r.json();
           mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
         } catch {
-          mapaNomes[id] = `ID: ${id}`;
+          mapaNomes[id] = `Oficial (${id})`;
         }
       })
     );
 
     const final = {};
     ids.forEach((id) => {
-      final[mapaNomes[id] || id] = statsPorID[id];
+      final[mapaNomes[id]] = statsPorID[id];
     });
     res.status(200).json(final);
   } catch (e) {

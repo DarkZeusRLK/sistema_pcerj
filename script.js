@@ -668,6 +668,7 @@ window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
+  // 1. Pergunta confirmação (Seu modal nativo)
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
     `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
@@ -676,7 +677,7 @@ window.revogar = async function (idPassaporte) {
 
   if (!confirmou) return;
 
-  // --- ALERTA DE PROCESSAMENTO (NATIVO) ---
+  // 2. MOSTRAR "AGUARDE" NO SEU MODAL NATIVO
   const modal = document.getElementById("custom-modal");
   const modalTitle = document.getElementById("modal-title");
   const modalDesc = document.getElementById("modal-desc");
@@ -685,8 +686,8 @@ window.revogar = async function (idPassaporte) {
 
   modalTitle.innerText = "Revogando Porte...";
   modalDesc.innerText = "Por favor, aguarde enquanto o documento é revogado...";
-  modalIcon.className = "fa-solid fa-spinner fa-spin"; // Ícone de carregamento
-  modalFooter.style.display = "none"; // Esconde os botões para não fechar
+  modalIcon.className = "fa-solid fa-spinner fa-spin"; // Ícone de carregamento girando
+  modalFooter.style.display = "none"; // Esconde botões para evitar cliques duplos
   modal.classList.remove("hidden");
 
   try {
@@ -737,8 +738,8 @@ window.revogar = async function (idPassaporte) {
       renderTables();
       atualizarStats();
 
-      // Volta os botões e mostra sucesso
-      modalFooter.style.display = "flex";
+      // 3. Finaliza mostrando Sucesso
+      modalFooter.style.display = "flex"; // Devolve os botões
       mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
     }
   } catch (e) {
