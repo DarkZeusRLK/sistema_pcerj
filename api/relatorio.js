@@ -3,7 +3,7 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // CORS
+  // Configuração de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -88,13 +88,13 @@ module.exports = async (req, res) => {
             renovacao: 0,
           };
 
-        // Contagem
+        // --- CATEGORIZAÇÃO ---
         if (title.includes("EMISSAO") || title.includes("EMITIDO")) {
           statsPorID[oficialId].emissao++;
         } else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
 
-          // 🛡️ PRESERVAÇÃO DE META: Recupera o emissor original
+          // 🛡️ PRESERVAÇÃO DE META: Devolve ponto ao emissor original
           const campoOrig = embed.fields?.find((f) =>
             /EMISSOR ORIGINAL|EMITIDO POR/i.test(
               f.name
@@ -117,12 +117,21 @@ module.exports = async (req, res) => {
               statsPorID[idOrig].emissao++;
             }
           }
-        } else if (title.includes("LIMPEZA")) statsPorID[oficialId].limpeza++;
-        else if (title.includes("RENOVACAO")) statsPorID[oficialId].renovacao++;
+        }
+        // 🔍 DETECÇÃO DE LIMPEZA MELHORADA
+        else if (
+          title.includes("LIMPEZA") ||
+          title.includes("CERTIFICADO") ||
+          title.includes("ANTECEDENTES")
+        ) {
+          statsPorID[oficialId].limpeza++;
+        } else if (title.includes("RENOVACAO") || title.includes("RENOVADO")) {
+          statsPorID[oficialId].renovacao++;
+        }
       });
     }
 
-    // Traduz IDs para nomes
+    // Traduz IDs para nomes (Nicknames do Discord)
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
     await Promise.all(
@@ -130,12 +139,14 @@ module.exports = async (req, res) => {
         try {
           const resMem = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            {
-              headers: { Authorization: `Bot ${Discord_Bot_Token}` },
-            }
+            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
           );
-          const d = await resMem.json();
-          mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
+          if (resMem.ok) {
+            const d = await resMem.json();
+            mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
+          } else {
+            mapaNomes[id] = `ID: ${id}`;
+          }
         } catch {
           mapaNomes[id] = `ID: ${id}`;
         }
@@ -146,6 +157,7 @@ module.exports = async (req, res) => {
     ids.forEach((id) => {
       final[mapaNomes[id] || id] = statsPorID[id];
     });
+
     res.status(200).json(final);
   } catch (e) {
     console.error(e);
