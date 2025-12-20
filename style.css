@@ -614,7 +614,20 @@ th {
   transform: scale(1);
   transition: transform 0.3s;
 }
+.modal-buttons {
+  display: flex;
+  flex-direction: row; /* Alinha lado a lado */
+  justify-content: center; /* Centraliza os botões */
+  gap: 15px; /* Espaço entre eles */
+  margin-top: 20px;
+}
 
+/* Garante que os botões não ocupem a largura toda sozinhos */
+.modal-buttons button {
+  flex: 1; /* Faz ambos terem o mesmo tamanho */
+  max-width: 150px; /* Limita a largura para não ficarem gigantes */
+  padding: 12px;
+}
 .modal-icon {
   font-size: 3rem;
   margin-bottom: 15px;
