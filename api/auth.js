@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     const userData = await userRes.json();
 
     // 3. PERGUNTAR PRO DISCORD QUAIS CARGOS ELE TEM
+    // (Mantido sua lógica de usar o Bot Token, que é mais segura)
     const memberUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${userData.id}`;
     const memberRes = await fetch(memberUrl, {
       headers: { Authorization: `Bot ${botToken}` },
@@ -61,15 +62,16 @@ export default async function handler(req, res) {
 
     // 4. A HORA DA VERDADE
     if (userRoles.includes(roleId)) {
-      // SUCESSO
+      // SUCESSO - ADAPTADO AQUI
       return res.status(200).json({
         authorized: true,
         username: userData.username,
         avatar: userData.avatar,
         id: userData.id,
+        roles: userRoles, // <--- LINHA ADICIONADA: Envia a lista de cargos para o frontend
       });
     } else {
-      // FALHA - AQUI VAMOS VER O QUE ESTÁ ERRADO
+      // FALHA
       return res.status(403).json({
         error: `DEBUG (Acesso Negado): O ID procurado era [${roleId}]. O usuário tem estes cargos: [${userRoles.join(
           ", "
