@@ -662,42 +662,48 @@ window.renovarPorte = async function (idPorte) {
 };
 
 // ==========================================
-// 🚫 AÇÃO DE REVOGAR (CORRIGIDA PARA METAS)
+// 🚫 AÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
+  // IMPORTANTE: Se não tiver message_id, o sistema não vai conseguir apagar do Discord
+  if (!p.message_id) {
+    console.error("Erro: message_id não encontrado no objeto", p);
+  }
+
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro e preservará as metas.`,
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro original e enviará o log de revogação.`,
     "danger"
   );
 
   if (!confirmou) return;
 
-  // Seleciona os elementos do seu modal nativo
   const modal = document.getElementById("custom-modal");
   const modalTitle = document.getElementById("modal-title");
   const modalDesc = document.getElementById("modal-desc");
   const modalFooter = document.getElementById("modal-footer");
   const modalIcon = document.getElementById("modal-icon");
 
-  // ESTADO DE "AGUARDE" (Igual aos demais alertas)
-  if (modalTitle) modalTitle.innerText = "Revogando Porte...";
+  if (modalTitle) modalTitle.innerText = "Processando Revogação...";
   if (modalDesc)
-    modalDesc.innerText =
-      "Por favor, aguarde enquanto o documento é revogado...";
+    modalDesc.innerText = "Apagando registro original e gerando log...";
   if (modalIcon) modalIcon.className = "fa-solid fa-spinner fa-spin";
-  if (modalFooter) modalFooter.style.display = "none"; // Agora funciona com o ID novo
+  if (modalFooter) modalFooter.style.display = "none";
   modal.classList.remove("hidden");
 
   try {
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
-    const mencaoOficial = sessao.id
+    const mencaoRevogador = sessao.id
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
-    const emissorOriginal = p.oficial || "Não Identificado";
+
+    // Tentamos pegar a menção real do emissor original (p.oficial_id deve vir do listar.js)
+    const mencaoEmissorOriginal = p.oficial_id
+      ? `<@${p.oficial_id}>`
+      : p.oficial;
 
     const blob = await gerarBlobRevogacao(p);
     const nomeArquivo = `revogacao_${idPassaporte}.png`;
@@ -708,15 +714,22 @@ window.revogar = async function (idPassaporte) {
       fields: [
         { name: "👤 Cidadão", value: p.nome, inline: true },
         { name: "🆔 ID", value: p.id, inline: true },
-        { name: "👮 Revogado por", value: mencaoOficial, inline: true },
-        { name: "📜 Emissor Original", value: emissorOriginal, inline: true },
+        { name: "👮 Revogado por", value: mencaoRevogador, inline: true },
+        // A menção abaixo é vital para o relatorio.js continuar contando a meta
+        {
+          name: "📜 Emissor Original",
+          value: mencaoEmissorOriginal,
+          inline: true,
+        },
       ],
       image: { url: `attachment://${nomeArquivo}` },
       footer: FOOTER_PADRAO,
       timestamp: new Date().toISOString(),
     };
 
-    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Revogado por: ${mencaoOficial}`;
+    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Emissor Original: ${mencaoEmissorOriginal}`;
+
+    // 1. Envia o Log para o canal de revogação
     const sucessoLog = await enviarParaAPI(
       blob,
       nomeArquivo,
@@ -726,6 +739,7 @@ window.revogar = async function (idPassaporte) {
     );
 
     if (sucessoLog) {
+      // 2. Apaga a mensagem original do canal de Portes para sumir do sistema
       if (p.message_id) {
         await fetch("/api/deletar", {
           method: "POST",
@@ -734,15 +748,19 @@ window.revogar = async function (idPassaporte) {
         });
       }
 
+      // Atualiza a interface local
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
       renderTables();
       atualizarStats();
 
-      // Volta os botões e mostra o sucesso padrão
       if (modalFooter) modalFooter.style.display = "flex";
-      mostrarAlerta("Sucesso", "Porte revogado com sucesso!", "success");
+      mostrarAlerta(
+        "Sucesso",
+        "Porte revogado e removido do sistema!",
+        "success"
+      );
     }
   } catch (e) {
     console.error(e);

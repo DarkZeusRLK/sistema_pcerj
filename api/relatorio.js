@@ -13,9 +13,12 @@ module.exports = async (req, res) => {
     Discord_Bot_Token,
     Discord_Guild_ID,
     CHANNEL_PORTE_ID,
+    CHANNEL_REVOGACAO_ID, // Canal de Revogação
+    CHANNEL_LIMPEZA_ID, // Canal de Limpeza
     CHANNEL_LOGS_ID,
     CARGOS_ADMIN_RELATORIO,
   } = process.env;
+
   const { roles, dataInicio, dataFim } = req.body || {};
 
   try {
@@ -25,16 +28,27 @@ module.exports = async (req, res) => {
 
     async function fetchMessages(channelId) {
       if (!channelId) return [];
-      const response = await fetch(
-        `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
-        {
-          headers: { Authorization: `Bot ${Discord_Bot_Token}` },
-        }
-      );
-      return response.ok ? await response.json() : [];
+      try {
+        const response = await fetch(
+          `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
+          {
+            headers: { Authorization: `Bot ${Discord_Bot_Token}` },
+          }
+        );
+        return response.ok ? await response.json() : [];
+      } catch (err) {
+        console.error("Erro ao buscar canal " + channelId, err);
+        return [];
+      }
     }
 
-    const canais = [CHANNEL_PORTE_ID, CHANNEL_LOGS_ID].filter(Boolean);
+    // LISTA DE CANAIS AMPLIADA: Agora lê Portes, Revogações e Limpezas
+    const canais = [
+      CHANNEL_PORTE_ID,
+      CHANNEL_REVOGACAO_ID,
+      CHANNEL_LIMPEZA_ID,
+      CHANNEL_LOGS_ID,
+    ].filter(Boolean);
 
     for (const channelId of canais) {
       const msgs = await fetchMessages(channelId);
@@ -49,10 +63,11 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // 👮 BUSCA DO OFICIAL (Melhorada para Limpezas)
+        // 👮 BUSCA DO OFICIAL QUE REALIZOU A AÇÃO
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
-          /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR/i.test(
+          // Regex expandida para pegar "Revogado por", "Emissor", etc.
+          /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
         );
@@ -62,7 +77,10 @@ module.exports = async (req, res) => {
           if (match) oficialId = match[1];
         }
 
-        if (!oficialId) return; // Se não achou o ID do oficial, ignora o log
+        // Se não achou oficial, mas a mensagem é do bot, tentamos pegar o autor da mensagem se for log
+        if (!oficialId && msg.author) oficialId = msg.author.id;
+        if (!oficialId) return;
+
         if (!statsPorID[oficialId])
           statsPorID[oficialId] = {
             emissao: 0,
@@ -72,11 +90,21 @@ module.exports = async (req, res) => {
           };
 
         // --- CLASSIFICAÇÃO DOS LOGS ---
-        if (title.includes("EMISSAO") || title.includes("EMITIDO")) {
+
+        // 1. EMISSÃO
+        if (
+          title.includes("EMISSAO") ||
+          title.includes("EMITIDO") ||
+          title.includes("PORTE DE ARMA")
+        ) {
           statsPorID[oficialId].emissao++;
-        } else if (title.includes("REVOGA")) {
+        }
+
+        // 2. REVOGAÇÃO (E COMPENSAÇÃO DA META)
+        else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
-          // Devolve o ponto de emissão para o oficial original
+
+          // Lógica para não tirar o ponto do oficial original:
           const campoOrig = embed.fields?.find((f) =>
             /ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
           );
@@ -91,12 +119,14 @@ module.exports = async (req, res) => {
                   limpeza: 0,
                   renovacao: 0,
                 };
+
+              // Devolvemos o ponto de emissão para o oficial original aqui!
               statsPorID[idO].emissao++;
             }
           }
         }
-        // ✅ CONTAGEM DE LIMPEZA (Título do seu sistema: "CERTIFICADO DE BONS ANTECEDENTES")
-        // ✅ CORREÇÃO PARA LIMPEZAS:
+
+        // 3. LIMPEZA DE FICHA
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
@@ -104,7 +134,10 @@ module.exports = async (req, res) => {
           title.includes("ANTECEDENTES")
         ) {
           statsPorID[oficialId].limpeza++;
-        } else if (title.includes("RENOVA")) {
+        }
+
+        // 4. RENOVAÇÃO
+        else if (title.includes("RENOVA")) {
           statsPorID[oficialId].renovacao++;
         }
       });
@@ -118,9 +151,7 @@ module.exports = async (req, res) => {
         try {
           const r = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            {
-              headers: { Authorization: `Bot ${Discord_Bot_Token}` },
-            }
+            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
           );
           const d = await r.json();
           mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
@@ -132,10 +163,12 @@ module.exports = async (req, res) => {
 
     const final = {};
     ids.forEach((id) => {
-      final[mapaNomes[id]] = statsPorID[id];
+      final[mapaNomes[id] || id] = statsPorID[id];
     });
+
     res.status(200).json(final);
   } catch (e) {
-    res.status(500).json({ error: "Erro interno" });
+    console.error(e);
+    res.status(500).json({ error: "Erro interno ao gerar relatório" });
   }
 };
