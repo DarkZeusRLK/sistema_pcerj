@@ -15,11 +15,9 @@ module.exports = async (req, res) => {
     CHANNEL_PORTE_ID,
     CHANNEL_REVOGACAO_ID,
     CHANNEL_LIMPEZA_ID,
-    // CHANNEL_LOGS_ID, // Removido das variáveis para clareza
-    CARGOS_ADMIN_RELATORIO,
   } = process.env;
 
-  const { roles, dataInicio, dataFim } = req.body || {};
+  const { dataInicio, dataFim } = req.body || {};
 
   try {
     const startObj = new Date(`${dataInicio}T00:00:00`);
@@ -31,19 +29,15 @@ module.exports = async (req, res) => {
       try {
         const response = await fetch(
           `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
-          {
-            headers: { Authorization: `Bot ${Discord_Bot_Token}` },
-          }
+          { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
         );
         return response.ok ? await response.json() : [];
       } catch (err) {
-        console.error("Erro ao buscar canal " + channelId, err);
         return [];
       }
     }
 
-    // ✅ CORREÇÃO: Removido CHANNEL_LOGS_ID da lista de leitura
-    // Isso evita que o sistema conte o LOG de emissão e a MENSAGEM de emissão ao mesmo tempo.
+    // Canais monitorados: Portes Ativos, Logs de Revogação e Logs de Limpeza
     const canais = [
       CHANNEL_PORTE_ID,
       CHANNEL_REVOGACAO_ID,
@@ -63,32 +57,33 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
+        // 1. Identificar quem fez a ação da mensagem atual
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
           /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
         );
-
         if (campoOficial) {
           const match = campoOficial.value.match(/<@!?(\d+)>/);
           if (match) oficialId = match[1];
         }
-
         if (!oficialId && msg.author) oficialId = msg.author.id;
         if (!oficialId) return;
 
-        if (!statsPorID[oficialId])
+        // Inicializa stats se não existir
+        if (!statsPorID[oficialId]) {
           statsPorID[oficialId] = {
             emissao: 0,
             revogacao: 0,
             limpeza: 0,
             renovacao: 0,
           };
+        }
 
-        // --- CLASSIFICAÇÃO DOS LOGS ---
+        // --- LÓGICA DE CONTAGEM ---
 
-        // 1. EMISSÃO (Conta apenas se a mensagem existir no canal de Portes)
+        // A. EMISSÃO ATIVA (Mensagem está no canal de Portes)
         if (
           title.includes("EMISSAO") ||
           title.includes("EMITIDO") ||
@@ -97,32 +92,58 @@ module.exports = async (req, res) => {
           statsPorID[oficialId].emissao++;
         }
 
-        // 2. REVOGAÇÃO
+        // B. REVOGAÇÃO (Mensagem está no canal de Revogações)
         else if (title.includes("REVOGA")) {
-          statsPorID[oficialId].revogacao++;
+          statsPorID[oficialId].revogacao++; // Conta 1 revogação para quem clicou no botão
 
-          // ✅ CORREÇÃO: Removida a linha "statsPorID[idO].emissao++"
-          // Se o porte foi revogado, a mensagem original é apagada do canal de portes
-          // e o ponto de emissão deve sumir naturalmente da meta.
+          // ✨ A MÁGICA AQUI: Recuperar o ponto de quem emitiu originalmente
+          const campoEmissorOriginal = embed.fields?.find((f) =>
+            /ORIGINAL|EMITIDO POR/i.test(
+              f.name
+                .toUpperCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+            )
+          );
+
+          if (campoEmissorOriginal) {
+            const matchO = campoEmissorOriginal.value.match(/<@!?(\d+)>/);
+            if (matchO) {
+              const idOriginal = matchO[1];
+
+              // Garante que o emissor original tenha um objeto de stats
+              if (!statsPorID[idOriginal]) {
+                statsPorID[idOriginal] = {
+                  emissao: 0,
+                  revogacao: 0,
+                  limpeza: 0,
+                  renovacao: 0,
+                };
+              }
+
+              // Adiciona o ponto de emissão para o oficial original
+              statsPorID[idOriginal].emissao++;
+            }
+          }
         }
 
-        // 3. LIMPEZA DE FICHA
+        // C. LIMPEZA DE FICHA
         else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
-          title.includes("BONS") ||
           title.includes("ANTECEDENTES")
         ) {
           statsPorID[oficialId].limpeza++;
         }
 
-        // 4. RENOVAÇÃO
+        // D. RENOVAÇÃO
         else if (title.includes("RENOVA")) {
           statsPorID[oficialId].renovacao++;
         }
       });
     }
 
+    // Tradução de IDs para Nomes e resposta final...
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
     await Promise.all(
@@ -130,7 +151,9 @@ module.exports = async (req, res) => {
         try {
           const r = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
+            {
+              headers: { Authorization: `Bot ${Discord_Bot_Token}` },
+            }
           );
           const d = await r.json();
           mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
@@ -144,10 +167,8 @@ module.exports = async (req, res) => {
     ids.forEach((id) => {
       final[mapaNomes[id] || id] = statsPorID[id];
     });
-
     res.status(200).json(final);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Erro interno ao gerar relatório" });
+    res.status(500).json({ error: "Erro ao gerar relatório" });
   }
 };
