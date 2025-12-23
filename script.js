@@ -219,7 +219,7 @@ function ativarFormatacaoDinheiro() {
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value; // <--- O valor é pego aqui
+  const rg = document.getElementById("porte-rg").value;
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
@@ -238,10 +238,12 @@ async function processarEmissao() {
     return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
 
   mostrarAlerta("Aguarde", "Gerando documento...", "warning");
+
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
   const mencaoOficial = sessao.id
     ? `<@${sessao.id}>`
     : `**${sessao.username || "Oficial"}**`;
+
   const msg = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
 
   const canvas = document.getElementById("canvas-porte");
@@ -253,6 +255,7 @@ async function processarEmissao() {
     )}\`\nMunição: \`${
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
+
     if (ehPolicial === "Sim") {
       textoValores += `\nDesconto Policial (15%): \`-${fmt(
         parseFloat(desconto)
@@ -274,10 +277,7 @@ async function processarEmissao() {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-
-        // 👇 AQUI ESTAVA FALTANDO SALVAR O RG 👇
         { name: "🪪 RG", value: `\`${rg || "N/A"}\``, inline: true },
-
         { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🔫 Armamento", value: arma, inline: true },
         { name: "📦 Munição", value: temMunicao, inline: true },
@@ -288,16 +288,17 @@ async function processarEmissao() {
       footer: FOOTER_PADRAO,
     };
 
-    const sucesso = await enviarParaAPI(
+    // ✨ CORREÇÃO: Capturamos o retorno da API que contém o ID da mensagem
+    const resultado = await enviarParaAPI(
       blob,
       nomeArquivo,
       "porte",
       embedData,
       msg
     );
-    if (sucesso) {
-      await mostrarAlerta("Sucesso", "Porte emitido!", "success");
-      // Atualiza lista local já com o RG para não precisar recarregar
+
+    if (resultado) {
+      // ✅ Agora salvamos o message_id na hora da criação!
       dbPortes.push({
         nome,
         id,
@@ -305,16 +306,22 @@ async function processarEmissao() {
         arma,
         validade,
         expedicao,
-        oficial: mencaoOficial, // 👈 ADICIONE ESTA LINHA AQUI
+        message_id: resultado.id, // 🔑 O ID que o Discord retornou
+        oficial: sessao.username,
+        oficial_id: sessao.id, // 👮 ID para o relatório
         status: "Ativo",
       });
+
       renderTables();
       atualizarStats();
+
+      await mostrarAlerta("Sucesso", "Porte emitido!", "success");
+
       window.navegar("dashboard");
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
-      document.getElementById("porte-rg").value = ""; // Limpa RG também
+      document.getElementById("porte-rg").value = "";
       document.getElementById("check-desconto").checked = false;
       atualizarValoresPorte();
     }
@@ -810,17 +817,22 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
   const form = new FormData();
   form.append("file", blob, filename);
   form.append("payload_json", JSON.stringify({ content, embeds: [embed] }));
+
   try {
     const res = await fetch(`/api/enviar?tipo=${tipo}`, {
       method: "POST",
       body: form,
     });
+
     if (!res.ok) throw new Error(await res.text());
-    return true;
+
+    // ✨ MUDANÇA AQUI: Retornamos os dados da resposta em vez de apenas 'true'
+    const data = await res.json();
+    return data;
   } catch (e) {
     console.error(e);
     mostrarAlerta("Erro", "Falha API (Verifique permissões do Bot)", "error");
-    return false;
+    return null; // Retorna null em caso de erro
   }
 }
 

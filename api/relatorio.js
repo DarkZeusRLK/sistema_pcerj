@@ -13,9 +13,9 @@ module.exports = async (req, res) => {
     Discord_Bot_Token,
     Discord_Guild_ID,
     CHANNEL_PORTE_ID,
-    CHANNEL_REVOGACAO_ID, // Canal de Revogação
-    CHANNEL_LIMPEZA_ID, // Canal de Limpeza
-    CHANNEL_LOGS_ID,
+    CHANNEL_REVOGACAO_ID,
+    CHANNEL_LIMPEZA_ID,
+    // CHANNEL_LOGS_ID, // Removido das variáveis para clareza
     CARGOS_ADMIN_RELATORIO,
   } = process.env;
 
@@ -42,12 +42,12 @@ module.exports = async (req, res) => {
       }
     }
 
-    // LISTA DE CANAIS AMPLIADA: Agora lê Portes, Revogações e Limpezas
+    // ✅ CORREÇÃO: Removido CHANNEL_LOGS_ID da lista de leitura
+    // Isso evita que o sistema conte o LOG de emissão e a MENSAGEM de emissão ao mesmo tempo.
     const canais = [
       CHANNEL_PORTE_ID,
       CHANNEL_REVOGACAO_ID,
       CHANNEL_LIMPEZA_ID,
-      CHANNEL_LOGS_ID,
     ].filter(Boolean);
 
     for (const channelId of canais) {
@@ -63,10 +63,8 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // 👮 BUSCA DO OFICIAL QUE REALIZOU A AÇÃO
         let oficialId = null;
         const campoOficial = embed.fields?.find((f) =>
-          // Regex expandida para pegar "Revogado por", "Emissor", etc.
           /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
@@ -77,7 +75,6 @@ module.exports = async (req, res) => {
           if (match) oficialId = match[1];
         }
 
-        // Se não achou oficial, mas a mensagem é do bot, tentamos pegar o autor da mensagem se for log
         if (!oficialId && msg.author) oficialId = msg.author.id;
         if (!oficialId) return;
 
@@ -91,7 +88,7 @@ module.exports = async (req, res) => {
 
         // --- CLASSIFICAÇÃO DOS LOGS ---
 
-        // 1. EMISSÃO
+        // 1. EMISSÃO (Conta apenas se a mensagem existir no canal de Portes)
         if (
           title.includes("EMISSAO") ||
           title.includes("EMITIDO") ||
@@ -100,30 +97,13 @@ module.exports = async (req, res) => {
           statsPorID[oficialId].emissao++;
         }
 
-        // 2. REVOGAÇÃO (E COMPENSAÇÃO DA META)
+        // 2. REVOGAÇÃO
         else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
 
-          // Lógica para não tirar o ponto do oficial original:
-          const campoOrig = embed.fields?.find((f) =>
-            /ORIGINAL|EMITIDO POR/i.test(f.name.toUpperCase())
-          );
-          if (campoOrig) {
-            const matchO = campoOrig.value.match(/<@!?(\d+)>/);
-            if (matchO) {
-              const idO = matchO[1];
-              if (!statsPorID[idO])
-                statsPorID[idO] = {
-                  emissao: 0,
-                  revogacao: 0,
-                  limpeza: 0,
-                  renovacao: 0,
-                };
-
-              // Devolvemos o ponto de emissão para o oficial original aqui!
-              statsPorID[idO].emissao++;
-            }
-          }
+          // ✅ CORREÇÃO: Removida a linha "statsPorID[idO].emissao++"
+          // Se o porte foi revogado, a mensagem original é apagada do canal de portes
+          // e o ponto de emissão deve sumir naturalmente da meta.
         }
 
         // 3. LIMPEZA DE FICHA
@@ -143,7 +123,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Tradução de IDs para Nomes
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
     await Promise.all(
