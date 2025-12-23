@@ -1197,3 +1197,27 @@ async function verificarPermissaoRelatorio() {
     console.error("Erro ao verificar permissão:", erro);
   }
 }
+// Impede o clique com botão direito
+document.addEventListener("contextmenu", (event) => event.preventDefault());
+
+// Impede atalhos de teclado de inspeção
+document.onkeydown = function (e) {
+  // Bloqueia F12
+  if (e.keyCode == 123) return false;
+
+  // Bloqueia Ctrl+Shift+I (Inspeção)
+  if (e.ctrlKey && e.shiftKey && e.keyCode == "I".charCodeAt(0)) return false;
+
+  // Bloqueia Ctrl+Shift+J (Console)
+  if (e.ctrlKey && e.shiftKey && e.keyCode == "J".charCodeAt(0)) return false;
+
+  // Bloqueia Ctrl+U (Exibir código fonte)
+  if (e.ctrlKey && e.keyCode == "U".charCodeAt(0)) return false;
+
+  // Bloqueia Ctrl+S (Salvar página)
+  if (e.ctrlKey && e.keyCode == "S".charCodeAt(0)) return false;
+};
+// Se o DevTools for aberto, o script entra em loop de debug
+setInterval(function () {
+  debugger;
+}, 100);
