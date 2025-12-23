@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
   try {
-    // 1. BUSCAR ÚLTIMA LIMPEZA (Ponto de corte)
+    // 1. BUSCAR ÚLTIMA LIMPEZA (Corte de data)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 2. BUSCAR REGISTROS (Prisões e Fianças)
+    // 2. BUSCAR PRISÕES E FIANÇAS
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -49,13 +49,10 @@ module.exports = async (req, res) => {
       dataUltimaLimpeza,
       500
     );
-
     const todosRegistros = [...prisoes, ...fiancas];
 
     let somaMultas = 0;
     let totalInafiancaveis = 0;
-
-    // Lista de crimes inafiançáveis (ajustada para ignorar acentos)
     const listaCrimesInafiancaveis = [
       "HOMICIDIO",
       "DESACATO",
@@ -69,7 +66,6 @@ module.exports = async (req, res) => {
       const embed = msg.embeds[0];
 
       embed.fields?.forEach((f) => {
-        // Normalizamos o texto: Remove acentos e deixa tudo em maiúsculo
         const nomeCampo = f.name
           .toUpperCase()
           .normalize("NFD")
@@ -79,20 +75,24 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DA MULTA (Busca campos que contenham "MULTA" ou "VALOR")
-        if (nomeCampo.includes("MULTA") || nomeCampo.includes("VALOR")) {
-          const apenasNumeros = f.value.replace(/\D/g, ""); // Remove R$, pontos e espaços
-          somaMultas += parseInt(apenasNumeros) || 0;
+        // EXTRAÇÃO DA MULTA (Pega o número após "Multa:")
+        // Ex: "Pena: 36 mesesMulta: R$25.000" -> Captura 25.000
+        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
+          const regexMulta = /MULTA:\s*R?\$?\s*([\d.]+)/i;
+          const match = f.value.match(regexMulta);
+          if (match && match[1]) {
+            // Remove pontos de milhar e converte para número
+            const valorLimpo = parseInt(match[1].replace(/\./g, "")) || 0;
+            somaMultas += valorLimpo;
+          }
         }
 
         // CONTAGEM DE CRIMES INAFIANÇÁVEIS
-        if (nomeCampo.includes("CRIME")) {
+        if (nomeCampo.includes("CRIMES")) {
           listaCrimesInafiancaveis.forEach((crime) => {
             if (valorCampo.includes(crime)) {
-              // Conta quantas vezes o crime aparece (caso tenha mais de um homicídio, por exemplo)
               const regex = new RegExp(crime, "gi");
-              const count = (valorCampo.match(regex) || []).length;
-              totalInafiancaveis += count;
+              totalInafiancaveis += (valorCampo.match(regex) || []).length;
             }
           });
         }
@@ -149,21 +149,26 @@ async function buscarMensagensDiscord(
     for (const msg of mensagens) {
       processadas++;
       ultimoId = msg.id;
-      const dataMsg = new Date(msg.timestamp);
 
-      // Se a mensagem for mais antiga que a última limpeza, para de procurar
-      if (dataCorte && dataMsg <= dataCorte) return filtradas;
+      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      // FILTRO DE SEGURANÇA: Verifica se o ID está no campo "Passaporte" do embed
-      const temIdCerto = (msg.embeds || []).some((emb) =>
-        (emb.fields || []).some(
-          (f) => f.name.includes("Passaporte") && f.value.includes(idCidadao)
-        )
-      );
+      // FILTRO DE IDENTIFICAÇÃO:
+      // Procura no campo "Preso" pelo padrão "RG: [idCidadao]"
+      const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
+        return (embed.fields || []).some((field) => {
+          const nome = field.name.toLowerCase();
+          const valor = field.value.toLowerCase();
 
-      if (temIdCerto) {
-        filtradas.push(msg);
-      }
+          if (nome.includes("preso")) {
+            // Esta linha garante que "RG: 737" seja encontrado exatamente
+            const regexRG = new RegExp(`rg:\\s*${idCidadao}(\\b|$)`, "i");
+            return regexRG.test(valor);
+          }
+          return false;
+        });
+      });
+
+      if (pertenceAoCidadao) filtradas.push(msg);
     }
     if (mensagens.length < 100) break;
   }
