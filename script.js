@@ -327,7 +327,59 @@ async function processarEmissao() {
     }
   });
 }
+// ==========================================
+// 🔍 CONSULTA CRIMINAL INTEGRADA
+// ==========================================
+window.consultarFicha = async function () {
+  const id = document.getElementById("limpeza-id").value;
+  if (!id)
+    return mostrarAlerta("Erro", "Digite o ID para consultar.", "warning");
 
+  mostrarAlerta(
+    "Consultando...",
+    "Buscando histórico nos canais do Discord...",
+    "info"
+  );
+
+  try {
+    const res = await fetch("/api/consultar-ficha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idCidadao: id }),
+    });
+
+    if (!res.ok) throw new Error("Erro na consulta");
+
+    const dados = await res.json();
+
+    // 💰 Preenche o valor automaticamente com o cálculo da API
+    // Formata para o campo de input (apenas números para o seu sistema processar)
+    const inputValor = document.getElementById("input-valor-limpeza");
+    if (inputValor) {
+      inputValor.value = dados.totalGeral;
+    }
+
+    // Exibe um resumo para o oficial
+    mostrarAlerta(
+      "Histórico Encontrado",
+      `Limpezas Prévias: ${dados.totalLimpezasAnteriores}\n` +
+        `Multas: R$ ${dados.somaMultas.toLocaleString("pt-BR")}\n` +
+        `Inafiançáveis: ${
+          dados.totalInafiancaveis
+        } (R$ ${dados.custoInafiancaveis.toLocaleString("pt-BR")})\n` +
+        `Taxa Base: R$ ${dados.taxaBase.toLocaleString("pt-BR")}\n\n` +
+        `TOTAL: R$ ${dados.totalGeral.toLocaleString("pt-BR")}`,
+      "success"
+    );
+  } catch (erro) {
+    console.error(erro);
+    mostrarAlerta(
+      "Erro",
+      "Falha ao conectar com o banco de dados do Discord.",
+      "error"
+    );
+  }
+};
 // ==========================================
 // 🧼 LÓGICA DE LIMPEZA
 // ==========================================
