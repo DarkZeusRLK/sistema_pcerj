@@ -1,9 +1,7 @@
-// api/consultar-ficha.js
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Habilitar CORS para evitar bloqueios no frontend
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -18,31 +16,27 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
-  // Validação básica
-  if (!idCidadao)
-    return res.status(400).json({ error: "ID do cidadão é obrigatório." });
+  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
   try {
-    // 1. BUSCAR TODAS AS LIMPEZAS PARA DEFINIR A TAXA E A DATA DE CORTE
-    // Buscamos até 500 mensagens no canal de limpeza para ter um histórico sólido
+    // 1. BUSCAR ÚLTIMA LIMPEZA
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      null, // Sem data de corte inicial (queremos o histórico todo disponível)
-      500 // Limite de varredura
+      null,
+      300
     );
 
-    let dataUltimaLimpeza = new Date(0); // Se nunca limpou, conta desde sempre
+    let dataUltimaLimpeza = new Date(0);
     let totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
-      // A primeira mensagem retornada é a mais recente
+      // Pega a data da limpeza mais recente para servir de "ponto de corte"
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS APÓS A DATA DA ÚLTIMA LIMPEZA
-    // Aumentamos o limite para 1000 mensagens para garantir que pegamos tudo
+    // 2. BUSCAR REGISTROS CRIMINAIS (Prisões e Fianças)
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -60,48 +54,54 @@ module.exports = async (req, res) => {
 
     const todosRegistros = [...prisoes, ...fiancas];
 
-    // 3. PROCESSAR VALORES (Multas e Inafiançáveis)
     let somaMultas = 0;
     let totalInafiancaveis = 0;
     const listaCrimesInafiancaveis = [
-      "Desacato",
-      "Homicidio Doloso",
-      "Tentativa de Homicidio",
-      "Sequestro",
-      "Homicidio",
-      "Trafico",
+      "DESACATO",
+      "HOMICIDIO",
+      "TENTATIVA",
+      "SEQUESTRO",
+      "TRAFICO",
     ];
 
     todosRegistros.forEach((msg) => {
+      if (!msg.embeds || msg.embeds.length === 0) return;
       const embed = msg.embeds[0];
-      if (!embed) return;
 
-      // Soma Multas: Procura campos que contenham "Multa", "Valor" ou "Total"
+      // Percorre todos os campos do embed
       embed.fields?.forEach((f) => {
-        const nomeCampo = f.name.toLowerCase();
+        const nomeCampo = f.name
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const valorCampo = f.value
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+        // --- CORREÇÃO: Extração de Multas ---
+        // Se o campo se chamar MULTA, VALOR, TOTAL ou TAXA
         if (
-          nomeCampo.includes("multa") ||
-          nomeCampo.includes("total") ||
-          nomeCampo.includes("valor")
+          nomeCampo.includes("MULTA") ||
+          nomeCampo.includes("VALOR") ||
+          nomeCampo.includes("TOTAL")
         ) {
-          const valorExtraido = parseInt(f.value.replace(/\D/g, "")) || 0;
-          somaMultas += valorExtraido;
+          // Remove tudo que não for número (ex: R$ 10.000 -> 10000)
+          const apenasNumeros = f.value.replace(/\D/g, "");
+          somaMultas += parseInt(apenasNumeros) || 0;
         }
 
-        // Conta Crimes Inafiançáveis no campo de Crimes
-        if (nomeCampo.includes("crime")) {
+        // --- CORREÇÃO: Extração de Crimes ---
+        if (nomeCampo.includes("CRIME")) {
           listaCrimesInafiancaveis.forEach((crime) => {
             const regex = new RegExp(crime, "gi");
-            const ocorrencias = (f.value.match(regex) || []).length;
+            const ocorrencias = (valorCampo.match(regex) || []).length;
             totalInafiancaveis += ocorrencias;
           });
         }
       });
     });
 
-    // 4. CÁLCULO DA TAXA PROGRESSIVA
-    // Se 0 limpezas: 1.000.000
-    // Se 1 limpeza: 1.400.000, etc...
     const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
@@ -114,48 +114,36 @@ module.exports = async (req, res) => {
       totalGeral,
       totalLimpezasAnteriores,
       ultimaLimpeza:
-        dataUltimaLimpeza.getTime() === 0
-          ? "Nunca"
-          : dataUltimaLimpeza.toLocaleDateString("pt-BR"),
+        totalLimpezasAnteriores > 0
+          ? dataUltimaLimpeza.toLocaleDateString("pt-BR")
+          : "Nunca",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
-    console.error("Erro na API de consulta:", error);
-    res
-      .status(500)
-      .json({ error: "Erro interno ao consultar Discord: " + error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função de busca com Paginação (Before)
- */
 async function buscarMensagensDiscord(
   channelId,
   idCidadao,
   token,
-  dataCorte = null,
-  limiteBusca = 500
+  dataCorte,
+  limite
 ) {
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  let continuar = true;
 
-  while (continuar && processadas < limiteBusca) {
+  while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
     if (ultimoId) url += `&before=${ultimoId}`;
 
     const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-
-    if (!res.ok) {
-      console.error(`Erro ao acessar canal ${channelId}: ${res.status}`);
-      break;
-    }
-
     const mensagens = await res.json();
+
     if (!mensagens || mensagens.length === 0) break;
 
     for (const msg of mensagens) {
@@ -163,21 +151,21 @@ async function buscarMensagensDiscord(
       ultimoId = msg.id;
       const dataMsg = new Date(msg.timestamp);
 
-      // Se a mensagem for anterior à limpeza, paramos a busca neste canal
+      // Se chegamos em mensagens antes da última limpeza, paramos a busca
       if (dataCorte && dataMsg <= dataCorte) {
-        continuar = false;
-        break;
+        return filtradas;
       }
 
-      // Verifica se o ID do cidadão aparece nos embeds
-      const temId = JSON.stringify(msg.embeds || []).includes(idCidadao);
-      if (temId) {
+      // Verifica se o ID do cidadão está nos campos ou descrição do embed
+      const stringEmbed = JSON.stringify(msg.embeds || "").toLowerCase();
+      // Usamos uma regex simples para garantir que o ID não seja parte de outro número (ex: ID 10 não pegar 110)
+      const regexId = new RegExp(`\\b${idCidadao}\\b`);
+
+      if (regexId.test(stringEmbed)) {
         filtradas.push(msg);
       }
     }
-
     if (mensagens.length < 100) break;
   }
-
   return filtradas;
 }
