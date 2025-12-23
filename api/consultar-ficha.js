@@ -19,8 +19,7 @@ module.exports = async (req, res) => {
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
   try {
-    // 1. BUSCAR ÚLTIMA LIMPEZA (Corte de data)
-    // No canal de limpeza, procuramos o ID em QUALQUER lugar da mensagem/embed
+    // 1. BUSCAR ÚLTIMA LIMPEZA
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -29,12 +28,10 @@ module.exports = async (req, res) => {
       50,
       true
     );
-
     let dataUltimaLimpeza = new Date(0);
     let totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
-      // Pega a limpeza mais recente
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
@@ -59,12 +56,18 @@ module.exports = async (req, res) => {
 
     let somaMultas = 0;
     let totalInafiancaveis = 0;
-    const listaCrimesInafiancaveis = [
-      "HOMICIDIO",
+
+    // LISTA ATUALIZADA BASEADA NO SEU CÓDIGO PENAL (Sem acentos e em maiúsculas)
+    const listaKeywordsInafiancaveis = [
       "DESACATO",
-      "TRAFICO",
+      "ASSEDIO MORAL",
+      "AZARALHAMENTO",
+      "AGRESSAO",
+      "PREVARICACAO",
+      "HOMICIDIO",
       "SEQUESTRO",
       "TENTATIVA",
+      "TRAFICO",
     ];
 
     todosRegistros.forEach((msg) => {
@@ -72,7 +75,6 @@ module.exports = async (req, res) => {
       const embed = msg.embeds[0];
 
       embed.fields?.forEach((f) => {
-        // Limpa o nome do campo para comparação (remove emojis e espaços)
         const nomeCampo = f.name
           .toUpperCase()
           .normalize("NFD")
@@ -82,9 +84,8 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DA MULTA: Agora aceita "**Multa:** R$ 25.000" ou "Multa: 25000"
+        // EXTRAÇÃO DA MULTA
         if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
-          // Regex que procura o número após a palavra "Multa", ignorando ** e R$
           const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
           if (matchMulta && matchMulta[1]) {
             const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
@@ -92,12 +93,16 @@ module.exports = async (req, res) => {
           }
         }
 
-        // CONTAGEM DE CRIMES INAFIANÇÁVEIS
+        // CONTAGEM DE CRIMES INAFIANÇÁVEIS (LINHA POR LINHA)
         if (nomeCampo.includes("CRIMES")) {
-          listaCrimesInafiancaveis.forEach((crime) => {
-            if (valorCampo.includes(crime)) {
-              const regex = new RegExp(crime, "gi");
-              totalInafiancaveis += (valorCampo.match(regex) || []).length;
+          const linhas = valorCampo.split("\n");
+          linhas.forEach((linha) => {
+            // Se a linha contiver qualquer uma das keywords, conta como 1 crime inafiançável
+            const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
+              linha.includes(keyword)
+            );
+            if (ehInafiancavel && linha.trim().length > 5) {
+              totalInafiancaveis++;
             }
           });
         }
@@ -122,7 +127,6 @@ module.exports = async (req, res) => {
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
-    console.error("Erro na API:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -138,7 +142,6 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-
   if (!channelId) return [];
 
   while (processadas < limite) {
@@ -160,19 +163,13 @@ async function buscarMensagensDiscord(
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        // Se for canal de limpeza (buscaAmpla), olha em tudo: título, descrição e campos
         if (buscaAmpla) {
-          const textoCompleto = JSON.stringify(embed).toLowerCase();
-          return textoCompleto.includes(idCidadao);
+          return JSON.stringify(embed).toLowerCase().includes(idCidadao);
         }
-
-        // Se for canal de Prisão/Fiança, procura especificamente no campo que contém "Preso"
         return (embed.fields || []).some((field) => {
           const nome = field.name.toLowerCase();
           const valor = field.value.toLowerCase();
-
           if (nome.includes("preso")) {
-            // Procura o ID isolado para não confundir "73" com "737"
             const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
             return regexID.test(valor);
           }
