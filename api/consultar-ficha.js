@@ -2,14 +2,12 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Ajuste de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // 1. Tratamento rigoroso do ID (Remove espaços e garante string)
   const idCidadao = String(req.body.idCidadao || "").trim();
   const {
     Discord_Bot_Token,
@@ -21,80 +19,80 @@ module.exports = async (req, res) => {
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
   try {
-    // 2. BUSCAR ÚLTIMA LIMPEZA (Ponto de partida)
+    // 1. BUSCAR ÚLTIMA LIMPEZA (Ponto de corte)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       null,
-      200
+      100
     );
-
-    let dataUltimaLimpeza = new Date(0); // 1970
+    let dataUltimaLimpeza = new Date(0);
     let totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
-      // Pega a data da limpeza mais recente
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 3. BUSCAR REGISTROS (Prisões e Fianças)
-    // Buscamos apenas o que aconteceu DEPOIS da última limpeza
+    // 2. BUSCAR REGISTROS (Prisões e Fianças)
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataUltimaLimpeza,
-      1000
+      500
     );
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
       dataUltimaLimpeza,
-      1000
+      500
     );
 
     const todosRegistros = [...prisoes, ...fiancas];
 
     let somaMultas = 0;
     let totalInafiancaveis = 0;
+
+    // Lista de crimes inafiançáveis (ajustada para ignorar acentos)
     const listaCrimesInafiancaveis = [
-      "DESACATO",
       "HOMICIDIO",
-      "TENTATIVA",
-      "SEQUESTRO",
+      "DESACATO",
       "TRAFICO",
+      "SEQUESTRO",
+      "TENTATIVA",
     ];
 
     todosRegistros.forEach((msg) => {
       if (!msg.embeds || msg.embeds.length === 0) return;
-
       const embed = msg.embeds[0];
 
-      // Verificação de campos para somar multas
       embed.fields?.forEach((f) => {
-        const nomeCampo = f.name.toUpperCase();
+        // Normalizamos o texto: Remove acentos e deixa tudo em maiúsculo
+        const nomeCampo = f.name
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const valorCampo = f.value
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
 
-        // Identifica campos de valor (Independente de emoji)
-        if (
-          nomeCampo.includes("MULTA") ||
-          nomeCampo.includes("VALOR") ||
-          nomeCampo.includes("TOTAL")
-        ) {
-          // Remove R$, pontos, espaços e letras para isolar o número
-          const valorNumerico = parseInt(f.value.replace(/\D/g, "")) || 0;
-          somaMultas += valorNumerico;
+        // EXTRAÇÃO DA MULTA (Busca campos que contenham "MULTA" ou "VALOR")
+        if (nomeCampo.includes("MULTA") || nomeCampo.includes("VALOR")) {
+          const apenasNumeros = f.value.replace(/\D/g, ""); // Remove R$, pontos e espaços
+          somaMultas += parseInt(apenasNumeros) || 0;
         }
 
-        // Identifica crimes inafiançáveis
+        // CONTAGEM DE CRIMES INAFIANÇÁVEIS
         if (nomeCampo.includes("CRIME")) {
-          const valorCampo = f.value.toUpperCase();
           listaCrimesInafiancaveis.forEach((crime) => {
             if (valorCampo.includes(crime)) {
-              // Conta quantas vezes o crime aparece no texto
+              // Conta quantas vezes o crime aparece (caso tenha mais de um homicídio, por exemplo)
               const regex = new RegExp(crime, "gi");
-              totalInafiancaveis += (valorCampo.match(regex) || []).length;
+              const count = (valorCampo.match(regex) || []).length;
+              totalInafiancaveis += count;
             }
           });
         }
@@ -115,18 +113,14 @@ module.exports = async (req, res) => {
       ultimaLimpeza:
         totalLimpezasAnteriores > 0
           ? dataUltimaLimpeza.toLocaleString("pt-BR")
-          : "Nenhuma (Ficha Suja)",
+          : "Ficha Suja",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
-    console.error("Erro na API:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
-/**
- * Função de Busca Otimizada
- */
 async function buscarMensagensDiscord(
   channelId,
   idCidadao,
@@ -137,6 +131,8 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
+
+  if (!channelId) return [];
 
   while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
@@ -155,23 +151,17 @@ async function buscarMensagensDiscord(
       ultimoId = msg.id;
       const dataMsg = new Date(msg.timestamp);
 
-      // Se a mensagem for anterior ou igual à limpeza, para a busca aqui
+      // Se a mensagem for mais antiga que a última limpeza, para de procurar
       if (dataCorte && dataMsg <= dataCorte) return filtradas;
 
-      // BUSCA PRECISA: Verifica se o ID está no campo de Passaporte
-      const temIdNoEmbed = (msg.embeds || []).some((embed) => {
-        // Verifica todos os campos (fields) do embed
-        return (embed.fields || []).some((f) => {
-          const nomeF = f.name.toLowerCase();
-          // Verifica se o campo é de Passaporte ou ID e se o valor bate exatamente
-          return (
-            (nomeF.includes("passaporte") || nomeF.includes("id")) &&
-            f.value.includes(idCidadao)
-          );
-        });
-      });
+      // FILTRO DE SEGURANÇA: Verifica se o ID está no campo "Passaporte" do embed
+      const temIdCerto = (msg.embeds || []).some((emb) =>
+        (emb.fields || []).some(
+          (f) => f.name.includes("Passaporte") && f.value.includes(idCidadao)
+        )
+      );
 
-      if (temIdNoEmbed) {
+      if (temIdCerto) {
         filtradas.push(msg);
       }
     }
