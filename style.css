@@ -813,3 +813,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #fba94c;
   border: 1px solid #fba94c;
 }
+#limpeza-rg {
+  width: 100%;
+}
