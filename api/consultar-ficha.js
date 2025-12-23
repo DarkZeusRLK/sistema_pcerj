@@ -1,9 +1,16 @@
-// api/consultar-ficha.js (Versão Sincronizada com seu script.js)
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  const { idCidadao } = req.body;
+  // Ajuste de CORS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  // 1. Tratamento rigoroso do ID (Remove espaços e garante string)
+  const idCidadao = String(req.body.idCidadao || "").trim();
   const {
     Discord_Bot_Token,
     CHANNEL_PRISOES_ID,
@@ -11,23 +18,28 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
+  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
+
   try {
-    // 1. BUSCAR ÚLTIMA LIMPEZA
+    // 2. BUSCAR ÚLTIMA LIMPEZA (Ponto de partida)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       null,
-      300
+      200
     );
-    let dataUltimaLimpeza = new Date(0);
+
+    let dataUltimaLimpeza = new Date(0); // 1970
     let totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
+      // Pega a data da limpeza mais recente
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS
+    // 3. BUSCAR REGISTROS (Prisões e Fianças)
+    // Buscamos apenas o que aconteceu DEPOIS da última limpeza
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -42,49 +54,53 @@ module.exports = async (req, res) => {
       dataUltimaLimpeza,
       1000
     );
+
     const todosRegistros = [...prisoes, ...fiancas];
 
     let somaMultas = 0;
     let totalInafiancaveis = 0;
-
-    // Lista baseada nos nomes que aparecem no seu Script.js (Código Penal)
     const listaCrimesInafiancaveis = [
       "DESACATO",
       "HOMICIDIO",
       "TENTATIVA",
       "SEQUESTRO",
       "TRAFICO",
-      "PORTE DE ARMA PESADA",
     ];
 
     todosRegistros.forEach((msg) => {
-      const embed = msg.embeds[0];
-      if (!embed || !embed.fields) return;
+      if (!msg.embeds || msg.embeds.length === 0) return;
 
-      embed.fields.forEach((f) => {
-        // Normaliza o nome do campo para ignorar emojis e maiúsculas
+      const embed = msg.embeds[0];
+
+      // Verificação de campos para somar multas
+      embed.fields?.forEach((f) => {
         const nomeCampo = f.name.toUpperCase();
 
-        // No seu script.js o campo é "💰 Multa"
-        if (nomeCampo.includes("MULTA") || nomeCampo.includes("VALOR")) {
-          const valorLimpo = f.value.replace(/\D/g, "");
-          somaMultas += parseInt(valorLimpo) || 0;
+        // Identifica campos de valor (Independente de emoji)
+        if (
+          nomeCampo.includes("MULTA") ||
+          nomeCampo.includes("VALOR") ||
+          nomeCampo.includes("TOTAL")
+        ) {
+          // Remove R$, pontos, espaços e letras para isolar o número
+          const valorNumerico = parseInt(f.value.replace(/\D/g, "")) || 0;
+          somaMultas += valorNumerico;
         }
 
-        // No seu script.js o campo é "📜 Crimes"
-        if (nomeCampo.includes("CRIMES")) {
-          const crimesTexto = f.value.toUpperCase();
+        // Identifica crimes inafiançáveis
+        if (nomeCampo.includes("CRIME")) {
+          const valorCampo = f.value.toUpperCase();
           listaCrimesInafiancaveis.forEach((crime) => {
-            const regex = new RegExp(crime, "gi");
-            const ocorrencias = (crimesTexto.match(regex) || []).length;
-            totalInafiancaveis += ocorrencias;
+            if (valorCampo.includes(crime)) {
+              // Conta quantas vezes o crime aparece no texto
+              const regex = new RegExp(crime, "gi");
+              totalInafiancaveis += (valorCampo.match(regex) || []).length;
+            }
           });
         }
       });
     });
 
-    // CÁLCULO DAS TAXAS PROGRESSIVAS (CONFORME SOLICITADO)
-    // 1ª Limpeza: 1.000.000 | 2ª: 1.400.000 | 3ª: 1.800.000...
     const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
@@ -98,15 +114,19 @@ module.exports = async (req, res) => {
       totalLimpezasAnteriores,
       ultimaLimpeza:
         totalLimpezasAnteriores > 0
-          ? dataUltimaLimpeza.toLocaleDateString("pt-BR")
-          : "Nenhuma",
+          ? dataUltimaLimpeza.toLocaleString("pt-BR")
+          : "Nenhuma (Ficha Suja)",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
+    console.error("Erro na API:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+/**
+ * Função de Busca Otimizada
+ */
 async function buscarMensagensDiscord(
   channelId,
   idCidadao,
@@ -127,7 +147,7 @@ async function buscarMensagensDiscord(
     });
     const mensagens = await res.json();
 
-    if (!mensagens || mensagens.length === 0 || !Array.isArray(mensagens))
+    if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
       break;
 
     for (const msg of mensagens) {
@@ -135,13 +155,23 @@ async function buscarMensagensDiscord(
       ultimoId = msg.id;
       const dataMsg = new Date(msg.timestamp);
 
+      // Se a mensagem for anterior ou igual à limpeza, para a busca aqui
       if (dataCorte && dataMsg <= dataCorte) return filtradas;
 
-      const stringEmbed = JSON.stringify(msg.embeds || "");
-      // Busca o ID garantindo que ele esteja isolado (evita que ID 1 pegue ID 10)
-      const regexId = new RegExp(`\\b${idCidadao}\\b`);
+      // BUSCA PRECISA: Verifica se o ID está no campo de Passaporte
+      const temIdNoEmbed = (msg.embeds || []).some((embed) => {
+        // Verifica todos os campos (fields) do embed
+        return (embed.fields || []).some((f) => {
+          const nomeF = f.name.toLowerCase();
+          // Verifica se o campo é de Passaporte ou ID e se o valor bate exatamente
+          return (
+            (nomeF.includes("passaporte") || nomeF.includes("id")) &&
+            f.value.includes(idCidadao)
+          );
+        });
+      });
 
-      if (regexId.test(stringEmbed)) {
+      if (temIdNoEmbed) {
         filtradas.push(msg);
       }
     }
