@@ -67,7 +67,6 @@ module.exports = async (req, res) => {
       "PREVARICACAO",
       "HOMICIDIO",
       "SEQUESTRO",
-      "TRAFICO",
     ];
 
     todosRegistros.forEach((msg) => {
