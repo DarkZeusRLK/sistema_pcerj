@@ -57,16 +57,16 @@ module.exports = async (req, res) => {
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
-    // LISTA ATUALIZADA BASEADA NO SEU CÓDIGO PENAL (Sem acentos e em maiúsculas)
+    // LISTA REFINADA: Removemos "TENTATIVA" para não confundir com "Tentativa de Fuga"
+    // Mantemos os nomes dos crimes. "HOMICIDIO" pegará tanto o Doloso quanto a Tentativa.
     const listaKeywordsInafiancaveis = [
       "DESACATO",
-      "ASSEDIO MORAL",
+      "ASSEDIO",
       "AZARALHAMENTO",
       "AGRESSAO",
       "PREVARICACAO",
       "HOMICIDIO",
       "SEQUESTRO",
-      "TENTATIVA",
       "TRAFICO",
     ];
 
@@ -97,11 +97,13 @@ module.exports = async (req, res) => {
         if (nomeCampo.includes("CRIMES")) {
           const linhas = valorCampo.split("\n");
           linhas.forEach((linha) => {
-            // Se a linha contiver qualquer uma das keywords, conta como 1 crime inafiançável
+            // Verifica se a linha tem um crime da lista e NÃO é uma linha vazia de formatação
             const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
               linha.includes(keyword)
             );
-            if (ehInafiancavel && linha.trim().length > 5) {
+
+            // Filtro extra: garante que a linha tem conteúdo real além dos asteriscos
+            if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
               totalInafiancaveis++;
             }
           });
