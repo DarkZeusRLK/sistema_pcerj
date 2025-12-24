@@ -327,19 +327,21 @@ async function processarEmissao() {
     }
   });
 }
-// ==========================================
-// 🔍 CONSULTA CRIMINAL INTEGRADA
+/// ==========================================
+// 🔍 CONSULTA CRIMINAL INTEGRADA (VERSÃO ORGANIZADA)
 // ==========================================
 window.consultarFicha = async function () {
   const id = document.getElementById("limpeza-id").value;
-  if (!id)
-    return mostrarAlerta("Erro", "Digite o ID para consultar.", "warning");
 
-  mostrarAlerta(
-    "Consultando...",
-    "Buscando histórico nos canais do Discord...",
-    "info"
-  );
+  if (!id) {
+    return mostrarAlerta("Erro", "Digite o ID para consultar.", "warning");
+  }
+
+  // Feedback visual no botão
+  const btn = document.querySelector(".btn-search");
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
+  btn.disabled = true;
 
   try {
     const res = await fetch("/api/consultar-ficha", {
@@ -352,32 +354,44 @@ window.consultarFicha = async function () {
 
     const dados = await res.json();
 
-    // 💰 Preenche o valor automaticamente com o cálculo da API
-    // Formata para o campo de input (apenas números para o seu sistema processar)
+    // 1. Preenche o input invisível/técnico para o relatório
     const inputValor = document.getElementById("input-valor-limpeza");
     if (inputValor) {
       inputValor.value = dados.totalGeral;
     }
 
-    // Exibe um resumo para o oficial
+    // 2. ATUALIZA O RECIBO VISUAL (Aquelas linhas pontilhadas)
+    // Usamos o toLocaleString para colocar os pontos de milhar (ex: 1.000.000)
+    document.getElementById(
+      "resumo-taxa-base"
+    ).innerText = `R$ ${dados.taxaBase.toLocaleString("pt-BR")}`;
+    document.getElementById(
+      "resumo-multas"
+    ).innerText = `R$ ${dados.somaMultas.toLocaleString("pt-BR")}`;
+    document.getElementById(
+      "resumo-inafiancaveis"
+    ).innerText = `R$ ${dados.custoInafiancaveis.toLocaleString("pt-BR")}`;
+    document.getElementById(
+      "total-geral-exibicao"
+    ).innerText = `R$ ${dados.totalGeral.toLocaleString("pt-BR")}`;
+
+    // 3. Alerta de sucesso com resumo rápido
     mostrarAlerta(
-      "Histórico Encontrado",
-      `Limpezas Prévias: ${dados.totalLimpezasAnteriores}\n` +
-        `Multas: R$ ${dados.somaMultas.toLocaleString("pt-BR")}\n` +
-        `Inafiançáveis: ${
-          dados.totalInafiancaveis
-        } (R$ ${dados.custoInafiancaveis.toLocaleString("pt-BR")})\n` +
-        `Taxa Base: R$ ${dados.taxaBase.toLocaleString("pt-BR")}\n\n` +
-        `TOTAL: R$ ${dados.totalGeral.toLocaleString("pt-BR")}`,
+      "Histórico Recuperado",
+      `O cidadão possui ${dados.totalLimpezasAnteriores} limpezas prévias e ${dados.totalInafiancaveis} crimes graves no histórico atual.`,
       "success"
     );
   } catch (erro) {
     console.error(erro);
     mostrarAlerta(
-      "Erro",
-      "Falha ao conectar com o banco de dados do Discord.",
+      "Erro de Conexão",
+      "Não foi possível recuperar os dados do Discord. Verifique o ID ou tente novamente.",
       "error"
     );
+  } finally {
+    // Restaura o botão
+    btn.innerHTML = originalText;
+    btn.disabled = false;
   }
 };
 // ==========================================

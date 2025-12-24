@@ -227,38 +227,88 @@
       </section>
       <section id="sec-limpeza" class="screen hidden">
         <header class="top-bar">
-          <h1>Limpeza de Ficha</h1>
+          <h1><i class="fa-solid fa-eraser"></i> Setor de Reabilitação Criminal</h1>
         </header>
-        <div class="form-container">
-          <div class="form-content">
-            <div class="input-group">
-              <label>Nome do Cidadão</label>
-              <input type="text" id="limpeza-nome" placeholder="Nome Completo">
-            </div>
-            <div class="row">
+
+        <div class="cleaning-container">
+          <div class="cleaning-inputs">
+            <div class="card-formal">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-address-card"></i> Identificação do Cidadão</h3>
+              </div>
+
+              <div class="input-row">
+                <div class="input-group">
+                  <label>Nome do Cidadão</label>
+                  <input type="text" id="limpeza-nome" placeholder="Nome Completo">
+                </div>
+                <div class="input-group small">
+                  <label>RG (Opcional)</label>
+                  <input type="text" id="limpeza-rg" placeholder="0000">
+                </div>
+              </div>
+
               <div class="input-group">
-                <label>RG (Opcional)</label>
-                <input type="text" id="limpeza-rg" placeholder="RG">
+                <label>Passaporte (ID):</label>
+                <div class="search-wrapper">
+                  <input type="number" id="limpeza-id" placeholder="Ex: 123">
+                  <button onclick="window.consultarFicha()" class="btn-search">
+                    <i class="fa-solid fa-magnifying-glass"></i> Consultar Histórico
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="input-group">
-              <label>Passaporte (ID):</label>
-              <div style="display: flex; gap: 10px;">
-                <input type="number" id="limpeza-id" placeholder="Ex: 123">
-                <button onclick="window.consultarFicha()" class="btn-consultar">
-                  <i class="fa-solid fa-magnifying-glass"></i> Consultar
-                </button>
-              </div>
-            </div>
-            <div class="input-group">
-              <label>Valor Cobrado (R$)</label>
-              <input type="text" id="input-valor-limpeza" placeholder="000.000" maxlength="15">
             </div>
 
-            <div class="form-actions">
-              <button class="btn-primary" onclick="processarLimpeza()">
-                <i class="fa-solid fa-eraser"></i> Realizar Limpeza
-              </button>
+            <div class="info-alert">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>O valor final é calculado automaticamente com base no histórico de crimes e limpezas anteriores.</span>
+            </div>
+          </div>
+
+          <div class="cleaning-summary">
+            <div class="invoice-card">
+              <div class="invoice-top">
+                <h3>EXTRATO DE TAXAS</h3>
+                <span class="invoice-id">#LIMP-2024</span>
+              </div>
+
+              <div class="invoice-body">
+                <div class="invoice-item">
+                  <span class="item-label">Taxa Administrativa</span>
+                  <span class="item-dots"></span>
+                  <span class="item-value" id="resumo-taxa-base">R$ 1.000.000</span>
+                </div>
+
+                <div class="invoice-item">
+                  <span class="item-label">Multas Acumuladas</span>
+                  <span class="item-dots"></span>
+                  <span class="item-value" id="resumo-multas">R$ 0</span>
+                </div>
+
+                <div class="invoice-item">
+                  <span class="item-label">Crimes Inafiançáveis</span>
+                  <span class="item-dots"></span>
+                  <span class="item-value" id="resumo-inafiancaveis">R$ 0</span>
+                </div>
+
+                <div class="invoice-divider"></div>
+
+                <div class="invoice-total">
+                  <label>TOTAL A PAGAR</label>
+                  <h2 id="total-geral-exibicao">R$ 0</h2>
+                </div>
+              </div>
+
+              <div class="invoice-footer">
+                <div class="input-group">
+                  <label>Valor para o Relatório (R$)</label>
+                  <input type="text" id="input-valor-limpeza" placeholder="R$ 0,00" readonly>
+                </div>
+
+                <button class="btn-confirm-limpeza" onclick="processarLimpeza()">
+                  <i class="fa-solid fa-check-double"></i> FINALIZAR PROCESSO
+                </button>
+              </div>
             </div>
           </div>
         </div>
