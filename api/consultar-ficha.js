@@ -16,44 +16,56 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
+  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
+
   try {
-    // 1. BUSCA ÚLTIMA LIMPEZA
+    // === CONFIGURAÇÃO DE DATA INICIAL (10/12/2025) ===
+    const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
+
+    // 1. BUSCAR ÚLTIMA LIMPEZA (A partir do dia 10/12)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      null,
+      DATA_INICIO_SISTEMA, // Ignora limpezas antes do dia 10
       100,
       true
     );
-    let dataCorte =
-      mensagensLimpeza.length > 0
-        ? new Date(mensagensLimpeza[0].timestamp)
-        : new Date(0);
 
-    // 2. BUSCA PRISÕES E FIANÇAS
+    // Define o corte: ou a data da limpeza mais recente, ou o dia 10/12
+    let dataCorteFinal = DATA_INICIO_SISTEMA;
+    let totalLimpezasAnteriores = mensagensLimpeza.length;
+
+    if (totalLimpezasAnteriores > 0) {
+      const dataRecenteLimpeza = new Date(mensagensLimpeza[0].timestamp);
+      if (dataRecenteLimpeza > dataCorteFinal) {
+        dataCorteFinal = dataRecenteLimpeza;
+      }
+    }
+
+    // 2. BUSCAR PRISÕES E FIANÇAS (Limite aumentado para 2000 para cobrir o histórico)
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorte,
-      1000,
+      dataCorteFinal,
+      2000,
       false
     );
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorte,
-      1000,
+      dataCorteFinal,
+      2000,
       false
     );
-
     const todosRegistros = [...prisoes, ...fiancas];
+
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
-    const keywordsInafiancaveis = [
+    const listaKeywordsInafiancaveis = [
       "DESACATO",
       "ASSEDIO",
       "AZARALHAMENTO",
@@ -64,51 +76,56 @@ module.exports = async (req, res) => {
     ];
 
     todosRegistros.forEach((msg) => {
-      const embed = msg.embeds?.[0];
-      if (!embed || !embed.fields) return;
+      if (!msg.embeds || msg.embeds.length === 0) return;
+      const embed = msg.embeds[0];
 
-      embed.fields.forEach((f) => {
-        const valorOriginal = f.value;
-        const valorLimpo = valorOriginal
+      embed.fields?.forEach((f) => {
+        const nomeCampo = f.name
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const valorCampo = f.value
           .toUpperCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DE MULTA: Procura "Multa:" e pega o número, independente de onde esteja no campo
-        // Agora ele pega R$655.000 mesmo se tiver texto antes ou depois
-        const matchMulta = valorOriginal.match(/Multa[:\s]*R?\$?\s*([\d.]+)/i);
-        if (matchMulta) {
-          const valorNumerico = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
-          somaMultas += valorNumerico;
+        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
+          const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
+          if (matchMulta && matchMulta[1]) {
+            const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+            somaMultas += valorLimpo;
+          }
         }
 
-        // CONTAGEM DE CRIMES: Varre o campo procurando as palavras-chave
-        // Isso garante que "Homicídio" seja contado mesmo se o campo não se chamar "Crimes"
-        valorLimpo.split("\n").forEach((linha) => {
-          if (
-            keywordsInafiancaveis.some((k) => linha.includes(k)) &&
-            linha.trim().length > 4
-          ) {
-            totalInafiancaveis++;
-          }
-        });
+        if (nomeCampo.includes("CRIMES")) {
+          const linhas = valorCampo.split("\n");
+          linhas.forEach((linha) => {
+            const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
+              linha.includes(keyword)
+            );
+            if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
+              totalInafiancaveis++;
+            }
+          });
+        }
       });
     });
 
-    const taxaBase = 1000000 + mensagensLimpeza.length * 400000;
+    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
+    const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
     res.status(200).json({
       taxaBase,
       somaMultas,
       totalInafiancaveis,
       custoInafiancaveis,
-      totalGeral: taxaBase + somaMultas + custoInafiancaveis,
-      totalLimpezasAnteriores: mensagensLimpeza.length,
+      totalGeral,
+      totalLimpezasAnteriores,
       ultimaLimpeza:
-        mensagensLimpeza.length > 0
-          ? dataCorte.toLocaleString("pt-BR")
-          : "Nunca Limpou",
+        totalLimpezasAnteriores > 0
+          ? dataCorteFinal.toLocaleString("pt-BR")
+          : "Nunca Limpou (Busca desde 10/12)",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
@@ -122,20 +139,21 @@ async function buscarMensagensDiscord(
   token,
   dataCorte,
   limite,
-  buscaAmpla
+  buscaAmpla = false
 ) {
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
+  if (!channelId) return [];
 
   while (processadas < limite) {
-    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
-      ultimoId ? `&before=${ultimoId}` : ""
-    }`;
-    const response = await fetch(url, {
+    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
+    if (ultimoId) url += `&before=${ultimoId}`;
+
+    const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-    const mensagens = await response.json();
+    const mensagens = await res.json();
 
     if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
       break;
@@ -143,15 +161,26 @@ async function buscarMensagensDiscord(
     for (const msg of mensagens) {
       processadas++;
       ultimoId = msg.id;
+
+      // Se a mensagem for anterior ou igual à data de corte, para a busca
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      const pertence = (msg.embeds || []).some((embed) => {
-        // BUSCA UNIVERSAL: Se o ID aparecer em qualquer lugar do embed (campos, descrição, etc)
-        // ele vai capturar o relatório. Resolve o problema de nomes de campos diferentes.
-        return JSON.stringify(embed).includes(idCidadao);
+      const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
+        if (buscaAmpla) {
+          return JSON.stringify(embed).toLowerCase().includes(idCidadao);
+        }
+        return (embed.fields || []).some((field) => {
+          const nome = field.name.toLowerCase();
+          const valor = field.value.toLowerCase();
+          if (nome.includes("preso") || nome.includes("cidadao")) {
+            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
+            return regexID.test(valor);
+          }
+          return false;
+        });
       });
 
-      if (pertence) filtradas.push(msg);
+      if (pertenceAoCidadao) filtradas.push(msg);
     }
     if (mensagens.length < 100) break;
   }
