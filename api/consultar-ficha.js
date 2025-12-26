@@ -2,6 +2,7 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
+  const startTime = Date.now();
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -17,36 +18,40 @@ module.exports = async (req, res) => {
   } = process.env;
 
   try {
-    // 1. BUSCA ÚLTIMA LIMPEZA
+    // 1. BUSCA ÚLTIMA LIMPEZA (Mais precisa)
     const mensagensLimpeza = await buscarMensagens(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       null,
       1000,
-      true
+      true,
+      startTime
     );
     let dataCorte =
       mensagensLimpeza.length > 0
         ? new Date(mensagensLimpeza[0].timestamp)
         : new Date(0);
 
-    // 2. BUSCA PRISÕES E FIANÇAS (Limite de 5.000 conforme solicitado)
+    // 2. BUSCA PRISÕES E FIANÇAS (Limite aumentado para 12.000 mensagens)
+    // Buscamos um canal após o outro para maximizar o tempo de resposta
     const prisoes = await buscarMensagens(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorte,
-      5000,
-      false
+      12000,
+      false,
+      startTime
     );
     const fiancas = await buscarMensagens(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorte,
-      5000,
-      false
+      12000,
+      false,
+      startTime
     );
 
     const todosRegistros = [...prisoes, ...fiancas];
@@ -63,35 +68,33 @@ module.exports = async (req, res) => {
     ];
 
     todosRegistros.forEach((msg) => {
-      const embed = msg.embeds?.[0];
-      if (!embed || !embed.fields) return;
-
-      embed.fields.forEach((f) => {
+      msg.embeds?.[0]?.fields?.forEach((f) => {
         const nome = f.name.toUpperCase();
         const valor = f.value;
 
-        // EXTRAÇÃO DA MULTA: Captura "Multa: R$55.000" mesmo colado em "meses"
-        if (nome.includes("SENTENCA") || nome.includes("MULTA")) {
-          // Procura o valor financeiro especificamente após a palavra 'Multa:'
-          const matchMulta = valor.match(/Multa:\s*R?\$?\s*([\d.]+)/i);
-          if (matchMulta) {
-            const valorNumerico =
-              parseInt(matchMulta[1].replace(/\./g, "")) || 0;
-            somaMultas += valorNumerico;
+        // Extração de Multa (Trata: "Pena: 77 mesesMulta: R$55.000")
+        if (
+          nome.includes("SENTENCA") ||
+          nome.includes("MULTA") ||
+          nome.includes("VALOR")
+        ) {
+          const match = valor.match(/Multa:\s*R?\$?\s*([\d.]+)/i);
+          if (match) {
+            somaMultas += parseInt(match[1].replace(/\./g, "")) || 0;
           }
         }
 
-        // CONTAGEM DE CRIMES: 1 por linha
+        // Contagem de Crimes (Padrão: "Art. 157 - Desacato 01")
         if (nome.includes("CRIMES")) {
-          valor.split("\n").forEach((linha) => {
-            const linhaLimpa = linha
+          valor.split("\n").forEach((l) => {
+            const lin = l
               .toUpperCase()
               .normalize("NFD")
               .replace(/[\u0300-\u036f]/g, "");
-            const temCrime = listaKeywordsInafiancaveis.some((k) =>
-              linhaLimpa.includes(k)
-            );
-            if (temCrime && linha.trim().length > 4) {
+            if (
+              listaKeywordsInafiancaveis.some((k) => lin.includes(k)) &&
+              l.trim().length > 4
+            ) {
               totalInafiancaveis++;
             }
           });
@@ -114,9 +117,11 @@ module.exports = async (req, res) => {
           ? dataCorte.toLocaleString("pt-BR")
           : "Nunca Limpou",
       registrosEncontrados: todosRegistros.length,
+      // Info extra para debug:
+      tempoExecucao: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
     });
   } catch (error) {
-    res.status(500).json({ error: "Erro ao consultar o Discord." });
+    res.status(500).json({ error: "Erro de conexão." });
   }
 };
 
@@ -126,43 +131,45 @@ async function buscarMensagens(
   token,
   dataCorte,
   limite,
-  ampla
+  ehLimpeza,
+  startTime
 ) {
   let filtradas = [];
   let ultimoId = null;
-  let processadas = 0;
-
-  // REGEX PARA RG COLADO: Captura "RG: 962" ou "CharmosoRG: 962"
+  let totalLidas = 0;
   const regexRG = new RegExp(`RG:\\s*${idCidadao}(\\D|$)`, "i");
 
-  while (processadas < limite) {
+  while (totalLidas < limite) {
+    // Trava de segurança para Vercel Free (9 segundos)
+    if (Date.now() - startTime > 9000) break;
+
     const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
       ultimoId ? `&before=${ultimoId}` : ""
     }`;
     const response = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-
     if (!response.ok) break;
+
     const mensagens = await response.json();
     if (!mensagens || mensagens.length === 0) break;
 
     for (const msg of mensagens) {
-      processadas++;
+      totalLidas++;
       ultimoId = msg.id;
 
+      // Se chegamos numa mensagem anterior à última limpeza, paramos a busca
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      const pertence = (msg.embeds || []).some((embed) => {
-        if (ampla) return JSON.stringify(embed).includes(idCidadao);
+      const achou = (msg.embeds || []).some((embed) => {
+        // Se for canal de limpeza, verifica o RG de forma mais rigorosa
+        if (ehLimpeza) return regexRG.test(JSON.stringify(embed));
 
-        // Verifica o RG dentro do campo PRESO (Padrão: Nome: SmokeRG: 962)
-        return (embed.fields || []).some(
-          (f) => f.name.toUpperCase().includes("PRESO") && regexRG.test(f.value)
-        );
+        // Em prisões, varre todos os campos do embed em busca do RG
+        return (embed.fields || []).some((f) => regexRG.test(f.value));
       });
 
-      if (pertence) filtradas.push(msg);
+      if (achou) filtradas.push(msg);
     }
     if (mensagens.length < 100) break;
   }
