@@ -16,7 +16,10 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
+  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
+
   try {
+    // 1. BUSCAR ÚLTIMA LIMPEZA
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -30,24 +33,25 @@ module.exports = async (req, res) => {
         ? new Date(mensagensLimpeza[0].timestamp)
         : new Date(0);
 
-    const [prisoes, fiancas] = await Promise.all([
-      buscarMensagensDiscord(
-        CHANNEL_PRISOES_ID,
-        idCidadao,
-        Discord_Bot_Token,
-        dataUltimaLimpeza,
-        5000,
-        false
-      ),
-      buscarMensagensDiscord(
-        CHANNEL_FIANCAS_ID,
-        idCidadao,
-        Discord_Bot_Token,
-        dataUltimaLimpeza,
-        5000,
-        false
-      ),
-    ]);
+    // 2. BUSCAR PRISÕES (Sequencial para evitar erro de conexão)
+    const prisoes = await buscarMensagensDiscord(
+      CHANNEL_PRISOES_ID,
+      idCidadao,
+      Discord_Bot_Token,
+      dataUltimaLimpeza,
+      2000,
+      false
+    );
+
+    // 3. BUSCAR FIANÇAS
+    const fiancas = await buscarMensagensDiscord(
+      CHANNEL_FIANCAS_ID,
+      idCidadao,
+      Discord_Bot_Token,
+      dataUltimaLimpeza,
+      2000,
+      false
+    );
 
     const todosRegistros = [...prisoes, ...fiancas];
     let somaMultas = 0;
@@ -63,7 +67,7 @@ module.exports = async (req, res) => {
     ];
 
     todosRegistros.forEach((msg) => {
-      if (!msg.embeds?.[0]) return;
+      if (!msg.embeds || !msg.embeds[0]) return;
       const fields = msg.embeds[0].fields || [];
 
       fields.forEach((f) => {
@@ -71,20 +75,16 @@ module.exports = async (req, res) => {
           .toUpperCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
-        const valor = f.value
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
 
-        // 1. EXTRAÇÃO DA MULTA (Busca o número após a palavra MULTA)
-        if (nome.includes("SENTENCA")) {
+        // EXTRAÇÃO DA MULTA (Padrão: "Multa: R$55.000")
+        if (nome.includes("SENTENCA") || nome.includes("MULTA")) {
           const matchMulta = f.value.match(/Multa:\s*R?\$?\s*([\d.]+)/i);
           if (matchMulta) {
             somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
           }
         }
 
-        // 2. CONTAGEM DE CRIMES (Linha por linha)
+        // CONTAGEM DE CRIMES
         if (nome.includes("CRIMES")) {
           f.value.split("\n").forEach((linha) => {
             const linhaLimpa = linha
@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
     const taxaBase = 1000000 + mensagensLimpeza.length * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
 
-    res.status(200).json({
+    return res.status(200).json({
       taxaBase,
       somaMultas,
       totalInafiancaveis,
@@ -119,7 +119,10 @@ module.exports = async (req, res) => {
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Erro na API:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro ao processar dados do Discord" });
   }
 };
 
@@ -134,38 +137,48 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  // Regex para achar "RG: 962" ou "RG:962" com precisão
   const regexRG = new RegExp(`RG:\\s*${idCidadao}(\\D|$)`, "i");
 
-  while (processadas < limite) {
-    const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
-      ultimoId ? `&before=${ultimoId}` : ""
-    }`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bot ${token}` },
-    });
-    const mensagens = await res.json();
+  if (!channelId) return [];
 
-    if (!mensagens || mensagens.length === 0) break;
-
-    for (const msg of mensagens) {
-      processadas++;
-      ultimoId = msg.id;
-      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
-
-      const pertence = (msg.embeds || []).some((embed) => {
-        if (buscaAmpla) return JSON.stringify(embed).includes(idCidadao);
-
-        // Verifica se no campo "PRESO" existe o texto "RG: ID"
-        return (embed.fields || []).some((f) => {
-          const nome = f.name.toUpperCase();
-          return nome.includes("PRESO") && regexRG.test(f.value);
-        });
+  try {
+    while (processadas < limite) {
+      const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
+        ultimoId ? `&before=${ultimoId}` : ""
+      }`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bot ${token}` },
+        signal: AbortSignal.timeout(5000), // Timeout de 5s por requisição
       });
 
-      if (pertence) filtradas.push(msg);
+      if (!response.ok) break;
+
+      const mensagens = await response.json();
+      if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
+        break;
+
+      for (const msg of mensagens) {
+        processadas++;
+        ultimoId = msg.id;
+
+        if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
+
+        const pertence = (msg.embeds || []).some((embed) => {
+          if (buscaAmpla) return JSON.stringify(embed).includes(idCidadao);
+
+          return (embed.fields || []).some((f) => {
+            const nome = f.name.toUpperCase();
+            // Busca o RG dentro do campo PRESO conforme o seu padrão
+            return nome.includes("PRESO") && regexRG.test(f.value);
+          });
+        });
+
+        if (pertence) filtradas.push(msg);
+      }
+      if (mensagens.length < 100) break;
     }
-    if (mensagens.length < 100) break;
+  } catch (e) {
+    console.error(`Erro ao buscar no canal ${channelId}:`, e);
   }
   return filtradas;
 }
