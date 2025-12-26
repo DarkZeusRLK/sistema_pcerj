@@ -17,14 +17,13 @@ module.exports = async (req, res) => {
   } = process.env;
 
   try {
-    // 1. BUSCAR ÚLTIMA LIMPEZA (Limite menor para poupar tempo)
+    // 1. BUSCA ÚLTIMA LIMPEZA (ID no RG)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       null,
-      1000,
-      true
+      1000
     );
 
     let dataUltimaLimpeza = new Date(0);
@@ -33,30 +32,29 @@ module.exports = async (req, res) => {
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS (Busca otimizada)
-    // Usamos um limite de 5000 para garantir que a Vercel não corte a conexão por tempo
+    // 2. BUSCA PRISÕES E FIANÇAS (Foco Total no Campo RG)
     const [prisoes, fiancas] = await Promise.all([
       buscarMensagensDiscord(
         CHANNEL_PRISOES_ID,
         idCidadao,
         Discord_Bot_Token,
         dataUltimaLimpeza,
-        5000,
-        false
+        5000
       ),
       buscarMensagensDiscord(
         CHANNEL_FIANCAS_ID,
         idCidadao,
         Discord_Bot_Token,
         dataUltimaLimpeza,
-        5000,
-        false
+        5000
       ),
     ]);
 
     const todosRegistros = [...prisoes, ...fiancas];
     let somaMultas = 0;
     let totalInafiancaveis = 0;
+
+    // Lista de crimes que aumentam o valor
     const listaKeywordsInafiancaveis = [
       "DESACATO",
       "ASSEDIO",
@@ -69,7 +67,9 @@ module.exports = async (req, res) => {
 
     todosRegistros.forEach((msg) => {
       if (!msg.embeds?.[0]) return;
-      msg.embeds[0].fields?.forEach((f) => {
+      const embed = msg.embeds[0];
+
+      embed.fields?.forEach((f) => {
         const nomeCampo = f.name
           .toUpperCase()
           .normalize("NFD")
@@ -79,24 +79,33 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DE MULTA (Pega valores como 100.000 ou 100000)
+        // EXTRAÇÃO DE MULTA (Busca apenas números que venham após a palavra Multa ou Valor)
         if (
           nomeCampo.includes("SENTENCA") ||
           nomeCampo.includes("MULTA") ||
           nomeCampo.includes("VALOR") ||
           nomeCampo.includes("FIANCA")
         ) {
-          const valorLimpo = f.value.replace(/\./g, "").match(/(\d+)/);
-          if (valorLimpo) somaMultas += parseInt(valorLimpo[0]) || 0;
+          // Regex que procura o valor financeiro ignorando o texto ao redor
+          const match = f.value.match(/(?:MULTA|VALOR|R\$|FIANÇA).*?([\d.]+)/i);
+          if (match && match[1]) {
+            const valorLimpo = parseInt(match[1].replace(/\./g, "")) || 0;
+            // Filtro de segurança: Se o valor for igual ao ID do cidadão, ignoramos (evita erro de leitura)
+            if (valorLimpo !== parseInt(idCidadao)) {
+              somaMultas += valorLimpo;
+            }
+          }
         }
 
-        // CRIMES INAFIANÇÁVEIS
+        // CONTAGEM DE CRIMES (Apenas no campo de crimes e contando 1 por linha)
         if (nomeCampo.includes("CRIMES")) {
-          valorCampo.split("\n").forEach((linha) => {
-            if (
-              listaKeywordsInafiancaveis.some((k) => linha.includes(k)) &&
-              linha.length > 3
-            ) {
+          const linhas = valorCampo.split("\n");
+          linhas.forEach((linha) => {
+            const temCrime = listaKeywordsInafiancaveis.some((k) =>
+              linha.includes(k)
+            );
+            // Só conta se a linha tiver um crime e for uma linha de texto real
+            if (temCrime && linha.trim().length > 4) {
               totalInafiancaveis++;
             }
           });
@@ -104,15 +113,17 @@ module.exports = async (req, res) => {
       });
     });
 
+    // CÁLCULO FINAL
     const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
+    const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
     res.status(200).json({
       taxaBase,
       somaMultas,
       totalInafiancaveis,
       custoInafiancaveis,
-      totalGeral: taxaBase + somaMultas + custoInafiancaveis,
+      totalGeral,
       totalLimpezasAnteriores,
       ultimaLimpeza:
         totalLimpezasAnteriores > 0
@@ -130,13 +141,14 @@ async function buscarMensagensDiscord(
   idCidadao,
   token,
   dataCorte,
-  limite,
-  buscaAmpla
+  limite
 ) {
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
+  const regexID = new RegExp(
+    `^${idCidadao}$|^\\D${idCidadao}$|^${idCidadao}\\D|\\D${idCidadao}\\D`
+  );
 
   while (processadas < limite) {
     const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
@@ -147,7 +159,6 @@ async function buscarMensagensDiscord(
     });
 
     if (!response.ok) break;
-
     const mensagens = await response.json();
     if (!mensagens || mensagens.length === 0) break;
 
@@ -155,32 +166,18 @@ async function buscarMensagensDiscord(
       processadas++;
       ultimoId = msg.id;
 
-      // Para a busca se chegar na data da última limpeza
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertence = (msg.embeds || []).some((embed) => {
-        // Busca o ID em campos chave (RG, PASSAPORTE, CIDADAO)
-        const matchNoCampo = (embed.fields || []).some((f) => {
+        // VERIFICAÇÃO ESTRITA: O ID deve estar em um campo chamado "RG"
+        return (embed.fields || []).some((f) => {
           const nome = f.name
             .toUpperCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
-          return (
-            (nome.includes("RG") ||
-              nome.includes("PASSAPORTE") ||
-              nome.includes("ID") ||
-              nome.includes("PRESO")) &&
-            regexID.test(f.value)
-          );
+          const valor = f.value.trim();
+          return nome === "RG" && valor === idCidadao;
         });
-
-        if (matchNoCampo) return true;
-
-        // Fallback: Busca em todo o embed se for limpeza ou se o campo falhar
-        if (buscaAmpla || JSON.stringify(embed).includes(idCidadao)) {
-          return regexID.test(JSON.stringify(embed));
-        }
-        return false;
       });
 
       if (pertence) filtradas.push(msg);
