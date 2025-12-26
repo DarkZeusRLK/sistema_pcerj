@@ -16,50 +16,44 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
-  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
-
   try {
-    // 1. BUSCAR ÚLTIMA LIMPEZA
+    // 1. BUSCA ÚLTIMA LIMPEZA
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       null,
-      50,
+      100,
       true
     );
-    let dataUltimaLimpeza = new Date(0);
-    let totalLimpezasAnteriores = mensagensLimpeza.length;
+    let dataCorte =
+      mensagensLimpeza.length > 0
+        ? new Date(mensagensLimpeza[0].timestamp)
+        : new Date(0);
 
-    if (totalLimpezasAnteriores > 0) {
-      dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
-    }
-
-    // 2. BUSCAR PRISÕES E FIANÇAS
+    // 2. BUSCA PRISÕES E FIANÇAS
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataUltimaLimpeza,
-      500,
+      dataCorte,
+      1000,
       false
     );
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataUltimaLimpeza,
-      500,
+      dataCorte,
+      1000,
       false
     );
-    const todosRegistros = [...prisoes, ...fiancas];
 
+    const todosRegistros = [...prisoes, ...fiancas];
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
-    // LISTA REFINADA: Removemos "TENTATIVA" para não confundir com "Tentativa de Fuga"
-    // Mantemos os nomes dos crimes. "HOMICIDIO" pegará tanto o Doloso quanto a Tentativa.
-    const listaKeywordsInafiancaveis = [
+    const keywordsInafiancaveis = [
       "DESACATO",
       "ASSEDIO",
       "AZARALHAMENTO",
@@ -70,60 +64,50 @@ module.exports = async (req, res) => {
     ];
 
     todosRegistros.forEach((msg) => {
-      if (!msg.embeds || msg.embeds.length === 0) return;
-      const embed = msg.embeds[0];
+      const embed = msg.embeds?.[0];
+      if (!embed || !embed.fields) return;
 
-      embed.fields?.forEach((f) => {
-        const nomeCampo = f.name
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-        const valorCampo = f.value
+      embed.fields.forEach((f) => {
+        const valorOriginal = f.value;
+        const valorLimpo = valorOriginal
           .toUpperCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DA MULTA
-        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
-          const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
-          if (matchMulta && matchMulta[1]) {
-            const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
-            somaMultas += valorLimpo;
+        // EXTRAÇÃO DE MULTA: Procura "Multa:" e pega o número, independente de onde esteja no campo
+        // Agora ele pega R$655.000 mesmo se tiver texto antes ou depois
+        const matchMulta = valorOriginal.match(/Multa[:\s]*R?\$?\s*([\d.]+)/i);
+        if (matchMulta) {
+          const valorNumerico = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+          somaMultas += valorNumerico;
+        }
+
+        // CONTAGEM DE CRIMES: Varre o campo procurando as palavras-chave
+        // Isso garante que "Homicídio" seja contado mesmo se o campo não se chamar "Crimes"
+        valorLimpo.split("\n").forEach((linha) => {
+          if (
+            keywordsInafiancaveis.some((k) => linha.includes(k)) &&
+            linha.trim().length > 4
+          ) {
+            totalInafiancaveis++;
           }
-        }
-
-        // CONTAGEM DE CRIMES INAFIANÇÁVEIS (LINHA POR LINHA)
-        if (nomeCampo.includes("CRIMES")) {
-          const linhas = valorCampo.split("\n");
-          linhas.forEach((linha) => {
-            // Verifica se a linha tem um crime da lista e NÃO é uma linha vazia de formatação
-            const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
-              linha.includes(keyword)
-            );
-
-            // Filtro extra: garante que a linha tem conteúdo real além dos asteriscos
-            if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
-              totalInafiancaveis++;
-            }
-          });
-        }
+        });
       });
     });
 
-    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
+    const taxaBase = 1000000 + mensagensLimpeza.length * 400000;
     const custoInafiancaveis = totalInafiancaveis * 400000;
-    const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
     res.status(200).json({
       taxaBase,
       somaMultas,
       totalInafiancaveis,
       custoInafiancaveis,
-      totalGeral,
-      totalLimpezasAnteriores,
+      totalGeral: taxaBase + somaMultas + custoInafiancaveis,
+      totalLimpezasAnteriores: mensagensLimpeza.length,
       ultimaLimpeza:
-        totalLimpezasAnteriores > 0
-          ? dataUltimaLimpeza.toLocaleString("pt-BR")
+        mensagensLimpeza.length > 0
+          ? dataCorte.toLocaleString("pt-BR")
           : "Nunca Limpou",
       registrosEncontrados: todosRegistros.length,
     });
@@ -138,21 +122,20 @@ async function buscarMensagensDiscord(
   token,
   dataCorte,
   limite,
-  buscaAmpla = false
+  buscaAmpla
 ) {
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  if (!channelId) return [];
 
   while (processadas < limite) {
-    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
-    if (ultimoId) url += `&before=${ultimoId}`;
-
-    const res = await fetch(url, {
+    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
+      ultimoId ? `&before=${ultimoId}` : ""
+    }`;
+    const response = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-    const mensagens = await res.json();
+    const mensagens = await response.json();
 
     if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
       break;
@@ -160,25 +143,15 @@ async function buscarMensagensDiscord(
     for (const msg of mensagens) {
       processadas++;
       ultimoId = msg.id;
-
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        if (buscaAmpla) {
-          return JSON.stringify(embed).toLowerCase().includes(idCidadao);
-        }
-        return (embed.fields || []).some((field) => {
-          const nome = field.name.toLowerCase();
-          const valor = field.value.toLowerCase();
-          if (nome.includes("preso")) {
-            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
-            return regexID.test(valor);
-          }
-          return false;
-        });
+      const pertence = (msg.embeds || []).some((embed) => {
+        // BUSCA UNIVERSAL: Se o ID aparecer em qualquer lugar do embed (campos, descrição, etc)
+        // ele vai capturar o relatório. Resolve o problema de nomes de campos diferentes.
+        return JSON.stringify(embed).includes(idCidadao);
       });
 
-      if (pertenceAoCidadao) filtradas.push(msg);
+      if (pertence) filtradas.push(msg);
     }
     if (mensagens.length < 100) break;
   }
