@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/consultar-ficha.js": {
+      "maxDuration": 60
+    }
+  }
+}
