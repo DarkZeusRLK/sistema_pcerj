@@ -1,8 +1,6 @@
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -18,10 +16,8 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
-  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
-
   try {
-    // 1. BUSCA ÚLTIMA LIMPEZA (Até 1000 mensagens)
+    // 1. BUSCAR ÚLTIMA LIMPEZA (Limite menor para poupar tempo)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -37,27 +33,26 @@ module.exports = async (req, res) => {
       dataUltimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
     }
 
-    // 2. BUSCA PRISÕES (Até 20.000 mensagens - Foco no campo RG)
-    const prisoes = await buscarMensagensDiscord(
-      CHANNEL_PRISOES_ID,
-      idCidadao,
-      Discord_Bot_Token,
-      dataUltimaLimpeza,
-      20000,
-      false
-    );
-
-    await sleep(1500); // Pausa de segurança entre canais
-
-    // 3. BUSCA FIANÇAS (Até 20.000 mensagens - Foco no campo RG)
-    const fiancas = await buscarMensagensDiscord(
-      CHANNEL_FIANCAS_ID,
-      idCidadao,
-      Discord_Bot_Token,
-      dataUltimaLimpeza,
-      20000,
-      false
-    );
+    // 2. BUSCAR PRISÕES E FIANÇAS (Busca otimizada)
+    // Usamos um limite de 5000 para garantir que a Vercel não corte a conexão por tempo
+    const [prisoes, fiancas] = await Promise.all([
+      buscarMensagensDiscord(
+        CHANNEL_PRISOES_ID,
+        idCidadao,
+        Discord_Bot_Token,
+        dataUltimaLimpeza,
+        5000,
+        false
+      ),
+      buscarMensagensDiscord(
+        CHANNEL_FIANCAS_ID,
+        idCidadao,
+        Discord_Bot_Token,
+        dataUltimaLimpeza,
+        5000,
+        false
+      ),
+    ]);
 
     const todosRegistros = [...prisoes, ...fiancas];
     let somaMultas = 0;
@@ -84,15 +79,15 @@ module.exports = async (req, res) => {
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
 
-        // EXTRAÇÃO DE MULTA
+        // EXTRAÇÃO DE MULTA (Pega valores como 100.000 ou 100000)
         if (
           nomeCampo.includes("SENTENCA") ||
           nomeCampo.includes("MULTA") ||
-          nomeCampo.includes("VALOR")
+          nomeCampo.includes("VALOR") ||
+          nomeCampo.includes("FIANCA")
         ) {
-          const matchMulta = f.value.match(/R?\$?\s*([\d.]+)/i);
-          if (matchMulta)
-            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+          const valorLimpo = f.value.replace(/\./g, "").match(/(\d+)/);
+          if (valorLimpo) somaMultas += parseInt(valorLimpo[0]) || 0;
         }
 
         // CRIMES INAFIANÇÁVEIS
@@ -100,7 +95,7 @@ module.exports = async (req, res) => {
           valorCampo.split("\n").forEach((linha) => {
             if (
               listaKeywordsInafiancaveis.some((k) => linha.includes(k)) &&
-              linha.length > 5
+              linha.length > 3
             ) {
               totalInafiancaveis++;
             }
@@ -141,24 +136,17 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  // Regex para ID exato (não pega 10 dentro de 105)
   const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
 
   while (processadas < limite) {
     const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100${
       ultimoId ? `&before=${ultimoId}` : ""
     }`;
-
     const response = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
 
-    // RATE LIMIT: Se o Discord bloquear, esperamos o tempo solicitado
-    if (response.status === 429) {
-      const retryAfter = response.headers.get("Retry-After") || 5;
-      await sleep(retryAfter * 1000);
-      continue;
-    }
+    if (!response.ok) break;
 
     const mensagens = await response.json();
     if (!mensagens || mensagens.length === 0) break;
@@ -167,34 +155,37 @@ async function buscarMensagensDiscord(
       processadas++;
       ultimoId = msg.id;
 
-      // Se a mensagem for mais antiga que a última limpeza, para a busca
+      // Para a busca se chegar na data da última limpeza
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertence = (msg.embeds || []).some((embed) => {
-        // 1. BUSCA ESPECÍFICA NO CAMPO "RG"
-        const noCampoRG = (embed.fields || []).some((f) => {
+        // Busca o ID em campos chave (RG, PASSAPORTE, CIDADAO)
+        const matchNoCampo = (embed.fields || []).some((f) => {
           const nome = f.name
             .toUpperCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
-          return nome === "RG" && regexID.test(f.value);
+          return (
+            (nome.includes("RG") ||
+              nome.includes("PASSAPORTE") ||
+              nome.includes("ID") ||
+              nome.includes("PRESO")) &&
+            regexID.test(f.value)
+          );
         });
 
-        if (noCampoRG) return true;
+        if (matchNoCampo) return true;
 
-        // 2. BUSCA AMPLA (Caso o ID esteja na descrição ou título)
-        if (buscaAmpla) {
-          const textoCompleto = JSON.stringify(embed).toLowerCase();
-          return regexID.test(textoCompleto);
+        // Fallback: Busca em todo o embed se for limpeza ou se o campo falhar
+        if (buscaAmpla || JSON.stringify(embed).includes(idCidadao)) {
+          return regexID.test(JSON.stringify(embed));
         }
         return false;
       });
 
       if (pertence) filtradas.push(msg);
     }
-
     if (mensagens.length < 100) break;
-    await sleep(300); // Pausa preventiva para não ser banido
   }
   return filtradas;
 }
