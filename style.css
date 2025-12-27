@@ -979,17 +979,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: brightness(1.2);
   transform: translateY(-2px);
 }
-btn-auditoria {
-  /* 👇 AS DUAS LINHAS ABAIXO CORRIGEM O TAMANHO 👇 */
-  flex: none !important; /* Força o botão a ignorar o flex: 1 genérico */
-  width: fit-content; /* Faz o botão ter o tamanho exato do texto/ícone */
-
-  /* Mantendo o visual elegante */
+/* Estilo Profissional para o Botão de Auditoria */
+.btn-auditoria {
+  flex: none !important;
   background: linear-gradient(135deg, #8b0000 0%, #c0392b 100%);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 16px;
-  font-size: 11px;
+  padding: 8px 14px;
+  font-size: 11px; /* Tamanho menor para não poluir */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -998,15 +995,15 @@ btn-auditoria {
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  margin-bottom: 10px; /* Espaçamento opcional */
 }
 
 .btn-auditoria:hover {
   background: linear-gradient(135deg, #a50000 0%, #e74c3c 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(192, 57, 43, 0.4);
+  filter: brightness(1.1);
 }
 
 .btn-auditoria:active {
