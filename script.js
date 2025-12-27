@@ -1249,30 +1249,27 @@ async function verificarPermissaoRelatorio() {
 }
 
 // protecao contra cliques aqui
-// =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
-// =========================================================
-
 window.verificarConformidadePortes = async function () {
-  console.log("🔍 Iniciando Auditoria...");
+  console.log("🔍 Auditoria: Iniciando varredura...");
 
   const statusAuditoria = document.getElementById("status-auditoria");
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // Busca as linhas dentro do corpo da tabela
+  // Pega as linhas da tabela
   const linhas = document.querySelectorAll(
     "#lista-ativos-para-revogar tbody tr"
   );
 
-  // Validação: Se a tabela estiver vazia ou apenas com a mensagem de "Carregando"
+  // CORREÇÃO DO ERRO "AGUARDE": Verifica se a tabela ainda está com o texto de carregamento
   if (
     linhas.length === 0 ||
     (linhas.length === 1 && linhas[0].innerText.includes("Carregando"))
   ) {
+    console.warn("⚠️ Auditoria: Tabela ainda está vazia ou carregando.");
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Aguarde o carregamento dos dados ou a lista está vazia.",
+      "Aguarde os dados carregarem na tabela antes de iniciar a auditoria.",
       "warning"
     );
   }
@@ -1282,8 +1279,6 @@ window.verificarConformidadePortes = async function () {
 
   for (const linha of linhas) {
     const idCidadao = linha.cells[1]?.innerText.trim();
-
-    // Pula se não for um número (ID inválido)
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
@@ -1294,65 +1289,56 @@ window.verificarConformidadePortes = async function () {
         body: JSON.stringify({ idCidadao: idCidadao }),
       });
 
-      if (!res.ok) continue;
-
       const data = await res.json();
 
-      // Verifica prisões ou fianças
-      if (
-        (data.prisao && data.prisao.length > 0) ||
-        (data.fianca && data.fianca.length > 0)
-      ) {
-        marcarLinhaComoInfrator(linha, data.prisao?.[0] || data.fianca?.[0]);
+      // AJUSTE PARA SUA API: Ela retorna 'registrosEncontrados'
+      if (data.registrosEncontrados > 0) {
+        console.log(
+          `🚨 Infrator detectado: ID ${idCidadao} (${data.registrosEncontrados} crimes)`
+        );
+        // Passamos a data da última limpeza ou uma string padrão
+        const infoCrime = {
+          timestamp: data.ultimaLimpeza.includes("Nunca")
+            ? null
+            : data.ultimaLimpeza,
+        };
+        marcarLinhaComoInfrator(linha, infoCrime);
         detectados++;
       }
     } catch (e) {
-      console.error(`Falha ao consultar ID ${idCidadao}:`, e);
+      console.error(`❌ Erro no ID ${idCidadao}:`, e);
     }
   }
 
-  // Esconde o status de carregamento
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
 
-  // Feedback final para o usuário (Sempre mostra algo)
   if (detectados > 0) {
     mostrarAlerta(
-      "Infratores Detectados",
-      `${detectados} cidadãos possuem registros criminais recentes. Verifique os itens em vermelho.`,
+      "Auditoria Concluída",
+      `${detectados} infratores detectados! Verifique as linhas em vermelho.`,
       "error"
     );
   } else {
     mostrarAlerta(
-      "Auditoria Limpa",
-      `Varredura concluída em ${processados} registros. Nenhuma irregularidade encontrada.`,
+      "Auditoria Concluída",
+      `Nenhuma irregularidade encontrada em ${processados} registros.`,
       "success"
     );
   }
 };
 
-function marcarLinhaComoInfrator(linha, dadosCrime) {
-  // Estilização visual da linha
+function marcarLinhaComoInfrator(linha, dados) {
   linha.style.background = "rgba(255, 0, 0, 0.15)";
-  linha.style.transition = "all 0.5s ease";
   linha.style.borderLeft = "5px solid #ff4d4d";
 
-  // Formata a data do crime
-  const dataCrime = dadosCrime.timestamp
-    ? new Date(dadosCrime.timestamp).toLocaleDateString("pt-BR")
-    : "Recente";
-
-  // Atualiza a célula de Validade (Índice 3) com o alerta
   const celulaStatus = linha.cells[3];
   if (celulaStatus) {
     celulaStatus.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-         <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px;">⚠️ CRIME DETECTADO</span>
-         <small style="font-size:9px; color: #ff9999; font-weight:bold;">DATA: ${dataCrime}</small>
+      <div style="display:flex; flex-direction:column; align-items:center;">
+         <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 5px;">⚠️ CRIME DETECTADO</span>
+         <small style="font-size:9px; color: #ff9999;">Pós última limpeza</small>
       </div>
     `;
   }
-
-  // Move a linha para o topo da tabela
-  const tbody = linha.parentNode;
-  if (tbody) tbody.prepend(linha);
+  linha.parentNode.prepend(linha);
 }
