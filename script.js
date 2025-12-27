@@ -1250,32 +1250,37 @@ async function verificarPermissaoRelatorio() {
 
 // protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
   console.log("🔍 Auditoria: Iniciando varredura...");
 
   const statusAuditoria = document.getElementById("status-auditoria");
+  const textoAuditoria = document.getElementById("texto-auditoria");
+
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // Captura as linhas do corpo da tabela de revogação
-  // No seu HTML o ID é lista-ativos-para-revogar ou corpo-revogacao
+  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
   const corpoTabela =
-    document.querySelector("#lista-ativos-para-revogar tbody") ||
+    document.getElementById("lista-ativos-para-revogar") ||
     document.getElementById("corpo-revogacao");
   const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  // Validação de segurança: verifica se há dados reais na tabela
-  if (
-    linhas.length === 0 ||
-    (linhas.length === 1 && linhas[0].innerText.includes("Carregando"))
-  ) {
-    console.warn("⚠️ Auditoria: Tabela vazia ou carregando.");
+  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
+  const temDadosReais = Array.from(linhas).some((linha) => {
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    return idCidadao && !isNaN(idCidadao);
+  });
+
+  if (!temDadosReais) {
+    console.warn(
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
+    );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Aguarde os dados carregarem na tabela ou a lista está vazia.",
+      "Não há portes ativos na tabela para auditar.",
       "warning"
     );
   }
@@ -1288,6 +1293,9 @@ window.verificarConformidadePortes = async function () {
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
+    if (textoAuditoria)
+      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
+
     console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
@@ -1299,13 +1307,11 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Se a API encontrou registros criminais (prisões/fianças) após a última limpeza
+      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
-          `🚨 INFRAÇÃO DETECTADA: ID ${idCidadao} possui ${data.registrosEncontrados} registros.`
+          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
-
-        // Marcamos a linha como infratora
         marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
@@ -1319,7 +1325,7 @@ window.verificarConformidadePortes = async function () {
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados com crimes pós-limpeza!`,
+      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
       "error"
     );
   } else {
@@ -1332,21 +1338,22 @@ window.verificarConformidadePortes = async function () {
 };
 
 function marcarLinhaComoInfrator(linha, data) {
-  // Estilo visual de alerta
-  linha.style.background = "rgba(255, 0, 0, 0.15)";
+  // Estilo visual de perigo
+  linha.style.background = "rgba(255, 0, 0, 0.2)";
   linha.style.borderLeft = "5px solid #ff4d4d";
 
-  // Atualiza a célula de Status/Validade (Coluna 3)
-  const celulaStatus = linha.cells[3];
-  if (celulaStatus) {
-    celulaStatus.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center;">
-         <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 5px; border-radius:3px;">⚠️ POSSUI CRIME</span>
-         <small style="font-size:9px; color: #ff9999; font-weight:bold;">Reg.: ${data.registrosEncontrados}</small>
+  // Atualiza a coluna de Status/Alerta (Coluna 4 no seu index.html)
+  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: Ação
+  const celulaAlerta = linha.cells[3];
+  if (celulaAlerta) {
+    celulaAlerta.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
+         <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
       </div>
     `;
   }
 
-  // Move para o topo da lista
+  // Move o infrator para o topo da tabela
   linha.parentNode.prepend(linha);
 }
