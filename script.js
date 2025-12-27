@@ -97,7 +97,14 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (!isLoginPage) configurarDatasAutomaticas();
 });
-
+const sessao = obterSessao();
+if (sessao && sessao.org) {
+  // Toda vez que um oficial logar, o sistema faz uma varredura silenciosa
+  // Ou você pode colocar um botão "AUDITORIA CRIMINAL" na aba de revogações
+  setTimeout(() => {
+    window.verificarConformidadePortes();
+  }, 5000); // Espera 5 segundos para carregar os dados da tabela primeiro
+}
 // ==========================================
 // 📅 UTILITÁRIOS DE DATA
 // ==========================================
@@ -1235,3 +1242,75 @@ document.onkeydown = function (e) {
 setInterval(function () {
   debugger;
 }, 100);
+// =========================================================
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
+// =========================================================
+
+window.verificarConformidadePortes = async function () {
+  mostrarAviso("Iniciando auditoria de crimes... Aguarde.", "warning");
+
+  // 1. Pega todos os portes que estão na tabela de revogação (que são os vigentes)
+  const linhas = document.querySelectorAll("#corpo-revogacao tr");
+  const idsParaVerificar = [];
+
+  linhas.forEach((linha) => {
+    const idCidadao = linha.cells[1].innerText; // Coluna do ID
+    idsParaVerificar.push(idCidadao);
+  });
+
+  if (idsParaVerificar.length === 0) {
+    return mostrarAviso("Nenhum porte vigente para verificar.", "warning");
+  }
+
+  let detectados = 0;
+
+  // 2. Para cada ID, chama a sua API de consultar-ficha
+  for (const id of idsParaVerificar) {
+    try {
+      const res = await fetch("/api/consultar-ficha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idCidadao: id }),
+      });
+
+      const data = await res.json();
+
+      // Se a API retornar histórico de prisão ou fiança
+      if (data.prisao?.length > 0 || data.fianca?.length > 0) {
+        marcarIdComoInfrator(id, data.prisao[0] || data.fianca[0]);
+        detectados++;
+      }
+    } catch (e) {
+      console.error(`Erro ao verificar ID ${id}:`, e);
+    }
+  }
+
+  if (detectados > 0) {
+    mostrarAviso(
+      `${detectados} infrações detectadas! Verifique o topo da lista.`,
+      "error"
+    );
+  } else {
+    mostrarAviso("Auditoria concluída: Nenhum infrator encontrado.", "success");
+  }
+};
+
+function marcarIdComoInfrator(id, dadosCrime) {
+  const linhas = document.querySelectorAll("#corpo-revogacao tr");
+
+  linhas.forEach((linha) => {
+    if (linha.cells[1].innerText === id) {
+      // Estiliza a linha para dar destaque total
+      linha.style.background = "rgba(255, 0, 0, 0.2)";
+      linha.style.borderLeft = "5px solid #ff4d4d";
+
+      // Adiciona o alerta no status
+      const celulaStatus = linha.cells[2];
+      celulaStatus.innerHTML = `<span class="badge-danger" title="Visto em: ${dadosCrime.timestamp}">⚠️ PRISÃO/FIANÇA DETECTADA</span>`;
+
+      // Move a linha para o topo da tabela
+      const tabela = document.getElementById("corpo-revogacao");
+      tabela.prepend(linha);
+    }
+  });
+}

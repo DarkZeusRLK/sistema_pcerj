@@ -319,13 +319,21 @@
       </section>
 
       <section id="sec-revogacao" class="screen hidden">
-        <header class="top-bar">
+        <header class="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
           <h1>Revogar Portes</h1>
+          <button onclick="window.verificarConformidadePortes()" class="btn-secondary" style="background: var(--red-accent); border: none; padding: 10px 20px;" id="btn-auditoria">
+            <i class="fa-solid fa-gavel"></i> EXECUTAR AUDITORIA CRIMINAL
+          </button>
         </header>
+
+        <div id="status-auditoria" class="alert-info hidden" style="margin-bottom: 15px; background: rgba(255, 165, 0, 0.1); border-left: 4px solid orange;">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span id="texto-auditoria">Cruzando dados com a ficha criminal...</span>
+        </div>
 
         <div class="alert-warning">
           <i class="fa-solid fa-circle-exclamation"></i>
-          <span>Atenção: O ato de revogar um porte é irreversível.</span>
+          <span>Atenção: Portes com crimes detectados aparecerão no topo da lista com destaque vermelho.</span>
         </div>
 
         <div class="table-container">
@@ -341,7 +349,7 @@
                 <th>Cidadão</th>
                 <th>ID</th>
                 <th>Arma</th>
-                <th>Validade</th>
+                <th>Status / Alerta</th>
                 <th>Ação</th>
               </tr>
             </thead>
