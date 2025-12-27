@@ -43,6 +43,38 @@ const PRECOS = {
 let dbPortes = [];
 
 // ==========================================
+// 🕒 SISTEMA DE GATILHOS TEMPORAIS
+// ==========================================
+
+/**
+ * Calcula o tempo restante até a próxima meia-noite e agenda a auditoria.
+ */
+function agendarAuditoriaMeiaNoite() {
+  const agora = new Date();
+  const proximaMeiaNoite = new Date();
+
+  // Define para o próximo dia às 00:00:00
+  proximaMeiaNoite.setHours(24, 0, 0, 0);
+
+  const tempoAteMeiaNoite = proximaMeiaNoite.getTime() - agora.getTime();
+
+  console.log(
+    `🕒 Auditoria Automática: Agendada para as 00:00 (em ${Math.floor(
+      tempoAteMeiaNoite / 1000 / 60
+    )} min).`
+  );
+
+  setTimeout(() => {
+    console.log("🚀 Gatilho 00:00: Iniciando varredura de conformidade...");
+    if (typeof window.verificarConformidadePortes === "function") {
+      window.verificarConformidadePortes();
+    }
+    // Re-agenda para o dia seguinte
+    agendarAuditoriaMeiaNoite();
+  }, tempoAteMeiaNoite);
+}
+
+// ==========================================
 // 🚀 INICIALIZAÇÃO
 // ==========================================
 document.addEventListener("DOMContentLoaded", async function () {
@@ -80,7 +112,12 @@ document.addEventListener("DOMContentLoaded", async function () {
         const user = JSON.parse(sessao);
         iniciarSistema(user);
         verificarPermissaoRelatorio();
+
+        // Carrega os dados do Discord
         await carregarPortesDoDiscord();
+
+        // Inicia o agendamento da meia-noite
+        agendarAuditoriaMeiaNoite();
       } catch (err) {
         console.error("Sessão inválida:", err);
         localStorage.removeItem("pc_session");
@@ -97,14 +134,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (!isLoginPage) configurarDatasAutomaticas();
 });
-const sessao = obterSessao();
-if (sessao && sessao.org) {
-  // Toda vez que um oficial logar, o sistema faz uma varredura silenciosa
-  // Ou você pode colocar um botão "AUDITORIA CRIMINAL" na aba de revogações
-  setTimeout(() => {
-    window.verificarConformidadePortes();
-  }, 5000); // Espera 5 segundos para carregar os dados da tabela primeiro
-}
 // ==========================================
 // 📅 UTILITÁRIOS DE DATA
 // ==========================================
@@ -1247,24 +1276,31 @@ setInterval(function () {
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
-  mostrarAviso("Iniciando auditoria de crimes... Aguarde.", "warning");
+  // Feedback visual no botão/status
+  const statusAuditoria = document.getElementById("status-auditoria");
+  if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // 1. Pega todos os portes que estão na tabela de revogação (que são os vigentes)
-  const linhas = document.querySelectorAll("#corpo-revogacao tr");
+  // 1. Pega os IDs da tabela correta: lista-ativos-para-revogar
+  const linhas = document.querySelectorAll("#lista-ativos-para-revogar tr");
   const idsParaVerificar = [];
 
   linhas.forEach((linha) => {
-    const idCidadao = linha.cells[1].innerText; // Coluna do ID
+    const idCidadao = linha.cells[1].innerText; // Coluna 1 é o ID
     idsParaVerificar.push(idCidadao);
   });
 
   if (idsParaVerificar.length === 0) {
-    return mostrarAviso("Nenhum porte vigente para verificar.", "warning");
+    if (statusAuditoria) statusAuditoria.classList.add("hidden");
+    return mostrarAlerta(
+      "Aviso",
+      "Nenhum porte ativo para verificar.",
+      "warning"
+    );
   }
 
   let detectados = 0;
 
-  // 2. Para cada ID, chama a sua API de consultar-ficha
+  // 2. Consulta a API para cada ID
   for (const id of idsParaVerificar) {
     try {
       const res = await fetch("/api/consultar-ficha", {
@@ -1275,7 +1311,7 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // Se a API retornar histórico de prisão ou fiança
+      // Verifica se há registros de prisão ou fiança
       if (data.prisao?.length > 0 || data.fianca?.length > 0) {
         marcarIdComoInfrator(id, data.prisao[0] || data.fianca[0]);
         detectados++;
@@ -1285,31 +1321,42 @@ window.verificarConformidadePortes = async function () {
     }
   }
 
+  if (statusAuditoria) statusAuditoria.classList.add("hidden");
+
   if (detectados > 0) {
-    mostrarAviso(
-      `${detectados} infrações detectadas! Verifique o topo da lista.`,
+    mostrarAlerta(
+      "Auditoria Concluída",
+      `${detectados} infratores detectados! Verifique os destaques em vermelho no topo.`,
       "error"
     );
   } else {
-    mostrarAviso("Auditoria concluída: Nenhum infrator encontrado.", "success");
+    mostrarAlerta(
+      "Auditoria Concluída",
+      "Nenhum crime recente detectado para os IDs ativos.",
+      "success"
+    );
   }
 };
 
 function marcarIdComoInfrator(id, dadosCrime) {
-  const linhas = document.querySelectorAll("#corpo-revogacao tr");
+  const linhas = document.querySelectorAll("#lista-ativos-para-revogar tr");
 
   linhas.forEach((linha) => {
     if (linha.cells[1].innerText === id) {
-      // Estiliza a linha para dar destaque total
+      // Estiliza a linha (Fundo vermelho suave e borda forte)
       linha.style.background = "rgba(255, 0, 0, 0.2)";
       linha.style.borderLeft = "5px solid #ff4d4d";
 
-      // Adiciona o alerta no status
-      const celulaStatus = linha.cells[2];
-      celulaStatus.innerHTML = `<span class="badge-danger" title="Visto em: ${dadosCrime.timestamp}">⚠️ PRISÃO/FIANÇA DETECTADA</span>`;
+      // Atualiza a célula de status (Coluna 3 no seu HTML)
+      const celulaStatus = linha.cells[3];
+      const dataCrime = dadosCrime.timestamp
+        ? new Date(dadosCrime.timestamp).toLocaleDateString("pt-BR")
+        : "Recente";
 
-      // Move a linha para o topo da tabela
-      const tabela = document.getElementById("corpo-revogacao");
+      celulaStatus.innerHTML = `<span class="badge-priority" title="Ocorrência em: ${dataCrime}" style="background:#ff4d4d; color:white">⚠️ CRIME DETECTADO</span>`;
+
+      // Move a linha para o topo da lista para visibilidade imediata
+      const tabela = document.getElementById("lista-ativos-para-revogar");
       tabela.prepend(linha);
     }
   });
