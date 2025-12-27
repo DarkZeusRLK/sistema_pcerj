@@ -1276,48 +1276,43 @@ setInterval(function () {
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
-  // Feedback visual no botão/status
   const statusAuditoria = document.getElementById("status-auditoria");
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // 1. Pega os IDs da tabela correta: lista-ativos-para-revogar
-  const linhas = document.querySelectorAll("#lista-ativos-para-revogar tr");
-  const idsParaVerificar = [];
+  // Ajuste: Busca apenas as linhas dentro do corpo da tabela (tbody)
+  const linhas = document.querySelectorAll(
+    "#lista-ativos-para-revogar tbody tr"
+  );
 
-  linhas.forEach((linha) => {
-    const idCidadao = linha.cells[1].innerText; // Coluna 1 é o ID
-    idsParaVerificar.push(idCidadao);
-  });
-
-  if (idsParaVerificar.length === 0) {
+  // Se a tabela estiver vazia ou com a mensagem de "Nenhum porte encontrado"
+  if (linhas.length === 0 || linhas[0].cells.length < 2) {
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
-    return mostrarAlerta(
-      "Aviso",
-      "Nenhum porte ativo para verificar.",
-      "warning"
-    );
+    return;
   }
 
   let detectados = 0;
 
-  // 2. Consulta a API para cada ID
-  for (const id of idsParaVerificar) {
+  for (const linha of linhas) {
+    // Pula linhas que não tenham o ID (ex: mensagens de erro ou carregamento)
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    if (!idCidadao || isNaN(idCidadao)) continue;
+
     try {
       const res = await fetch("/api/consultar-ficha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idCidadao: id }),
+        body: JSON.stringify({ idCidadao: idCidadao }),
       });
 
       const data = await res.json();
 
-      // Verifica se há registros de prisão ou fiança
       if (data.prisao?.length > 0 || data.fianca?.length > 0) {
-        marcarIdComoInfrator(id, data.prisao[0] || data.fianca[0]);
+        // Passamos a 'linha' direto para a função, evitando buscas repetitivas
+        marcarLinhaComoInfrator(linha, data.prisao[0] || data.fianca[0]);
         detectados++;
       }
     } catch (e) {
-      console.error(`Erro ao verificar ID ${id}:`, e);
+      console.error(`Erro ao verificar ID ${idCidadao}:`, e);
     }
   }
 
@@ -1326,38 +1321,32 @@ window.verificarConformidadePortes = async function () {
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores detectados! Verifique os destaques em vermelho no topo.`,
+      `${detectados} infratores detectados! Verifique os destaques em vermelho.`,
       "error"
-    );
-  } else {
-    mostrarAlerta(
-      "Auditoria Concluída",
-      "Nenhum crime recente detectado para os IDs ativos.",
-      "success"
     );
   }
 };
 
-function marcarIdComoInfrator(id, dadosCrime) {
-  const linhas = document.querySelectorAll("#lista-ativos-para-revogar tr");
+function marcarLinhaComoInfrator(linha, dadosCrime) {
+  // 1. Estilização
+  linha.style.background = "rgba(255, 0, 0, 0.15)";
+  linha.style.borderLeft = "5px solid #ff4d4d";
+  linha.classList.add("infrator-detectado");
 
-  linhas.forEach((linha) => {
-    if (linha.cells[1].innerText === id) {
-      // Estiliza a linha (Fundo vermelho suave e borda forte)
-      linha.style.background = "rgba(255, 0, 0, 0.2)";
-      linha.style.borderLeft = "5px solid #ff4d4d";
+  // 2. Atualiza Célula de Status (Coluna 3 - Validade no seu HTML)
+  const celulaStatus = linha.cells[3];
+  const dataCrime = dadosCrime.timestamp
+    ? new Date(dadosCrime.timestamp).toLocaleDateString("pt-BR")
+    : "Recente";
 
-      // Atualiza a célula de status (Coluna 3 no seu HTML)
-      const celulaStatus = linha.cells[3];
-      const dataCrime = dadosCrime.timestamp
-        ? new Date(dadosCrime.timestamp).toLocaleDateString("pt-BR")
-        : "Recente";
+  celulaStatus.innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center;">
+       <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 5px;">⚠️ CRIME DETECTADO</span>
+       <small style="font-size:9px; color: #ff9999;">Ocorrência: ${dataCrime}</small>
+    </div>
+  `;
 
-      celulaStatus.innerHTML = `<span class="badge-priority" title="Ocorrência em: ${dataCrime}" style="background:#ff4d4d; color:white">⚠️ CRIME DETECTADO</span>`;
-
-      // Move a linha para o topo da lista para visibilidade imediata
-      const tabela = document.getElementById("lista-ativos-para-revogar");
-      tabela.prepend(linha);
-    }
-  });
+  // 3. Move para o topo do TBODY (e não da TABLE)
+  const corpoTabela = linha.parentNode;
+  corpoTabela.prepend(linha);
 }
