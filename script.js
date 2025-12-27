@@ -1249,27 +1249,33 @@ async function verificarPermissaoRelatorio() {
 }
 
 // protecao contra cliques aqui
+// =========================================================
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
+// =========================================================
+
 window.verificarConformidadePortes = async function () {
   console.log("🔍 Auditoria: Iniciando varredura...");
 
   const statusAuditoria = document.getElementById("status-auditoria");
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // Pega as linhas da tabela
-  const linhas = document.querySelectorAll(
-    "#lista-ativos-para-revogar tbody tr"
-  );
+  // Captura as linhas do corpo da tabela de revogação
+  // No seu HTML o ID é lista-ativos-para-revogar ou corpo-revogacao
+  const corpoTabela =
+    document.querySelector("#lista-ativos-para-revogar tbody") ||
+    document.getElementById("corpo-revogacao");
+  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  // CORREÇÃO DO ERRO "AGUARDE": Verifica se a tabela ainda está com o texto de carregamento
+  // Validação de segurança: verifica se há dados reais na tabela
   if (
     linhas.length === 0 ||
     (linhas.length === 1 && linhas[0].innerText.includes("Carregando"))
   ) {
-    console.warn("⚠️ Auditoria: Tabela ainda está vazia ou carregando.");
+    console.warn("⚠️ Auditoria: Tabela vazia ou carregando.");
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Aguarde os dados carregarem na tabela antes de iniciar a auditoria.",
+      "Aguarde os dados carregarem na tabela ou a lista está vazia.",
       "warning"
     );
   }
@@ -1282,6 +1288,8 @@ window.verificarConformidadePortes = async function () {
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
+    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
+
     try {
       const res = await fetch("/api/consultar-ficha", {
         method: "POST",
@@ -1291,22 +1299,18 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // AJUSTE PARA SUA API: Ela retorna 'registrosEncontrados'
+      // REGRA: Se a API encontrou registros criminais (prisões/fianças) após a última limpeza
       if (data.registrosEncontrados > 0) {
         console.log(
-          `🚨 Infrator detectado: ID ${idCidadao} (${data.registrosEncontrados} crimes)`
+          `🚨 INFRAÇÃO DETECTADA: ID ${idCidadao} possui ${data.registrosEncontrados} registros.`
         );
-        // Passamos a data da última limpeza ou uma string padrão
-        const infoCrime = {
-          timestamp: data.ultimaLimpeza.includes("Nunca")
-            ? null
-            : data.ultimaLimpeza,
-        };
-        marcarLinhaComoInfrator(linha, infoCrime);
+
+        // Marcamos a linha como infratora
+        marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
     } catch (e) {
-      console.error(`❌ Erro no ID ${idCidadao}:`, e);
+      console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
     }
   }
 
@@ -1315,30 +1319,34 @@ window.verificarConformidadePortes = async function () {
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores detectados! Verifique as linhas em vermelho.`,
+      `${detectados} infratores identificados com crimes pós-limpeza!`,
       "error"
     );
   } else {
     mostrarAlerta(
       "Auditoria Concluída",
-      `Nenhuma irregularidade encontrada em ${processados} registros.`,
+      `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
       "success"
     );
   }
 };
 
-function marcarLinhaComoInfrator(linha, dados) {
+function marcarLinhaComoInfrator(linha, data) {
+  // Estilo visual de alerta
   linha.style.background = "rgba(255, 0, 0, 0.15)";
   linha.style.borderLeft = "5px solid #ff4d4d";
 
+  // Atualiza a célula de Status/Validade (Coluna 3)
   const celulaStatus = linha.cells[3];
   if (celulaStatus) {
     celulaStatus.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center;">
-         <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 5px;">⚠️ CRIME DETECTADO</span>
-         <small style="font-size:9px; color: #ff9999;">Pós última limpeza</small>
+         <span class="badge-priority" style="background:#ff4d4d; color:white; font-size:10px; padding:2px 5px; border-radius:3px;">⚠️ POSSUI CRIME</span>
+         <small style="font-size:9px; color: #ff9999; font-weight:bold;">Reg.: ${data.registrosEncontrados}</small>
       </div>
     `;
   }
+
+  // Move para o topo da lista
   linha.parentNode.prepend(linha);
 }
