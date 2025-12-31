@@ -167,38 +167,51 @@ async function buscarMensagensDiscord(
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
         const fields = embed.fields || [];
+
+        // helper para escapar ID em regex
+        const escapeReg = (s) =>
+          String(s).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+        const idEsc = escapeReg(idCidadao);
+
         // Encontra o índice do campo 'Preso' ou 'Cidadao' (a partir daqui é relevante)
-        const startIndex = fields.findIndex((f) => {
+        let startIndex = fields.findIndex((f) => {
           const nome = String(f.name || "").toLowerCase();
           const nomeNorm = nome.normalize
-            ? nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            ? nome.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
             : nome;
           return nomeNorm.includes("preso") || nomeNorm.includes("cidadao");
         });
 
-        if (startIndex === -1) return false; // não há seção 'Preso' neste embed
+        let relevantText = null;
 
-        const relevant = fields.slice(startIndex);
-
-        if (buscaAmpla) {
-          // Busca ampla ainda respeita escopo: só dentro da seção 'Preso' em diante
-          return JSON.stringify(relevant)
-            .toLowerCase()
-            .includes(idCidadao.toLowerCase());
+        if (startIndex !== -1) {
+          // junta os campos a partir de 'Preso' em diante
+          const relevant = fields.slice(startIndex);
+          relevantText = JSON.stringify(relevant).toLowerCase();
+        } else if (embed.description) {
+          // se não houver fields, tente achar a seção 'Preso' na descrição
+          const desc = String(embed.description || "").toLowerCase();
+          const idx = desc.indexOf("preso");
+          if (idx !== -1) {
+            relevantText = desc.substring(idx);
+          }
         }
 
-        // Padrões estritos que indicam o ID do réu (RG / Passaporte / ID). Aplicar apenas
-        // sobre os campos relevantes encontrados.
+        if (!relevantText) return false; // sem seção 'Preso' identificada - ignorar
+
+        if (buscaAmpla) {
+          return relevantText.includes(idCidadao.toLowerCase());
+        }
+
+        // Padrões estritos que indicam o ID do réu (RG / Passaporte / ID).
         const strictPatterns = [
-          new RegExp(`rg\\D*${idCidadao}(\\D|$)`, "i"),
-          new RegExp(`passaport(?:e)?\\D*${idCidadao}(\\D|$)`, "i"),
-          new RegExp(`\\bid\\D*${idCidadao}(\\D|$)`, "i"),
+          new RegExp(`rg\\D*${idEsc}(\\D|$)`, "i"),
+          new RegExp(`passaport(?:e)?\\D*${idEsc}(\\D|$)`, "i"),
+          new RegExp(`\\bid\\D*${idEsc}(\\D|$)`, "i"),
+          // alguns formatos usam 'RG: 30013' ou 'RG:30013' — o padrão acima cobre ambos
         ];
 
-        return relevant.some((f) => {
-          const valor = String(f.value || "").toLowerCase();
-          return strictPatterns.some((p) => p.test(valor));
-        });
+        return strictPatterns.some((p) => p.test(relevantText));
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
