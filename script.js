@@ -1248,11 +1248,6 @@ async function verificarPermissaoRelatorio() {
   }
 }
 
-// protecao contra cliques aqui
-// =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
-// =========================================================
-
 // =========================================================
 // 🔎 SISTEMA DE VARREDURA AUTOMÁTICA (AUDITORIA BLINDADA)
 // =========================================================
@@ -1376,7 +1371,9 @@ function marcarLinhaComoInfrator(linha, data) {
   const celulaAlerta = linha.cells[3];
   if (celulaAlerta) {
     // Formata o valor da multa com segurança (se for undefined, usa 0)
-    const multaFormatada = (data.somaMultas || 0).toLocaleString("pt-BR");
+    // O operador || 0 garante que nunca seja undefined
+    const valorMulta = data.somaMultas || 0;
+    const multaFormatada = valorMulta.toLocaleString("pt-BR");
 
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
