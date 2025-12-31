@@ -24,13 +24,14 @@ module.exports = async (req, res) => {
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
     // 1. BUSCAR ÚLTIMA LIMPEZA
+    // (Na limpeza a busca é ampla pois geralmente é apenas uma mensagem simples)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       DATA_INICIO_SISTEMA,
       100,
-      true // Busca ampla na limpeza é aceitável, pois geralmente só tem o nome do limpo
+      true
     );
 
     let dataCorteFinal = DATA_INICIO_SISTEMA;
@@ -44,7 +45,7 @@ module.exports = async (req, res) => {
     }
 
     // 2. BUSCAR PRISÕES E FIANÇAS
-    // Aqui usamos o false para busca estrita (apenas campo PRESO)
+    // ATENÇÃO: buscaAmpla = false para garantir que só olhe o campo PRESO
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -101,6 +102,7 @@ module.exports = async (req, res) => {
             const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
               linha.includes(keyword)
             );
+            // Verifica tamanho mínimo para evitar falsos positivos com palavras curtas
             if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
               totalInafiancaveis++;
             }
@@ -132,7 +134,7 @@ module.exports = async (req, res) => {
   }
 };
 
-// Função auxiliar para limpar acentos e caixa alta
+// Função auxiliar para padronizar texto (caixa alta e sem acentos)
 function normalizarTexto(texto) {
   if (!texto) return "";
   return texto
@@ -152,16 +154,13 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
+
   if (!channelId) return [];
 
-  // Helper para verificar se um texto contém o ID exato
-  // Evita que ID "12" dê match em "12345"
-  const contemIdExato = (texto, id) => {
-    // Procura o ID cercado por qualquer coisa que não seja número
-    // ou se o texto for exatamente o número
-    const regex = new RegExp(`(?:^|[^0-9])${id}(?:$|[^0-9])`);
-    return regex.test(texto);
-  };
+  // Regex estrita: Garante que o ID é um número isolado
+  // Evita que ID "2337" dê match dentro de "12337" ou "RG 23370"
+  const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
 
   while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
@@ -185,26 +184,24 @@ async function buscarMensagensDiscord(
       processadas++;
       ultimoId = msg.id;
 
-      // Se a mensagem for anterior à data de corte, para tudo
+      // Respeita a data de corte (última limpeza)
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        // --- CASO 1: BUSCA AMPLA (Para limpezas) ---
-        // Na limpeza, geralmente não tem structure de fields complexa, apenas descrição
+        // --- MODO 1: LIMPEZA (Busca Ampla) ---
+        // Na limpeza, aceitamos achar o ID em qualquer lugar do embed/descrição
         if (buscaAmpla) {
           const tudo = JSON.stringify(embed).toLowerCase();
           return tudo.includes(idCidadao.toLowerCase());
         }
 
-        // --- CASO 2: BUSCA ESTRITA (Para Prisões/Fianças) ---
-        // Aqui está a correção para ignorar o policial
+        // --- MODO 2: AUDITORIA CRIMINAL (Busca Estrita) ---
         const fields = embed.fields || [];
 
-        // Verifica cada campo do embed individualmente
-        const encontrouNoCampoPreso = fields.some((field) => {
-          const nomeCampo = normalizarTexto(field.name); // ex: "PRESO", "DETENTO"
-
-          // Lista de títulos de campos que indicam o CRIMINOSO
+        // Passo A: Identificar o campo "PRESO"
+        const campoPreso = fields.find((field) => {
+          const nomeCampo = normalizarTexto(field.name);
+          // Lista de títulos aceitos para o campo do criminoso
           const titulosAlvo = [
             "PRESO",
             "DETENTO",
@@ -212,33 +209,32 @@ async function buscarMensagensDiscord(
             "INDICIADO",
             "REU",
           ];
-
-          // Se o título do campo for um desses...
-          if (titulosAlvo.some((t) => nomeCampo.includes(t))) {
-            // ...verificamos se o ID está no VALOR deste campo
-            const valorCampo = field.value || "";
-            // Usamos includes simples ou regex. Como o formato é "RG: 22825", includes é seguro
-            // desde que o campo seja específico do preso.
-            return valorCampo.includes(idCidadao);
-          }
-          return false;
+          return titulosAlvo.some((t) => nomeCampo.includes(t));
         });
 
-        // Backup: Se não achou nos fields, mas tem description (layouts antigos)
-        // Só aceita se NÃO tiver fields de "Oficial" para evitar falso positivo
-        if (
-          !encontrouNoCampoPreso &&
-          embed.description &&
-          fields.length === 0
-        ) {
-          return embed.description.includes(idCidadao);
+        // Passo B: Se achou o campo PRESO, verifica se o ID está DENTRO DELE
+        if (campoPreso) {
+          const valorCampo = campoPreso.value || "";
+          // Usa regex para garantir que não é parte de outro número
+          return regexIdEstrita.test(valorCampo);
         }
 
-        return encontrouNoCampoPreso;
+        // Passo C: Fallback para embeds antigos sem Fields (apenas Description)
+        // MAS CUIDADO: Só aceita se NÃO tiver fields de "Oficial/Participantes"
+        // Se tiver fields e não achou "Preso", ignoramos para não pegar o ID do oficial
+        if (embed.description && fields.length === 0) {
+          return regexIdEstrita.test(embed.description);
+        }
+
+        // Se tem fields (ex: Oficial, Participantes) mas não achou o campo PRESO,
+        // ou achou o campo PRESO mas o ID não estava lá => RETORNA FALSO.
+        // Isso garante que se o ID estiver em "Participantes", retorna false.
+        return false;
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
     }
+    // Proteção de loop infinito
     if (mensagens.length < 100) break;
   }
   return filtradas;
