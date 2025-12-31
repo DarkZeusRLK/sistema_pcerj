@@ -1253,6 +1253,9 @@ async function verificarPermissaoRelatorio() {
 // 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
+// =========================================================
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA (AUDITORIA BLINDADA)
+// =========================================================
 window.verificarConformidadePortes = async function () {
   console.log("🔍 Auditoria: Iniciando varredura...");
 
@@ -1261,42 +1264,49 @@ window.verificarConformidadePortes = async function () {
 
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
+  // Tenta pegar a tabela pelo ID correto (verifica os dois possíveis)
   const corpoTabela =
     document.getElementById("lista-ativos-para-revogar") ||
     document.getElementById("corpo-revogacao");
-  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
+  if (!corpoTabela) {
+    console.error("Tabela de revogação não encontrada!");
+    if (statusAuditoria) statusAuditoria.classList.add("hidden");
+    return;
+  }
+
+  const linhas = corpoTabela.querySelectorAll("tr");
+
+  // Validação: Verifica se existem linhas com dados
   const temDadosReais = Array.from(linhas).some((linha) => {
-    const idCidadao = linha.cells[1]?.innerText.trim();
-    return idCidadao && !isNaN(idCidadao);
+    // Garante que a célula existe antes de ler
+    const celula = linha.cells[1];
+    return celula && celula.innerText.trim().length > 0;
   });
 
   if (!temDadosReais) {
-    console.warn(
-      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
-    );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Não há portes ativos na tabela para auditar.",
+      "Não há portes ativos para auditar.",
       "warning"
     );
   }
 
   let detectados = 0;
   let processados = 0;
+  let errosApi = 0;
 
   for (const linha of linhas) {
-    const idCidadao = linha.cells[1]?.innerText.trim();
+    // Proteção contra linhas vazias ou cabeçalhos mal formatados
+    if (!linha.cells || linha.cells.length < 2) continue;
+
+    const idCidadao = linha.cells[1].innerText.trim();
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
     if (textoAuditoria)
       textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
-
-    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
       const res = await fetch("/api/consultar-ficha", {
@@ -1307,53 +1317,78 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
+      // === TRAVA DE SEGURANÇA (CORREÇÃO DO ERRO) ===
+      // Se a API retornou erro, pula este cidadão e não tenta formatar nada
+      if (!res.ok || data.error) {
+        console.warn(
+          `⚠️ Erro na API para ID ${idCidadao}:`,
+          data.error || "Erro desconhecido"
+        );
+        errosApi++;
+        continue; // Pula para o próximo loop
+      }
+
+      // Se chegou aqui, os dados existem. Podemos usar toLocaleString com segurança.
       if (data.registrosEncontrados > 0) {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
+
+        // Passamos os dados seguros para a função visual
         marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
     } catch (e) {
-      console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
+      console.error(`❌ Erro de conexão ao consultar ID ${idCidadao}:`, e);
+      errosApi++;
     }
   }
 
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
 
+  // Mensagem Final
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
+      `${detectados} infratores identificados!`,
       "error"
+    );
+  } else if (errosApi > 0 && detectados === 0) {
+    mostrarAlerta(
+      "Atenção",
+      `Auditoria finalizada, mas ${errosApi} registros falharam na consulta (Erro API).`,
+      "warning"
     );
   } else {
     mostrarAlerta(
       "Auditoria Concluída",
-      `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
+      `Tudo limpo! ${processados} registros verificados.`,
       "success"
     );
   }
 };
 
+// Função visual atualizada para usar os dados com segurança
 function marcarLinhaComoInfrator(linha, data) {
-  // Estilo visual de perigo
-  linha.style.background = "rgba(255, 0, 0, 0.2)";
-  linha.style.borderLeft = "5px solid #ff4d4d";
+  linha.style.background = "rgba(255, 0, 0, 0.15)";
+  linha.style.borderLeft = "4px solid #ff4d4d";
 
-  // Atualiza a coluna de Status/Alerta (Coluna 4 no seu index.html)
-  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: Ação
   const celulaAlerta = linha.cells[3];
   if (celulaAlerta) {
+    // Formata o valor da multa com segurança (se for undefined, usa 0)
+    const multaFormatada = (data.somaMultas || 0).toLocaleString("pt-BR");
+
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
-         <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
+         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold; letter-spacing:0.5px;">FICHA SUJA</span>
+         <small style="font-size:9px; color: #ff9999; margin-top:2px;">${data.registrosEncontrados} registros novos</small>
+         <small style="font-size:8px; color: #ccc;">Multa: R$ ${multaFormatada}</small>
       </div>
     `;
   }
 
-  // Move o infrator para o topo da tabela
-  linha.parentNode.prepend(linha);
+  // Move para o topo para facilitar visualização
+  if (linha.parentNode) {
+    linha.parentNode.prepend(linha);
+  }
 }
