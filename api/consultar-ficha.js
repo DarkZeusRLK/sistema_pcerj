@@ -2,6 +2,7 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
+  // Configurações de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -14,6 +15,7 @@ module.exports = async (req, res) => {
     CHANNEL_PRISOES_ID,
     CHANNEL_FIANCAS_ID,
     CHANNEL_LIMPEZA_ID,
+    EXONERACAO_CHANNEL_ID, // <--- NOVA VARIÁVEL
   } = process.env;
 
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
@@ -21,36 +23,60 @@ module.exports = async (req, res) => {
   try {
     // === CONFIGURAÇÃO DE DATA INICIAL (10/12/2025) ===
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
+    let dataCorteFinal = DATA_INICIO_SISTEMA;
+    let origemCorte = "Início do Sistema";
 
-    // 1. BUSCAR ÚLTIMA LIMPEZA (A partir do dia 10/12)
+    // 1. VERIFICAR EXONERAÇÃO (Prioridade 1)
+    // Se ele foi exonerado, ignoramos tudo antes dessa data (tempo de polícia)
+    if (EXONERACAO_CHANNEL_ID) {
+      const mensagensExoneracao = await buscarMensagensDiscord(
+        EXONERACAO_CHANNEL_ID,
+        idCidadao,
+        Discord_Bot_Token,
+        DATA_INICIO_SISTEMA,
+        50,
+        true // Busca ampla na exoneração
+      );
+
+      if (mensagensExoneracao.length > 0) {
+        // Pega a exoneração mais recente
+        const dataExoneracao = new Date(mensagensExoneracao[0].timestamp);
+        if (dataExoneracao > dataCorteFinal) {
+          dataCorteFinal = dataExoneracao;
+          origemCorte = "Exoneração";
+        }
+      }
+    }
+
+    // 2. BUSCAR ÚLTIMA LIMPEZA (Prioridade 2 - Sobrescreve Exoneração se for mais recente)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      DATA_INICIO_SISTEMA, // Ignora limpezas antes do dia 10
+      dataCorteFinal, // Só busca limpezas após a data de corte atual
       100,
-      true
+      true // Busca ampla na limpeza
     );
 
-    // Define o corte: ou a data da limpeza mais recente, ou o dia 10/12
-    let dataCorteFinal = DATA_INICIO_SISTEMA;
     let totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
       const dataRecenteLimpeza = new Date(mensagensLimpeza[0].timestamp);
       if (dataRecenteLimpeza > dataCorteFinal) {
         dataCorteFinal = dataRecenteLimpeza;
+        origemCorte = "Limpeza de Ficha";
       }
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS (Limite aumentado para 2000 para cobrir o histórico)
+    // 3. BUSCAR PRISÕES E FIANÇAS (Usando a DATA DE CORTE DEFINITIVA)
+    // Se foi exonerado dia 20, só pega crimes do dia 21 em diante.
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false
+      false // Busca estrita nos campos
     );
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
@@ -58,10 +84,11 @@ module.exports = async (req, res) => {
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false
+      false // Busca estrita nos campos
     );
     const todosRegistros = [...prisoes, ...fiancas];
 
+    // 4. CÁLCULOS FINANCEIROS E PENAIS
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
@@ -80,20 +107,13 @@ module.exports = async (req, res) => {
       const embed = msg.embeds[0];
 
       embed.fields?.forEach((f) => {
-        const nomeCampo = f.name
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-        const valorCampo = f.value
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
+        const nomeCampo = normalizarTexto(f.name);
+        const valorCampo = normalizarTexto(f.value);
 
         if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
           const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
           if (matchMulta && matchMulta[1]) {
-            const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
-            somaMultas += valorLimpo;
+            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
           }
         }
 
@@ -123,15 +143,24 @@ module.exports = async (req, res) => {
       totalGeral,
       totalLimpezasAnteriores,
       ultimaLimpeza:
-        totalLimpezasAnteriores > 0
-          ? dataCorteFinal.toLocaleString("pt-BR")
-          : "Nunca Limpou (Busca desde 10/12)",
+        totalLimpezasAnteriores > 0 || origemCorte !== "Início do Sistema"
+          ? `${dataCorteFinal.toLocaleString("pt-BR")} (${origemCorte})`
+          : "Nunca Limpou (Desde Início)",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
+
+function normalizarTexto(texto) {
+  if (!texto) return "";
+  return texto
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 async function buscarMensagensDiscord(
   channelId,
@@ -146,6 +175,10 @@ async function buscarMensagensDiscord(
   let processadas = 0;
   if (!channelId) return [];
 
+  // Regex para garantir ID exato (não pegar 123 em 12345)
+  const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
+
   while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
     if (ultimoId) url += `&before=${ultimoId}`;
@@ -153,8 +186,10 @@ async function buscarMensagensDiscord(
     const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-    const mensagens = await res.json();
 
+    if (!res.ok) break;
+
+    const mensagens = await res.json();
     if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
       break;
 
@@ -162,26 +197,59 @@ async function buscarMensagensDiscord(
       processadas++;
       ultimoId = msg.id;
 
-      // Se a mensagem for anterior ou igual à data de corte, para a busca
+      // Se a mensagem for anterior à data de corte (Exoneração ou Limpeza), PARA DE BUSCAR.
+      // Isso é o que impede de pegar as prisões antigas do ex-policial.
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
+        // 1. Busca Ampla (Para Exoneração e Limpeza)
+        // Aqui aceitamos qualquer menção ao ID no embed
         if (buscaAmpla) {
           return JSON.stringify(embed).toLowerCase().includes(idCidadao);
         }
 
-        return (embed.fields || []).some((field) => {
-          const nome = field.name.toLowerCase();
-          const valor = field.value.toLowerCase();
+        // 2. Busca Estrita (Para Prisões e Fianças)
+        // Mantemos a segurança de campo para evitar falsos positivos
+        // caso o ex-policial seja mencionado como advogado/testemunha HOJE.
+        const fields = embed.fields || [];
 
-          // ✅ SOMENTE se estiver no bloco "Preso"
-          if (nome.includes("preso")) {
-            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
-            return regexID.test(valor);
+        // Se tiver fields, verifica se está no campo permitido
+        if (fields.length > 0) {
+          return fields.some((field) => {
+            const nome = normalizarTexto(field.name);
+            const valor = field.value || "";
+
+            // Lista Branca: Campos onde o ID do CRIMINOSO aparece
+            const whitelist = [
+              "PRESO",
+              "DETENTO",
+              "INDICIADO",
+              "REU",
+              "ACUSADO",
+              "CIDADAO",
+              "NOME",
+              "RG",
+              "PASSAPORTE",
+            ];
+
+            if (whitelist.some((w) => nome.includes(w))) {
+              return regexIdEstrita.test(valor);
+            }
+            return false;
+          });
+        }
+
+        // Fallback para descrição se não houver fields
+        if (embed.description && fields.length === 0) {
+          const desc = embed.description;
+          // Tenta achar marcador de preso
+          if (/PRESO|DETENTO|REU/i.test(desc)) {
+            // Aqui usamos regex estrita na descrição inteira se parecer ser um relatório antigo
+            return regexIdEstrita.test(desc);
           }
+        }
 
-          return false;
-        });
+        return false;
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
