@@ -53,19 +53,29 @@ module.exports = async (req, res) => {
     }
 
     // =================================================================================
-    // 2. VERIFICAR LIMPEZA
+    // 2. VERIFICAR LIMPEZA (CORRIGIDO: CONTAGEM DE LIMPEZAS)
     // =================================================================================
     const msgsLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       Discord_Bot_Token,
       100
     );
-    const msgLimpezaRecente = msgsLimpeza.find((msg) => {
+
+    // Filtra TODAS as mensagens de limpeza desse cidadão para contar
+    const limpezasEncontradas = msgsLimpeza.filter((msg) => {
       const txt = extrairTextoCompleto(msg).toLowerCase();
       return txt.includes(idCidadao);
     });
 
-    if (msgLimpezaRecente) {
+    // Define a variável que estava faltando
+    const totalLimpezasAnteriores = limpezasEncontradas.length;
+
+    // Pega a mais recente para definir a data de corte (se houver)
+    if (limpezasEncontradas.length > 0) {
+      // A API do Discord geralmente retorna da mais recente para a mais antiga.
+      // Pegamos a primeira da lista filtrada.
+      const msgLimpezaRecente = limpezasEncontradas[0];
+
       const dataLimpeza = new Date(msgLimpezaRecente.timestamp);
       if (dataLimpeza > dataCorteFinal) {
         dataCorteFinal = dataLimpeza;
@@ -93,7 +103,7 @@ module.exports = async (req, res) => {
     const todosRegistros = [...prisoes, ...fiancas];
 
     // =================================================================================
-    // 4. CÁLCULOS (CORREÇÃO AQUI)
+    // 4. CÁLCULOS
     // =================================================================================
     let somaMultas = 0;
     let totalInafiancaveis = 0;
@@ -114,30 +124,23 @@ module.exports = async (req, res) => {
       if (embed && embed.fields) {
         embed.fields.forEach((f) => {
           const nome = normalizarTexto(f.name);
-          const valor = f.value; // Mantemos original (sem UpperCase) para regex de valor
+          const valor = f.value;
 
-          // --- CORREÇÃO DA LEITURA DE MULTA ---
+          // --- LEITURA DE MULTA ---
           if (
             nome.includes("SENTENCA") ||
             nome.includes("MULTA") ||
             nome.includes("VALOR")
           ) {
-            // ESTRATÉGIA 1: Busca Específica ("Multa: R$ 100.000")
-            // Regex: Procura a palavra Multa, ignora caracteres até achar números
             const matchMultaExplicita = valor.match(/Multa[:\s\D]*([\d.]+)/i);
 
             if (matchMultaExplicita) {
-              // Achou "Multa: ... 105.000" -> Pega o 105.000
               const valorLimpo = matchMultaExplicita[1].replace(/\./g, "");
               somaMultas += parseInt(valorLimpo) || 0;
-            }
-            // ESTRATÉGIA 2: Campo dedicado (O nome do campo JÁ É "Multa")
-            // Só executa se NÃO achou a estratégia 1 (para não somar 2 vezes)
-            else if (
+            } else if (
               (nome.includes("MULTA") || nome.includes("VALOR")) &&
               !nome.includes("SENTENCA")
             ) {
-              // Se o campo chama só "Multa", assumimos que tudo dentro é valor
               const apenasNumeros = valor.replace(/\D/g, "");
               somaMultas += parseInt(apenasNumeros) || 0;
             }
@@ -159,7 +162,10 @@ module.exports = async (req, res) => {
       }
     });
 
-    const taxaBase = 1000000;
+    // CÁLCULO DA TAXA (Se quiser fixo em 1 milhão, mude a linha abaixo)
+    // Lógica progressiva: 1M + (400k por limpeza anterior)
+    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
+
     const custoInafiancaveis = totalInafiancaveis * 400000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
@@ -170,6 +176,7 @@ module.exports = async (req, res) => {
       custoInafiancaveis,
       totalGeral,
       origemCorte,
+      totalLimpezasAnteriores, // <--- ADICIONADO AQUI PARA O FRONT NÃO DAR UNDEFINED
       dataCorte: dataCorteFinal.toLocaleString("pt-BR"),
       registrosEncontrados: todosRegistros.length,
     });
@@ -180,7 +187,7 @@ module.exports = async (req, res) => {
 };
 
 // =================================================================================
-// HELPERS
+// HELPERS (MANTIDOS IGUAIS)
 // =================================================================================
 
 function extrairTextoCompleto(msg) {
