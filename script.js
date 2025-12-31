@@ -390,27 +390,32 @@ window.consultarFicha = async function () {
 
     const dados = await res.json();
 
-    // 1. Preenche o input invisível/técnico para o relatório
+    // --- PROTEÇÃO DE ERRO ---
+    if (dados.error) {
+      throw new Error(dados.error);
+    }
+    // ------------------------
+
+    // 1. Preenche o input invisível...
     const inputValor = document.getElementById("input-valor-limpeza");
     if (inputValor) {
-      inputValor.value = dados.totalGeral;
+      inputValor.value = dados.totalGeral || 0; // Proteção || 0
     }
+    // 2. ATUALIZA O RECIBO VISUAL COM PROTEÇÃO
+    const fmt = (v) => (v || 0).toLocaleString("pt-BR");
 
-    // 2. ATUALIZA O RECIBO VISUAL (Aquelas linhas pontilhadas)
-    // Usamos o toLocaleString para colocar os pontos de milhar (ex: 1.000.000)
-    document.getElementById(
-      "resumo-taxa-base"
-    ).innerText = `R$ ${dados.taxaBase.toLocaleString("pt-BR")}`;
-    document.getElementById(
-      "resumo-multas"
-    ).innerText = `R$ ${dados.somaMultas.toLocaleString("pt-BR")}`;
-    document.getElementById(
-      "resumo-inafiancaveis"
-    ).innerText = `R$ ${dados.custoInafiancaveis.toLocaleString("pt-BR")}`;
-    document.getElementById(
-      "total-geral-exibicao"
-    ).innerText = `R$ ${dados.totalGeral.toLocaleString("pt-BR")}`;
-
+    document.getElementById("resumo-taxa-base").innerText = `R$ ${fmt(
+      dados.taxaBase
+    )}`;
+    document.getElementById("resumo-multas").innerText = `R$ ${fmt(
+      dados.somaMultas
+    )}`;
+    document.getElementById("resumo-inafiancaveis").innerText = `R$ ${fmt(
+      dados.custoInafiancaveis
+    )}`;
+    document.getElementById("total-geral-exibicao").innerText = `R$ ${fmt(
+      dados.totalGeral
+    )}`;
     // 3. Alerta de sucesso com resumo rápido
     mostrarAlerta(
       "Histórico Recuperado",
@@ -1250,7 +1255,7 @@ async function verificarPermissaoRelatorio() {
 
 // protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
@@ -1261,40 +1266,42 @@ window.verificarConformidadePortes = async function () {
 
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // Tenta pegar a tabela (verifica os dois IDs possíveis)
+  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
   const corpoTabela =
     document.getElementById("lista-ativos-para-revogar") ||
     document.getElementById("corpo-revogacao");
   const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  // Validação: Verifica se existem linhas com dados
+  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
   const temDadosReais = Array.from(linhas).some((linha) => {
-    const celula = linha.cells[1];
-    return celula && celula.innerText.trim().length > 0;
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    return idCidadao && !isNaN(idCidadao);
   });
 
   if (!temDadosReais) {
+    console.warn(
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
+    );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Não há portes ativos para auditar.",
+      "Não há portes ativos na tabela para auditar.",
       "warning"
     );
   }
 
   let detectados = 0;
   let processados = 0;
-  let errosApi = 0;
 
   for (const linha of linhas) {
-    if (!linha.cells || linha.cells.length < 2) continue;
-
-    const idCidadao = linha.cells[1].innerText.trim();
+    const idCidadao = linha.cells[1]?.innerText.trim();
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
     if (textoAuditoria)
       textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
+
+    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
       const res = await fetch("/api/consultar-ficha", {
@@ -1305,13 +1312,7 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // PROTEÇÃO CONTRA ERRO DE API (Erro 500, Timeout, etc)
-      if (!res.ok || data.error) {
-        console.warn(`⚠️ Erro API ID ${idCidadao}:`, data.error);
-        errosApi++;
-        continue; // Pula este cidadão, não trava o loop
-      }
-
+      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
@@ -1320,8 +1321,7 @@ window.verificarConformidadePortes = async function () {
         detectados++;
       }
     } catch (e) {
-      console.error(`❌ Erro de conexão ID ${idCidadao}:`, e);
-      errosApi++;
+      console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
     }
   }
 
@@ -1330,19 +1330,13 @@ window.verificarConformidadePortes = async function () {
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados com crimes novos!`,
+      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
       "error"
-    );
-  } else if (errosApi > 0 && detectados === 0) {
-    mostrarAlerta(
-      "Atenção",
-      `Auditoria finalizada, mas ${errosApi} registros falharam na consulta.`,
-      "warning"
     );
   } else {
     mostrarAlerta(
       "Auditoria Concluída",
-      `Nenhuma irregularidade encontrada nos ${processados} registros.`,
+      `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
       "success"
     );
   }
@@ -1353,25 +1347,18 @@ function marcarLinhaComoInfrator(linha, data) {
   linha.style.background = "rgba(255, 0, 0, 0.2)";
   linha.style.borderLeft = "5px solid #ff4d4d";
 
-  // Atualiza a coluna de Status/Alerta (Coluna 4 no index)
+  // Atualiza a coluna de Status/Alerta (Coluna 4 no seu index.html)
+  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: Ação
   const celulaAlerta = linha.cells[3];
-
   if (celulaAlerta) {
-    // CORREÇÃO DO ERRO UNDEFINED: Garante que seja número ou zero
-    const valorMulta = Number(data.somaMultas || 0);
-    const multaFormatada = valorMulta.toLocaleString("pt-BR");
-
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
          <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
          <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
-         <small style="font-size:8px; color: #ccc;">Multa: R$ ${multaFormatada}</small>
       </div>
     `;
   }
 
   // Move o infrator para o topo da tabela
-  if (linha.parentNode) {
-    linha.parentNode.prepend(linha);
-  }
+  linha.parentNode.prepend(linha);
 }
