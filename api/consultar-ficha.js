@@ -173,21 +173,17 @@ async function buscarMensagensDiscord(
           const nome = field.name.toLowerCase();
           const valor = field.value.toLowerCase();
           if (nome.includes("preso") || nome.includes("cidadao")) {
-            // Apenas consideramos este campo se o ID aparecer em contextos que
-            // claramente indicam ser o identificador do preso (RG/Passaporte/ID).
-            // Evita falsos positivos quando o ID aparece em campos como
-            // "Oficial" ou "Participantes" dentro do mesmo embed.
-            const patterns = [
-              new RegExp(`rg[:\\s]*${idCidadao}(\\D|$)`, "i"),
-              new RegExp(`passaport(?:e)?[:\\s]*${idCidadao}(\\D|$)`, "i"),
-              new RegExp(`id[:\\s]*${idCidadao}(\\D|$)`, "i"),
-              // alguns relatórios usam formato 'Nome: XRG: 22825' ou similar
-              new RegExp(`rg[:\\s]*${idCidadao}(\\D|$)`, "i"),
-              // fallback mais estrito: número cercado por caracteres não-dígito
-              new RegExp(`(\\D|^)${idCidadao}(\\D|$)`),
+            // Busca estrita: só consideramos o campo como ocorrência do preso se
+            // o ID aparecer junto a rótulos que indicam ser o identificador
+            // do réu (ex: "RG", "Passaporte", "ID"). Isso evita pegar IDs
+            // de oficiais que aparecem em outros campos como "Participantes".
+            const strictPatterns = [
+              new RegExp(`rg\\D*${idCidadao}(\\D|$)`, "i"),
+              new RegExp(`passaport(?:e)?\\D*${idCidadao}(\\D|$)`, "i"),
+              new RegExp(`\bid\\D*${idCidadao}(\\D|$)`, "i"),
             ];
 
-            return patterns.some((p) => p.test(valor));
+            return strictPatterns.some((p) => p.test(valor));
           }
           return false;
         });
