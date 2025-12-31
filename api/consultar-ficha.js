@@ -2,7 +2,6 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Configuração de CORS e Cabeçalhos
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -22,14 +21,14 @@ module.exports = async (req, res) => {
   try {
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 1. BUSCAR LIMPEZA
+    // 1. BUSCAR LIMPEZA (Busca Ampla permitida aqui, pois a msg é simples)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       DATA_INICIO_SISTEMA,
       100,
-      true // Busca ampla na limpeza
+      true
     );
 
     let dataCorteFinal = DATA_INICIO_SISTEMA;
@@ -42,15 +41,15 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS (Busca ESTRITA)
-    // Aumentei o limite para garantir que pega tudo
+    // 2. BUSCAR PRISÕES E FIANÇAS (Busca ESTRITA = FALSE)
+    // Aqui garantimos que só olhe campos permitidos
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false // Busca estrita (SÓ CAMPO PRESO)
+      false
     );
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
@@ -58,7 +57,7 @@ module.exports = async (req, res) => {
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false // Busca estrita (SÓ CAMPO PRESO)
+      false
     );
     const todosRegistros = [...prisoes, ...fiancas];
 
@@ -82,7 +81,6 @@ module.exports = async (req, res) => {
       embed.fields?.forEach((f) => {
         const nomeCampo = normalizarTexto(f.name);
 
-        // Pega valor da multa
         if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
           const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
           if (matchMulta && matchMulta[1]) {
@@ -90,14 +88,12 @@ module.exports = async (req, res) => {
           }
         }
 
-        // Verifica crimes inafiançáveis
         if (nomeCampo.includes("CRIMES")) {
           const linhas = normalizarTexto(f.value).split("\n");
           linhas.forEach((linha) => {
             const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
               linha.includes(keyword)
             );
-            // Ignora linhas muito curtas (evita falsos positivos em formatação)
             if (ehInafiancavel && linha.length > 3) {
               totalInafiancaveis++;
             }
@@ -124,7 +120,6 @@ module.exports = async (req, res) => {
   }
 };
 
-// Função auxiliar para limpar texto (Upper + Sem acentos)
 function normalizarTexto(texto) {
   if (!texto) return "";
   return texto
@@ -147,7 +142,7 @@ async function buscarMensagensDiscord(
 
   if (!channelId) return [];
 
-  // Cria regex exata para o ID (evita pegar "123" dentro de "12345")
+  // Regex para garantir que o ID é exato (Ex: "2337" e não "12337")
   const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
 
@@ -158,8 +153,7 @@ async function buscarMensagensDiscord(
     const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-
-    if (!res.ok) break; // Se der erro no Discord, para o loop
+    if (!res.ok) break;
 
     const mensagens = await res.json();
     if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
@@ -172,48 +166,73 @@ async function buscarMensagensDiscord(
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertence = (msg.embeds || []).some((embed) => {
-        // MODO 1: LIMPEZA (Busca em qualquer lugar do embed)
+        // MODO 1: LIMPEZA (Busca Ampla - Procura em tudo)
         if (buscaAmpla) {
           return JSON.stringify(embed).toLowerCase().includes(idCidadao);
         }
 
-        // MODO 2: FICHA CRIMINAL (Busca ESTRITA apenas no campo correto)
+        // MODO 2: PRISÃO/FIANÇA (Busca CRITERIOSA)
         const fields = embed.fields || [];
 
-        return fields.some((field) => {
-          const nomeCampo = normalizarTexto(field.name);
-          const valorCampo = field.value || "";
+        // Se houver campos, percorre um por um
+        if (fields.length > 0) {
+          return fields.some((field) => {
+            const nomeCampo = normalizarTexto(field.name);
 
-          // LISTA NEGRA: Se for um desses campos, IGNORA, mesmo que tenha o ID
-          const blacklist = [
-            "ADVOGADO",
-            "POLICIAL",
-            "OFICIAL",
-            "PARTICIPANTE",
-            "TESTEMUNHA",
-            "QRA",
-            "RESPONSAVEL",
-          ];
-          if (blacklist.some((bad) => nomeCampo.includes(bad))) return false;
+            // 1. LISTA NEGRA EXPLÍCITA (Para garantir que policial nunca caia aqui)
+            // Se o campo tiver qualquer uma dessas palavras, IGNORA O CONTEÚDO
+            const blacklist = [
+              "PARTICIPANTE",
+              "OFICIAL",
+              "ADVOGADO",
+              "POLICIAL",
+              "QRA",
+              "TESTEMUNHA",
+            ];
+            if (blacklist.some((bad) => nomeCampo.includes(bad))) {
+              return false; // Sai imediatamente, não verifica o ID
+            }
 
-          // LISTA BRANCA: Só aceita se o campo tiver nomes relacionados ao Preso
-          const whitelist = [
-            "PRESO",
-            "DETENTO",
-            "INDICIADO",
-            "REU",
-            "ACUSADO",
-            "CIDADAO",
-            "NOME",
-          ];
+            // 2. LISTA BRANCA OBRIGATÓRIA
+            // Só verifica o ID se o campo for um desses:
+            const whitelist = [
+              "PRESO",
+              "DETENTO",
+              "INDICIADO",
+              "REU",
+              "ACUSADO",
+              "CIDADAO",
+              "NOME",
+              "RG",
+              "PASSAPORTE",
+            ];
 
-          if (whitelist.some((good) => nomeCampo.includes(good))) {
-            // Verifica se o ID está no valor deste campo específico
-            return regexIdEstrita.test(valorCampo);
+            if (whitelist.some((good) => nomeCampo.includes(good))) {
+              // Só agora verificamos se o ID está aqui dentro
+              return regexIdEstrita.test(field.value || "");
+            }
+
+            // Se não for Lista Negra nem Lista Branca (ex: "Sentença", "Crimes"), ignora.
+            return false;
+          });
+        }
+
+        // Fallback: Se NÃO tem fields (layout muito antigo), verifica descrição
+        // Mas APENAS se não tiver fields.
+        if (embed.description && fields.length === 0) {
+          // Tenta achar onde começa a parte do preso para ignorar cabeçalho
+          const desc = embed.description;
+          const matchInicio = desc.match(/(?:\n|^).*(?:PRESO|DETENTO|REU).*/i);
+
+          if (matchInicio) {
+            const textoFiltrado = desc.substring(matchInicio.index);
+            return regexIdEstrita.test(textoFiltrado);
           }
-
+          // Se não achou marcador de preso, não arrisca pegar ID de policial
           return false;
-        });
+        }
+
+        return false;
       });
 
       if (pertence) filtradas.push(msg);
