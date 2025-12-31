@@ -23,89 +23,87 @@ module.exports = async (req, res) => {
   try {
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 🔹 LIMPEZAS (SOMENTE SE TIVER O ID)
-    const mensagensLimpeza = await buscarMensagensDiscord(
+    // ================= LIMPEZAS =================
+    const mensagensLimpeza = await buscarLimpezas(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      DATA_INICIO_SISTEMA,
-      200
+      DATA_INICIO_SISTEMA
     );
 
-    let dataCorteFinal = DATA_INICIO_SISTEMA;
     const totalLimpezasAnteriores = mensagensLimpeza.length;
 
-    if (totalLimpezasAnteriores > 0) {
+    let dataCorteFinal = DATA_INICIO_SISTEMA;
+    if (mensagensLimpeza.length > 0) {
       const ultima = new Date(mensagensLimpeza[0].timestamp);
       if (ultima > dataCorteFinal) dataCorteFinal = ultima;
     }
 
-    // 🔹 PRISÕES + FIANÇAS
-    const prisoes = await buscarMensagensDiscord(
+    // ================= PRISÕES / FIANÇAS =================
+    const prisoes = await buscarPrisaoOuFianca(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorteFinal,
-      2000
+      dataCorteFinal
     );
 
-    const fiancas = await buscarMensagensDiscord(
+    const fiancas = await buscarPrisaoOuFianca(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorteFinal,
-      2000
+      dataCorteFinal
     );
 
-    const todosRegistros = [...prisoes, ...fiancas];
+    const registros = [...prisoes, ...fiancas];
 
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
-    const crimesInafiancaveis = [
-      "DESACATO",
-      "AMEACA",
-      "APOLOGIA",
-      "SEQUESTRO",
-      "HOMICIDIO",
-      "AGRESSAO",
-      "PREVARICACAO",
+    const artigosInafiancaveis = [
+      "ART. 101",
+      "ART. 102",
+      "ART. 103",
+      "ART. 104",
+      "ART. 105",
+      "ART. 106",
+      "ART. 110",
+      "ART. 150",
+      "ART. 159",
+      "ART. 160",
+      "ART. 161",
     ];
 
-    // 🔎 PROCESSAMENTO REAL
-    todosRegistros.forEach((msg) => {
-      msg.embeds?.forEach((embed) => {
-        let texto = "";
+    registros.forEach((msg) => {
+      const embed = msg.embeds?.[0];
+      if (!embed) return;
 
-        if (embed.title) texto += embed.title + "\n";
-        if (embed.description) texto += embed.description + "\n";
-
-        embed.fields?.forEach((f) => {
-          texto += `${f.name}\n${f.value}\n`;
-        });
-
-        const normalizado = texto
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
+      embed.fields?.forEach((f) => {
+        const nome = normalizar(f.name);
+        const valor = normalizar(f.value);
 
         // 💰 MULTA
-        const matchMulta = normalizado.match(/MULTA[:\s]*R?\$?\s*([\d.]+)/i);
-        if (matchMulta) {
-          somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+        if (nome.includes("SENTENCA")) {
+          const multaMatch = valor.match(/MULTA[: ]*R?\$?\s*([\d.]+)/i);
+          if (multaMatch) {
+            somaMultas += parseInt(multaMatch[1].replace(/\./g, "")) || 0;
+          }
         }
 
-        // ⚖️ CRIMES INAFIANÇÁVEIS
-        crimesInafiancaveis.forEach((crime) => {
-          const ocorrencias = normalizado.split(crime).length - 1;
-          totalInafiancaveis += ocorrencias;
-        });
+        // ⚖️ CRIMES
+        if (nome.includes("CRIMES")) {
+          const linhas = valor.split("\n");
+          linhas.forEach((linha) => {
+            artigosInafiancaveis.forEach((art) => {
+              if (linha.includes(art)) totalInafiancaveis++;
+            });
+          });
+        }
       });
     });
 
-    // 🔢 CÁLCULO FINAL
-    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
-    const custoInafiancaveis = totalInafiancaveis * 400000;
+    // ================= CÁLCULO =================
+    const taxaBase = 1_000_000 + totalLimpezasAnteriores * 400_000;
+    const custoInafiancaveis = totalInafiancaveis * 400_000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
     res.status(200).json({
@@ -119,27 +117,49 @@ module.exports = async (req, res) => {
         totalLimpezasAnteriores > 0
           ? dataCorteFinal.toLocaleString("pt-BR")
           : "Nunca Limpou",
-      totalRegistrosBrutos: todosRegistros.length,
+      registrosEncontrados: registros.length,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
-// =======================================================
-// 🔍 BUSCA NO DISCORD (ID NO BLOCO PRESO)
-// =======================================================
-async function buscarMensagensDiscord(
+// ================= FUNÇÕES =================
+
+function normalizar(txt) {
+  return txt
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// 🔹 BUSCA PRISÕES / FIANÇAS
+async function buscarPrisaoOuFianca(
+  channelId,
+  idCidadao,
+  token,
+  dataCorte
+) {
+  return buscarGenerico(channelId, idCidadao, token, dataCorte, false);
+}
+
+// 🔹 BUSCA LIMPEZAS
+async function buscarLimpezas(channelId, idCidadao, token, dataCorte) {
+  return buscarGenerico(channelId, idCidadao, token, dataCorte, true);
+}
+
+// 🔹 BUSCA GENÉRICA
+async function buscarGenerico(
   channelId,
   idCidadao,
   token,
   dataCorte,
-  limite
+  isLimpeza
 ) {
-  let resultados = [];
+  let resultado = [];
   let ultimoId = null;
 
-  while (resultados.length < limite) {
+  while (true) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
     if (ultimoId) url += `&before=${ultimoId}`;
 
@@ -147,28 +167,27 @@ async function buscarMensagensDiscord(
       headers: { Authorization: `Bot ${token}` },
     });
 
-    const mensagens = await res.json();
-    if (!Array.isArray(mensagens) || mensagens.length === 0) break;
+    const msgs = await res.json();
+    if (!Array.isArray(msgs) || msgs.length === 0) break;
 
-    for (const msg of mensagens) {
+    for (const msg of msgs) {
       ultimoId = msg.id;
 
-      if (dataCorte && new Date(msg.timestamp) <= dataCorte) {
-        return resultados;
+      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return resultado;
+
+      const embed = msg.embeds?.[0];
+      if (!embed) continue;
+
+      if (isLimpeza) {
+        if (normalizar(embed.title || "").includes("LIMPEZA")) {
+          if (msg.content.includes(idCidadao)) resultado.push(msg);
+        }
+        continue;
       }
 
-      const textoCompleto = JSON.stringify(msg.embeds || [])
-        .toUpperCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+      const fields = embed.fields || [];
+      let dentroPreso = false;
 
-      const regexID = new RegExp(`\\b${idCidadao}\\b`);
-
-      if (regexID.test(textoCompleto)) {
-        resultados.push(msg);
-      }
-    }
-  }
-
-  return resultados;
-}
+      for (const f of fields) {
+        const nome = normalizar(f.name);
+        const valor = normalizar(f.value
