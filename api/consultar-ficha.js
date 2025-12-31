@@ -18,17 +18,22 @@ module.exports = async (req, res) => {
 
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
+  console.log(
+    `\n============== 🕵️ INICIANDO INVESTIGAÇÃO ID: ${idCidadao} ==============`
+  );
+
   try {
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 1. BUSCAR LIMPEZA (Busca Ampla permitida aqui)
+    // 1. BUSCAR LIMPEZA
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       DATA_INICIO_SISTEMA,
       100,
-      true
+      true, // Busca ampla
+      "LIMPEZA"
     );
 
     let dataCorteFinal = DATA_INICIO_SISTEMA;
@@ -40,25 +45,35 @@ module.exports = async (req, res) => {
         dataCorteFinal = dataRecenteLimpeza;
       }
     }
+    console.log(
+      `📅 Data de Corte (Última Limpeza/Inicio): ${dataCorteFinal.toLocaleString()}`
+    );
 
-    // 2. BUSCAR PRISÕES E FIANÇAS (Busca ESTRITA = false)
+    // 2. BUSCAR PRISÕES E FIANÇAS
+    console.log(`🔎 Varrendo Canal de Prisões...`);
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false
+      false, // Busca ESTRITA
+      "PRISOES"
     );
+
+    console.log(`🔎 Varrendo Canal de Fianças...`);
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false
+      false, // Busca ESTRITA
+      "FIANCAS"
     );
+
     const todosRegistros = [...prisoes, ...fiancas];
+    console.log(`🚨 Total de registros encontrados: ${todosRegistros.length}`);
 
     // 3. CÁLCULO DE PENAS
     let somaMultas = 0;
@@ -72,33 +87,41 @@ module.exports = async (req, res) => {
       "PREVARICACAO",
       "HOMICIDIO",
       "SEQUESTRO",
+      "APOLOGIA",
     ];
 
     todosRegistros.forEach((msg) => {
       if (!msg.embeds || msg.embeds.length === 0) return;
       const embed = msg.embeds[0];
 
+      // LOG PARA IDENTIFICAR O CULPADO
+      console.log(`\n--- 📄 ANALISANDO MENSAGEM CULPADA (ID: ${msg.id}) ---`);
+
       embed.fields?.forEach((f) => {
         const nomeCampo = normalizarTexto(f.name);
-        const valorCampo = normalizarTexto(f.value);
 
-        // Soma Multas
+        // DEBUG: Mostra valores monetários encontrados
         if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
           const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
           if (matchMulta && matchMulta[1]) {
-            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+            const valor = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+            somaMultas += valor;
+            console.log(
+              `   💰 Multa encontrada: R$ ${valor} (Campo: ${f.name})`
+            );
           }
         }
 
-        // Conta Crimes
+        // DEBUG: Mostra crimes encontrados
         if (nomeCampo.includes("CRIMES")) {
-          const linhas = valorCampo.split("\n");
+          const linhas = f.value.split("\n");
           linhas.forEach((linha) => {
             const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
-              linha.includes(keyword)
+              normalizarTexto(linha).includes(keyword)
             );
             if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
               totalInafiancaveis++;
+              console.log(`   ⚖️ Crime Grave Contado: "${linha}"`);
             }
           });
         }
@@ -109,6 +132,8 @@ module.exports = async (req, res) => {
     const custoInafiancaveis = totalInafiancaveis * 400000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
+    console.log(`============== FIM DO DIAGNÓSTICO ==============\n`);
+
     res.status(200).json({
       taxaBase,
       somaMultas,
@@ -116,10 +141,6 @@ module.exports = async (req, res) => {
       custoInafiancaveis,
       totalGeral,
       totalLimpezasAnteriores,
-      ultimaLimpeza:
-        totalLimpezasAnteriores > 0
-          ? dataCorteFinal.toLocaleString("pt-BR")
-          : "Nunca Limpou (Busca desde 10/12)",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
@@ -142,7 +163,8 @@ async function buscarMensagensDiscord(
   token,
   dataCorte,
   limite,
-  buscaAmpla = false
+  buscaAmpla = false,
+  tipoCanal = ""
 ) {
   let filtradas = [];
   let ultimoId = null;
@@ -150,7 +172,6 @@ async function buscarMensagensDiscord(
 
   if (!channelId) return [];
 
-  // Regex para garantir que o ID é exato (não pega parte de outro número)
   const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
 
@@ -172,89 +193,73 @@ async function buscarMensagensDiscord(
       ultimoId = msg.id;
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      // Logica de Filtro
-      const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        // --- MODO 1: LIMPEZA (Simples) ---
+      const pertence = (msg.embeds || []).some((embed) => {
+        // MODO LIMPEZA (AMPLO)
         if (buscaAmpla) {
           return JSON.stringify(embed)
             .toLowerCase()
             .includes(idCidadao.toLowerCase());
         }
 
-        // --- MODO 2: FICHA CRIMINAL (Blindada) ---
+        // MODO FICHA CRIMINAL (ESTRITO)
         const fields = embed.fields || [];
 
-        // ESTRATÉGIA A: Se existem campos (Fields)
-        if (fields.length > 0) {
-          return fields.some((field) => {
-            const nomeCampo = normalizarTexto(field.name);
+        // ESTRATÉGIA: LISTA BRANCA (WHITELIST)
+        // Só aceita se o ID estiver explicitamente dentro de um campo chamado "PRESO", "DETENTO", etc.
+        const camposPermitidos = [
+          "PRESO",
+          "DETENTO",
+          "INDICIADO",
+          "REU",
+          "ACUSADO",
+          "CIDADAO",
+        ];
 
-            // 1. LISTA NEGRA: Se for campo de oficial/participante, PULA FORA
-            const titulosProibidos = [
-              "PARTICIPANTE",
-              "OFICIAL",
-              "ADVOGADO",
-              "POLICIAL",
-              "QRA",
-              "TESTEMUNHA",
-            ];
-            if (
-              titulosProibidos.some((proibido) => nomeCampo.includes(proibido))
-            ) {
-              return false;
-            }
+        // Verifica todos os campos
+        for (const field of fields) {
+          const nomeCampoNorm = normalizarTexto(field.name);
 
-            // 2. LISTA BRANCA: Só aceita se for campo de Preso
-            const titulosPermitidos = [
-              "PRESO",
-              "DETENTO",
-              "CIDADAO",
-              "INDICIADO",
-              "REU",
-            ];
-            const ehCampoDePreso = titulosPermitidos.some((permitido) =>
-              nomeCampo.includes(permitido)
-            );
-
-            if (ehCampoDePreso) {
-              // Verifica ID apenas aqui dentro
-              const match = regexIdEstrita.test(field.value || "");
-              if (match) {
-                // DEBUG: Descomente se precisar ver no terminal
-                // console.log(`[MATCH] ID ${idCidadao} encontrado no campo '${field.name}'`);
-              }
-              return match;
-            }
-            return false;
-          });
-        }
-
-        // ESTRATÉGIA B: Se NÃO tem campos (Layout antigo/Descrição pura)
-        // Só executa se fields.length === 0 para evitar falsos positivos
-        if (embed.description && fields.length === 0) {
-          const desc = embed.description;
-
-          // Tenta encontrar onde começa a parte do preso
-          // Procura por "Preso" ou "Detento"
-          const matchInicioPreso = desc.match(
-            /(?:\n|^).*(?:PRESO|DETENTO|INDICIADO|REU).*/i
+          // 1. Verifica se é um campo permitido
+          const ehCampoAlvo = camposPermitidos.some((p) =>
+            nomeCampoNorm.includes(p)
           );
 
-          if (matchInicioPreso) {
-            // Corta o texto: Pega apenas do índice encontrado para frente
-            // Isso descarta o topo da mensagem onde ficam os oficiais
-            const textoRelevante = desc.substring(matchInicioPreso.index);
-            return regexIdEstrita.test(textoRelevante);
+          if (ehCampoAlvo) {
+            // 2. Verifica se o ID está no valor deste campo
+            const match = regexIdEstrita.test(field.value || "");
+            if (match) {
+              console.log(
+                `[MATCH] ✅ ID ${idCidadao} encontrado no canal ${tipoCanal}.`
+              );
+              console.log(
+                `        Campo Válido: "${
+                  field.name
+                }" | Conteúdo: "${field.value.substring(0, 30)}..."`
+              );
+              console.log(
+                `        Link msg: https://discord.com/channels/@me/${channelId}/${msg.id}`
+              );
+              return true;
+            }
+          } else {
+            // LOG DE DEBUG PARA VER O QUE ESTÁ SENDO IGNORADO
+            const matchIgnorado = regexIdEstrita.test(field.value || "");
+            if (matchIgnorado) {
+              console.log(
+                `[IGNORADO] ❌ ID encontrado mas em campo proibido/não listado.`
+              );
+              console.log(
+                `           Campo: "${
+                  field.name
+                }" | Conteúdo: "${field.value.substring(0, 30)}..."`
+              );
+            }
           }
-
-          // Se não achou separação clara, NÃO considera (segurança para oficiais)
-          return false;
         }
-
         return false;
       });
 
-      if (pertenceAoCidadao) filtradas.push(msg);
+      if (pertence) filtradas.push(msg);
     }
     if (mensagens.length < 100) break;
   }
