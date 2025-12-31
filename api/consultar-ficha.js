@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
     // === DATA BASE DO SISTEMA ===
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 1️⃣ BUSCAR LIMPEZAS (após 10/12)
+    // 1️⃣ BUSCAR LIMPEZAS
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -35,16 +35,14 @@ module.exports = async (req, res) => {
     );
 
     let dataCorteFinal = DATA_INICIO_SISTEMA;
-    let totalLimpezasAnteriores = mensagensLimpeza.length;
+    const totalLimpezasAnteriores = mensagensLimpeza.length;
 
     if (totalLimpezasAnteriores > 0) {
-      const dataRecenteLimpeza = new Date(mensagensLimpeza[0].timestamp);
-      if (dataRecenteLimpeza > dataCorteFinal) {
-        dataCorteFinal = dataRecenteLimpeza;
-      }
+      const dataRecente = new Date(mensagensLimpeza[0].timestamp);
+      if (dataRecente > dataCorteFinal) dataCorteFinal = dataRecente;
     }
 
-    // 2️⃣ BUSCAR PRISÕES E FIANÇAS (somente se o ID for o PRESO)
+    // 2️⃣ BUSCAR PRISÕES E FIANÇAS (SOMENTE SE FOR O PRESO)
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -78,43 +76,38 @@ module.exports = async (req, res) => {
       "SEQUESTRO",
     ];
 
-    // 3️⃣ PROCESSAMENTO DOS EMBEDS
+    // 3️⃣ PROCESSAMENTO DOS EMBEDS (DESCRIPTION REAL)
     todosRegistros.forEach((msg) => {
       if (!msg.embeds || msg.embeds.length === 0) return;
       const embed = msg.embeds[0];
+      if (!embed.description) return;
 
-      embed.fields?.forEach((f) => {
-        const nomeCampo = f.name
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
+      const texto = embed.description
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
-        const valorCampo = f.value
-          .toUpperCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
+      // 💰 MULTA
+      const multaMatch = texto.match(/MULTA:\s*R?\$?\s*([\d.]+)/);
+      if (multaMatch && multaMatch[1]) {
+        somaMultas += parseInt(multaMatch[1].replace(/\./g, ""), 10);
+      }
 
-        // 💰 MULTAS
-        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
-          const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
-          if (matchMulta && matchMulta[1]) {
-            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+      // ⚖️ CRIMES INAFIANÇÁVEIS
+      const crimesMatch = texto.match(
+        /CRIMES([\s\S]*?)(ITENS APREENDIDOS|DINHEIRO SUJO|DETALHES|$)/
+      );
+
+      if (crimesMatch && crimesMatch[1]) {
+        crimesMatch[1].split("\n").forEach((linha) => {
+          linha = linha.trim();
+          if (!linha) return;
+
+          if (listaKeywordsInafiancaveis.some((k) => linha.includes(k))) {
+            totalInafiancaveis++;
           }
-        }
-
-        // ⚖️ CRIMES INAFIANÇÁVEIS
-        if (nomeCampo.includes("CRIMES")) {
-          const linhas = valorCampo.split("\n");
-          linhas.forEach((linha) => {
-            const ehInafiancavel = listaKeywordsInafiancaveis.some((k) =>
-              linha.includes(k)
-            );
-            if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
-              totalInafiancaveis++;
-            }
-          });
-        }
-      });
+        });
+      }
     });
 
     // 4️⃣ CÁLCULOS
@@ -135,7 +128,6 @@ module.exports = async (req, res) => {
           ? dataCorteFinal.toLocaleString("pt-BR")
           : "Nunca Limpou (Busca desde 10/12)",
 
-      // ⚠️ IMPORTANTE PARA O FRONT
       registrosEncontrados: totalInafiancaveis,
       temCrimesImpedidores: totalInafiancaveis > 0,
       totalRegistrosBrutos: todosRegistros.length,
@@ -146,7 +138,7 @@ module.exports = async (req, res) => {
 };
 
 // =======================================================
-// 🔍 BUSCA NO DISCORD (SÓ CONSIDERA SE FOR O PRESO)
+// 🔍 BUSCA NO DISCORD (IDENTIFICA PRESO VIA DESCRIPTION)
 // =======================================================
 async function buscarMensagensDiscord(
   channelId,
@@ -182,40 +174,26 @@ async function buscarMensagensDiscord(
       }
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        const fields = embed.fields || [];
-        let dentroDoBlocoPreso = false;
+        if (!embed.description) return false;
 
-        for (const field of fields) {
-          const nome = field.name.toLowerCase();
-          const valor = field.value.toLowerCase();
+        const texto = embed.description
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
 
-          if (nome.includes("preso")) {
-            dentroDoBlocoPreso = true;
-            continue;
-          }
+        // Captura apenas o bloco do PRESO
+        const presoMatch = texto.match(
+          /PRESO([\s\S]*?)(SENTENCA|CRIMES|ADVOGADO|$)/
+        );
 
-          if (
-            nome.includes("crimes") ||
-            nome.includes("sentenca") ||
-            nome.includes("itens") ||
-            nome.includes("detalhes") ||
-            nome.includes("participantes") ||
-            nome.includes("oficial")
-          ) {
-            dentroDoBlocoPreso = false;
-          }
+        if (!presoMatch) return false;
 
-          if (dentroDoBlocoPreso) {
-            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
-            if (regexID.test(valor)) {
-              return true;
-            }
-          }
-        }
-        return false;
+        const blocoPreso = presoMatch[1];
+        const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
+        return regexID.test(blocoPreso);
       });
 
-      if (pertenceAoCidadao) {
+      if (pertenceAoCidadao || buscaAmpla) {
         filtradas.push(msg);
       }
     }
