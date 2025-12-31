@@ -134,12 +134,7 @@ function normalizar(txt) {
 }
 
 // 🔹 BUSCA PRISÕES / FIANÇAS
-async function buscarPrisaoOuFianca(
-  channelId,
-  idCidadao,
-  token,
-  dataCorte
-) {
+async function buscarPrisaoOuFianca(channelId, idCidadao, token, dataCorte) {
   return buscarGenerico(channelId, idCidadao, token, dataCorte, false);
 }
 
@@ -190,4 +185,31 @@ async function buscarGenerico(
 
       for (const f of fields) {
         const nome = normalizar(f.name);
-        const valor = normalizar(f.value
+        const valor = normalizar(f.value);
+
+        if (nome.includes("PRESO")) {
+          dentroPreso = true;
+          continue;
+        }
+
+        if (
+          nome.includes("SENTENCA") ||
+          nome.includes("CRIMES") ||
+          nome.includes("OFICIAL") ||
+          nome.includes("DETALHES")
+        ) {
+          dentroPreso = false;
+        }
+
+        if (dentroPreso && new RegExp(`\\b${idCidadao}\\b`).test(valor)) {
+          resultado.push(msg);
+          break;
+        }
+      }
+    }
+
+    if (msgs.length < 100) break;
+  }
+
+  return resultado;
+}
