@@ -2,7 +2,6 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Configurações de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -10,85 +9,73 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const idCidadao = String(req.body.idCidadao || "").trim();
+
   const {
     Discord_Bot_Token,
     CHANNEL_PRISOES_ID,
     CHANNEL_FIANCAS_ID,
     CHANNEL_LIMPEZA_ID,
-    EXONERACAO_CHANNEL_ID, // <--- NOVA VARIÁVEL
+    EXONERACAO_CHANNEL_ID,
   } = process.env;
 
-  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
+  if (!idCidadao) {
+    return res.status(400).json({ error: "ID não fornecido" });
+  }
 
   try {
-    // === CONFIGURAÇÃO DE DATA INICIAL (10/12/2025) ===
+    // ================= DATA BASE DO SISTEMA =================
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
-    let dataCorteFinal = DATA_INICIO_SISTEMA;
-    let origemCorte = "Início do Sistema";
 
-    // 1. VERIFICAR EXONERAÇÃO (Prioridade 1)
-    // Se ele foi exonerado, ignoramos tudo antes dessa data (tempo de polícia)
-    if (EXONERACAO_CHANNEL_ID) {
-      const mensagensExoneracao = await buscarMensagensDiscord(
-        EXONERACAO_CHANNEL_ID,
-        idCidadao,
-        Discord_Bot_Token,
-        DATA_INICIO_SISTEMA,
-        50,
-        true // Busca ampla na exoneração
-      );
+    // ================= 1️⃣ EXONERAÇÃO =================
+    const dataExoneracao = await buscarDataExoneracao(
+      EXONERACAO_CHANNEL_ID,
+      idCidadao,
+      Discord_Bot_Token
+    );
 
-      if (mensagensExoneracao.length > 0) {
-        // Pega a exoneração mais recente
-        const dataExoneracao = new Date(mensagensExoneracao[0].timestamp);
-        if (dataExoneracao > dataCorteFinal) {
-          dataCorteFinal = dataExoneracao;
-          origemCorte = "Exoneração";
-        }
-      }
-    }
+    // Data inicial real para buscar crimes
+    const dataBaseCrimes = dataExoneracao || DATA_INICIO_SISTEMA;
 
-    // 2. BUSCAR ÚLTIMA LIMPEZA (Prioridade 2 - Sobrescreve Exoneração se for mais recente)
+    // ================= 2️⃣ LIMPEZAS =================
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorteFinal, // Só busca limpezas após a data de corte atual
+      dataBaseCrimes,
       100,
-      true // Busca ampla na limpeza
+      true
     );
 
     let totalLimpezasAnteriores = mensagensLimpeza.length;
+    let dataCorteFinal = dataBaseCrimes;
 
-    if (totalLimpezasAnteriores > 0) {
-      const dataRecenteLimpeza = new Date(mensagensLimpeza[0].timestamp);
-      if (dataRecenteLimpeza > dataCorteFinal) {
-        dataCorteFinal = dataRecenteLimpeza;
-        origemCorte = "Limpeza de Ficha";
-      }
+    if (mensagensLimpeza.length > 0) {
+      const ultimaLimpeza = new Date(mensagensLimpeza[0].timestamp);
+      if (ultimaLimpeza > dataCorteFinal) dataCorteFinal = ultimaLimpeza;
     }
 
-    // 3. BUSCAR PRISÕES E FIANÇAS (Usando a DATA DE CORTE DEFINITIVA)
-    // Se foi exonerado dia 20, só pega crimes do dia 21 em diante.
+    // ================= 3️⃣ PRISÕES / FIANÇAS =================
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false // Busca estrita nos campos
+      false
     );
+
     const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
       2000,
-      false // Busca estrita nos campos
+      false
     );
+
     const todosRegistros = [...prisoes, ...fiancas];
 
-    // 4. CÁLCULOS FINANCEIROS E PENAIS
+    // ================= 4️⃣ PROCESSAMENTO =================
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
@@ -103,25 +90,27 @@ module.exports = async (req, res) => {
     ];
 
     todosRegistros.forEach((msg) => {
-      if (!msg.embeds || msg.embeds.length === 0) return;
-      const embed = msg.embeds[0];
+      const embed = msg.embeds?.[0];
+      if (!embed) return;
 
       embed.fields?.forEach((f) => {
-        const nomeCampo = normalizarTexto(f.name);
-        const valorCampo = normalizarTexto(f.value);
+        const nome = normalizar(f.name);
+        const valor = normalizar(f.value);
 
-        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
-          const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
-          if (matchMulta && matchMulta[1]) {
-            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+        // 💰 MULTA
+        if (nome.includes("SENTENCA") || nome.includes("MULTA")) {
+          const match = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
+          if (match && match[1]) {
+            somaMultas += parseInt(match[1].replace(/\./g, "")) || 0;
           }
         }
 
-        if (nomeCampo.includes("CRIMES")) {
-          const linhas = valorCampo.split("\n");
+        // ⚖️ CRIMES INAFIANÇÁVEIS
+        if (nome.includes("CRIMES")) {
+          const linhas = valor.split("\n");
           linhas.forEach((linha) => {
-            const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
-              linha.includes(keyword)
+            const ehInafiancavel = listaKeywordsInafiancaveis.some((k) =>
+              linha.includes(k)
             );
             if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
               totalInafiancaveis++;
@@ -131,10 +120,12 @@ module.exports = async (req, res) => {
       });
     });
 
-    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
-    const custoInafiancaveis = totalInafiancaveis * 400000;
+    // ================= 5️⃣ CÁLCULOS =================
+    const taxaBase = 1_000_000 + totalLimpezasAnteriores * 400_000;
+    const custoInafiancaveis = totalInafiancaveis * 400_000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
+    // ================= 6️⃣ RESPOSTA =================
     res.status(200).json({
       taxaBase,
       somaMultas,
@@ -142,26 +133,55 @@ module.exports = async (req, res) => {
       custoInafiancaveis,
       totalGeral,
       totalLimpezasAnteriores,
+      dataExoneracao: dataExoneracao
+        ? dataExoneracao.toLocaleString("pt-BR")
+        : null,
       ultimaLimpeza:
-        totalLimpezasAnteriores > 0 || origemCorte !== "Início do Sistema"
-          ? `${dataCorteFinal.toLocaleString("pt-BR")} (${origemCorte})`
-          : "Nunca Limpou (Desde Início)",
+        totalLimpezasAnteriores > 0
+          ? dataCorteFinal.toLocaleString("pt-BR")
+          : "Nunca Limpou",
       registrosEncontrados: todosRegistros.length,
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
 
-function normalizarTexto(texto) {
-  if (!texto) return "";
-  return texto
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+// =======================================================
+// 🔍 BUSCA DATA DE EXONERAÇÃO
+// =======================================================
+async function buscarDataExoneracao(channelId, idCidadao, token) {
+  if (!channelId) return null;
+
+  let ultimoId = null;
+
+  while (true) {
+    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
+    if (ultimoId) url += `&before=${ultimoId}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bot ${token}` },
+    });
+
+    const msgs = await res.json();
+    if (!Array.isArray(msgs) || msgs.length === 0) break;
+
+    for (const msg of msgs) {
+      ultimoId = msg.id;
+      if (JSON.stringify(msg.embeds || []).includes(idCidadao)) {
+        return new Date(msg.timestamp);
+      }
+    }
+
+    if (msgs.length < 100) break;
+  }
+
+  return null;
 }
 
+// =======================================================
+// 🔍 BUSCA MENSAGENS (SOMENTE BLOCO "PRESO")
+// =======================================================
 async function buscarMensagensDiscord(
   channelId,
   idCidadao,
@@ -173,11 +193,8 @@ async function buscarMensagensDiscord(
   let filtradas = [];
   let ultimoId = null;
   let processadas = 0;
-  if (!channelId) return [];
 
-  // Regex para garantir ID exato (não pegar 123 em 12345)
-  const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
+  if (!channelId) return [];
 
   while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
@@ -187,74 +204,49 @@ async function buscarMensagensDiscord(
       headers: { Authorization: `Bot ${token}` },
     });
 
-    if (!res.ok) break;
-
     const mensagens = await res.json();
-    if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
-      break;
+    if (!Array.isArray(mensagens) || mensagens.length === 0) break;
 
     for (const msg of mensagens) {
       processadas++;
       ultimoId = msg.id;
 
-      // Se a mensagem for anterior à data de corte (Exoneração ou Limpeza), PARA DE BUSCAR.
-      // Isso é o que impede de pegar as prisões antigas do ex-policial.
-      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
+      if (dataCorte && new Date(msg.timestamp) <= dataCorte) {
+        return filtradas;
+      }
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        // 1. Busca Ampla (Para Exoneração e Limpeza)
-        // Aqui aceitamos qualquer menção ao ID no embed
         if (buscaAmpla) {
           return JSON.stringify(embed).toLowerCase().includes(idCidadao);
         }
 
-        // 2. Busca Estrita (Para Prisões e Fianças)
-        // Mantemos a segurança de campo para evitar falsos positivos
-        // caso o ex-policial seja mencionado como advogado/testemunha HOJE.
-        const fields = embed.fields || [];
+        return (embed.fields || []).some((field) => {
+          const nome = field.name.toLowerCase();
+          const valor = field.value.toLowerCase();
 
-        // Se tiver fields, verifica se está no campo permitido
-        if (fields.length > 0) {
-          return fields.some((field) => {
-            const nome = normalizarTexto(field.name);
-            const valor = field.value || "";
-
-            // Lista Branca: Campos onde o ID do CRIMINOSO aparece
-            const whitelist = [
-              "PRESO",
-              "DETENTO",
-              "INDICIADO",
-              "REU",
-              "ACUSADO",
-              "CIDADAO",
-              "NOME",
-              "RG",
-              "PASSAPORTE",
-            ];
-
-            if (whitelist.some((w) => nome.includes(w))) {
-              return regexIdEstrita.test(valor);
-            }
-            return false;
-          });
-        }
-
-        // Fallback para descrição se não houver fields
-        if (embed.description && fields.length === 0) {
-          const desc = embed.description;
-          // Tenta achar marcador de preso
-          if (/PRESO|DETENTO|REU/i.test(desc)) {
-            // Aqui usamos regex estrita na descrição inteira se parecer ser um relatório antigo
-            return regexIdEstrita.test(desc);
+          // 🔒 SOMENTE BLOCO PRESO
+          if (nome.includes("preso")) {
+            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
+            return regexID.test(valor);
           }
-        }
 
-        return false;
+          return false;
+        });
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
     }
+
     if (mensagens.length < 100) break;
   }
+
   return filtradas;
+}
+
+// =======================================================
+function normalizar(txt) {
+  return txt
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
