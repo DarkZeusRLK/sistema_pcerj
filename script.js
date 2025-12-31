@@ -37,7 +37,7 @@ const POSICOES_LIMPEZA = {
 const PRECOS = {
   GLOCK: { arma: 700000, laudo: 450000, municao: 100000 },
   MP5: { arma: 900000, laudo: 500000, municao: 100000 },
-  TASER: { arma: 100000, laudo: 500000, municao: 0 },
+  TASER: { arma: 1000000, laudo: 500000, municao: 0 },
 };
 
 let dbPortes = [];
