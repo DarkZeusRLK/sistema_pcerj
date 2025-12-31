@@ -166,26 +166,38 @@ async function buscarMensagensDiscord(
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        if (buscaAmpla) {
-          return JSON.stringify(embed).toLowerCase().includes(idCidadao);
-        }
-        return (embed.fields || []).some((field) => {
-          const nome = field.name.toLowerCase();
-          const valor = field.value.toLowerCase();
-          if (nome.includes("preso") || nome.includes("cidadao")) {
-            // Busca estrita: só consideramos o campo como ocorrência do preso se
-            // o ID aparecer junto a rótulos que indicam ser o identificador
-            // do réu (ex: "RG", "Passaporte", "ID"). Isso evita pegar IDs
-            // de oficiais que aparecem em outros campos como "Participantes".
-            const strictPatterns = [
-              new RegExp(`rg\\D*${idCidadao}(\\D|$)`, "i"),
-              new RegExp(`passaport(?:e)?\\D*${idCidadao}(\\D|$)`, "i"),
-              new RegExp(`\bid\\D*${idCidadao}(\\D|$)`, "i"),
-            ];
+        const fields = embed.fields || [];
+        // Encontra o índice do campo 'Preso' ou 'Cidadao' (a partir daqui é relevante)
+        const startIndex = fields.findIndex((f) => {
+          const nome = String(f.name || "").toLowerCase();
+          const nomeNorm = nome.normalize
+            ? nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            : nome;
+          return nomeNorm.includes("preso") || nomeNorm.includes("cidadao");
+        });
 
-            return strictPatterns.some((p) => p.test(valor));
-          }
-          return false;
+        if (startIndex === -1) return false; // não há seção 'Preso' neste embed
+
+        const relevant = fields.slice(startIndex);
+
+        if (buscaAmpla) {
+          // Busca ampla ainda respeita escopo: só dentro da seção 'Preso' em diante
+          return JSON.stringify(relevant)
+            .toLowerCase()
+            .includes(idCidadao.toLowerCase());
+        }
+
+        // Padrões estritos que indicam o ID do réu (RG / Passaporte / ID). Aplicar apenas
+        // sobre os campos relevantes encontrados.
+        const strictPatterns = [
+          new RegExp(`rg\\D*${idCidadao}(\\D|$)`, "i"),
+          new RegExp(`passaport(?:e)?\\D*${idCidadao}(\\D|$)`, "i"),
+          new RegExp(`\\bid\\D*${idCidadao}(\\D|$)`, "i"),
+        ];
+
+        return relevant.some((f) => {
+          const valor = String(f.value || "").toLowerCase();
+          return strictPatterns.some((p) => p.test(valor));
         });
       });
 
