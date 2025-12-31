@@ -1248,9 +1248,11 @@ async function verificarPermissaoRelatorio() {
   }
 }
 
+// protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA (AUDITORIA BLINDADA)
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES
 // =========================================================
+
 window.verificarConformidadePortes = async function () {
   console.log("🔍 Auditoria: Iniciando varredura...");
 
@@ -1259,22 +1261,14 @@ window.verificarConformidadePortes = async function () {
 
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // Tenta pegar a tabela pelo ID correto (verifica os dois possíveis)
+  // Tenta pegar a tabela (verifica os dois IDs possíveis)
   const corpoTabela =
     document.getElementById("lista-ativos-para-revogar") ||
     document.getElementById("corpo-revogacao");
-
-  if (!corpoTabela) {
-    console.error("Tabela de revogação não encontrada!");
-    if (statusAuditoria) statusAuditoria.classList.add("hidden");
-    return;
-  }
-
-  const linhas = corpoTabela.querySelectorAll("tr");
+  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
   // Validação: Verifica se existem linhas com dados
   const temDadosReais = Array.from(linhas).some((linha) => {
-    // Garante que a célula existe antes de ler
     const celula = linha.cells[1];
     return celula && celula.innerText.trim().length > 0;
   });
@@ -1293,7 +1287,6 @@ window.verificarConformidadePortes = async function () {
   let errosApi = 0;
 
   for (const linha of linhas) {
-    // Proteção contra linhas vazias ou cabeçalhos mal formatados
     if (!linha.cells || linha.cells.length < 2) continue;
 
     const idCidadao = linha.cells[1].innerText.trim();
@@ -1312,79 +1305,72 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // === TRAVA DE SEGURANÇA (CORREÇÃO DO ERRO) ===
-      // Se a API retornou erro, pula este cidadão e não tenta formatar nada
+      // PROTEÇÃO CONTRA ERRO DE API (Erro 500, Timeout, etc)
       if (!res.ok || data.error) {
-        console.warn(
-          `⚠️ Erro na API para ID ${idCidadao}:`,
-          data.error || "Erro desconhecido"
-        );
+        console.warn(`⚠️ Erro API ID ${idCidadao}:`, data.error);
         errosApi++;
-        continue; // Pula para o próximo loop
+        continue; // Pula este cidadão, não trava o loop
       }
 
-      // Se chegou aqui, os dados existem. Podemos usar toLocaleString com segurança.
       if (data.registrosEncontrados > 0) {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
-
-        // Passamos os dados seguros para a função visual
         marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
     } catch (e) {
-      console.error(`❌ Erro de conexão ao consultar ID ${idCidadao}:`, e);
+      console.error(`❌ Erro de conexão ID ${idCidadao}:`, e);
       errosApi++;
     }
   }
 
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
 
-  // Mensagem Final
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados!`,
+      `${detectados} infratores identificados com crimes novos!`,
       "error"
     );
   } else if (errosApi > 0 && detectados === 0) {
     mostrarAlerta(
       "Atenção",
-      `Auditoria finalizada, mas ${errosApi} registros falharam na consulta (Erro API).`,
+      `Auditoria finalizada, mas ${errosApi} registros falharam na consulta.`,
       "warning"
     );
   } else {
     mostrarAlerta(
       "Auditoria Concluída",
-      `Tudo limpo! ${processados} registros verificados.`,
+      `Nenhuma irregularidade encontrada nos ${processados} registros.`,
       "success"
     );
   }
 };
 
-// Função visual atualizada para usar os dados com segurança
 function marcarLinhaComoInfrator(linha, data) {
-  linha.style.background = "rgba(255, 0, 0, 0.15)";
-  linha.style.borderLeft = "4px solid #ff4d4d";
+  // Estilo visual de perigo
+  linha.style.background = "rgba(255, 0, 0, 0.2)";
+  linha.style.borderLeft = "5px solid #ff4d4d";
 
+  // Atualiza a coluna de Status/Alerta (Coluna 4 no index)
   const celulaAlerta = linha.cells[3];
+
   if (celulaAlerta) {
-    // Formata o valor da multa com segurança (se for undefined, usa 0)
-    // O operador || 0 garante que nunca seja undefined
-    const valorMulta = data.somaMultas || 0;
+    // CORREÇÃO DO ERRO UNDEFINED: Garante que seja número ou zero
+    const valorMulta = Number(data.somaMultas || 0);
     const multaFormatada = valorMulta.toLocaleString("pt-BR");
 
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold; letter-spacing:0.5px;">FICHA SUJA</span>
-         <small style="font-size:9px; color: #ff9999; margin-top:2px;">${data.registrosEncontrados} registros novos</small>
+         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
+         <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
          <small style="font-size:8px; color: #ccc;">Multa: R$ ${multaFormatada}</small>
       </div>
     `;
   }
 
-  // Move para o topo para facilitar visualização
+  // Move o infrator para o topo da tabela
   if (linha.parentNode) {
     linha.parentNode.prepend(linha);
   }
