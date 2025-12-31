@@ -222,15 +222,18 @@ async function buscarMensagensDiscord(
         if (matchIdLabel && matchIdLabel[1] && matchIdLabel[1] === idCidadao)
           return true;
 
-        // 4) Fallback estrito: procura por um token numérico id exato depois de 'Nome'/'Preso'
-        const tokens = relevantText.match(/\b([0-9]{2,10})\b/g) || [];
-        if (tokens.includes(idCidadao)) {
-          // para evitar pegar IDs mencionados em 'Participantes' que por acaso venham
-          // depois de 'Preso', tentamos confirmar que há uma linha com 'Nome' ou 'RG' próxima
-          const contexto = relevantText.slice(0, 200); // começo da seção 'Preso'
-          if (/nome|rg|passaport/i.test(contexto)) return true;
+        // Se chegou até aqui sem casar explicitamente por rótulos, não considera
+        // como pertencente — evita falsos positivos (ex.: IDs em 'Participantes').
+        // Adiciona log para debugging quando desejado.
+        if (process.env.DEBUG_CONSULTA === "1") {
+          console.log(
+            "[consultar-ficha] não casou explicitamente no escopo 'Preso'",
+            {
+              idCidadao,
+              relevantText: relevantText.slice(0, 300),
+            }
+          );
         }
-
         return false;
       });
 
