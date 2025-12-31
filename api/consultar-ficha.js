@@ -24,14 +24,13 @@ module.exports = async (req, res) => {
     // === DATA BASE DO SISTEMA ===
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 1️⃣ BUSCAR LIMPEZAS
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
       DATA_INICIO_SISTEMA,
       100,
-      true
+      false // ✅ NUNCA true
     );
 
     let dataCorteFinal = DATA_INICIO_SISTEMA;
@@ -192,8 +191,7 @@ async function buscarMensagensDiscord(
         const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
         return regexID.test(blocoPreso);
       });
-
-      if (pertenceAoCidadao || buscaAmpla) {
+      if (pertenceAoCidadao) {
         filtradas.push(msg);
       }
     }
