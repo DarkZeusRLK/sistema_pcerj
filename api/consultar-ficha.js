@@ -9,6 +9,10 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const idCidadao = String(req.body.idCidadao || "").trim();
+  if (!idCidadao) {
+    return res.status(400).json({ error: "ID não fornecido" });
+  }
+
   const {
     Discord_Bot_Token,
     CHANNEL_PRISOES_ID,
@@ -16,50 +20,48 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
-  if (!idCidadao) {
-    return res.status(400).json({ error: "ID não fornecido" });
-  }
-
   try {
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // ================= LIMPEZAS =================
-    const mensagensLimpeza = await buscarLimpezas(
+    /* ================= LIMPEZAS ================= */
+    const limpezas = await buscarGenerico(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      DATA_INICIO_SISTEMA
+      DATA_INICIO_SISTEMA,
+      true
     );
 
-    const totalLimpezasAnteriores = mensagensLimpeza.length;
+    const totalLimpezasAnteriores = limpezas.length;
+    const dataCorteFinal =
+      limpezas.length > 0
+        ? new Date(limpezas[0].timestamp)
+        : DATA_INICIO_SISTEMA;
 
-    let dataCorteFinal = DATA_INICIO_SISTEMA;
-    if (mensagensLimpeza.length > 0) {
-      const ultima = new Date(mensagensLimpeza[0].timestamp);
-      if (ultima > dataCorteFinal) dataCorteFinal = ultima;
-    }
-
-    // ================= PRISÕES / FIANÇAS =================
-    const prisoes = await buscarPrisaoOuFianca(
+    /* ================= PRISÕES / FIANÇAS ================= */
+    const prisoes = await buscarGenerico(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorteFinal
+      dataCorteFinal,
+      false
     );
 
-    const fiancas = await buscarPrisaoOuFianca(
+    const fiancas = await buscarGenerico(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
-      dataCorteFinal
+      dataCorteFinal,
+      false
     );
 
     const registros = [...prisoes, ...fiancas];
 
+    /* ================= PROCESSAMENTO ================= */
     let somaMultas = 0;
-    let totalInafiancaveis = 0;
+    const crimesInafiancaveis = new Set();
 
-    const artigosInafiancaveis = [
+    const ARTIGOS_INAFIANCAVEIS = [
       "ART. 101",
       "ART. 102",
       "ART. 103",
@@ -78,53 +80,46 @@ module.exports = async (req, res) => {
       if (!embed) return;
 
       embed.fields?.forEach((f) => {
-        const nome = normalizar(f.name);
-        const valor = normalizar(f.value);
+        const texto = normalizar(`${f.name} ${f.value}`);
 
-        // 💰 MULTA
-        if (nome.includes("SENTENCA")) {
-          const multaMatch = valor.match(/MULTA[: ]*R?\$?\s*([\d.]+)/i);
-          if (multaMatch) {
-            somaMultas += parseInt(multaMatch[1].replace(/\./g, "")) || 0;
-          }
+        /* 💰 MULTAS (procura em qualquer campo) */
+        const multaMatch = texto.match(/MULTA[: ]*R?\$?\s*([\d.]+)/);
+        if (multaMatch) {
+          somaMultas += parseInt(multaMatch[1].replace(/\./g, "")) || 0;
         }
 
-        // ⚖️ CRIMES
-        if (nome.includes("CRIMES")) {
-          const linhas = valor.split("\n");
-          linhas.forEach((linha) => {
-            artigosInafiancaveis.forEach((art) => {
-              if (linha.includes(art)) totalInafiancaveis++;
-            });
-          });
-        }
+        /* ⚖️ CRIMES */
+        ARTIGOS_INAFIANCAVEIS.forEach((art) => {
+          if (texto.includes(art)) crimesInafiancaveis.add(art);
+        });
       });
     });
 
-    // ================= CÁLCULO =================
+    /* ================= CÁLCULO ================= */
     const taxaBase = 1_000_000 + totalLimpezasAnteriores * 400_000;
-    const custoInafiancaveis = totalInafiancaveis * 400_000;
+    const custoInafiancaveis = crimesInafiancaveis.size * 400_000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
+    /* ================= RESPOSTA ================= */
     res.status(200).json({
       taxaBase,
       somaMultas,
-      totalInafiancaveis,
+      totalInafiancaveis: crimesInafiancaveis.size,
       custoInafiancaveis,
       totalGeral,
       totalLimpezasAnteriores,
       ultimaLimpeza:
-        totalLimpezasAnteriores > 0
+        limpezas.length > 0
           ? dataCorteFinal.toLocaleString("pt-BR")
           : "Nunca Limpou",
       registrosEncontrados: registros.length,
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
-// ================= FUNÇÕES =================
+/* ================= FUNÇÕES ================= */
 
 function normalizar(txt) {
   return txt
@@ -133,17 +128,6 @@ function normalizar(txt) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-// 🔹 BUSCA PRISÕES / FIANÇAS
-async function buscarPrisaoOuFianca(channelId, idCidadao, token, dataCorte) {
-  return buscarGenerico(channelId, idCidadao, token, dataCorte, false);
-}
-
-// 🔹 BUSCA LIMPEZAS
-async function buscarLimpezas(channelId, idCidadao, token, dataCorte) {
-  return buscarGenerico(channelId, idCidadao, token, dataCorte, true);
-}
-
-// 🔹 BUSCA GENÉRICA
 async function buscarGenerico(
   channelId,
   idCidadao,
@@ -174,37 +158,21 @@ async function buscarGenerico(
       if (!embed) continue;
 
       if (isLimpeza) {
-        if (normalizar(embed.title || "").includes("LIMPEZA")) {
-          if (msg.content.includes(idCidadao)) resultado.push(msg);
+        if (
+          normalizar(embed.title || "").includes("LIMPEZA") &&
+          msg.content.includes(idCidadao)
+        ) {
+          resultado.push(msg);
         }
         continue;
       }
 
-      const fields = embed.fields || [];
-      let dentroPreso = false;
+      const textoCompleto = normalizar(
+        embed.fields?.map((f) => f.value).join(" ") || ""
+      );
 
-      for (const f of fields) {
-        const nome = normalizar(f.name);
-        const valor = normalizar(f.value);
-
-        if (nome.includes("PRESO")) {
-          dentroPreso = true;
-          continue;
-        }
-
-        if (
-          nome.includes("SENTENCA") ||
-          nome.includes("CRIMES") ||
-          nome.includes("OFICIAL") ||
-          nome.includes("DETALHES")
-        ) {
-          dentroPreso = false;
-        }
-
-        if (dentroPreso && new RegExp(`\\b${idCidadao}\\b`).test(valor)) {
-          resultado.push(msg);
-          break;
-        }
+      if (new RegExp(`\\b${idCidadao}\\b`).test(textoCompleto)) {
+        resultado.push(msg);
       }
     }
 
