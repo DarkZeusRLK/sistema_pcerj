@@ -2,7 +2,6 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // Configurações de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -20,11 +19,9 @@ module.exports = async (req, res) => {
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
   try {
-    // === CONFIGURAÇÃO DE DATA INICIAL (10/12/2025) ===
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    // 1. BUSCAR ÚLTIMA LIMPEZA
-    // (Na limpeza a busca é ampla pois geralmente é apenas uma mensagem simples)
+    // 1. BUSCAR LIMPEZA (Busca Ampla permitida aqui)
     const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
@@ -44,8 +41,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 2. BUSCAR PRISÕES E FIANÇAS
-    // ATENÇÃO: buscaAmpla = false para garantir que só olhe o campo PRESO
+    // 2. BUSCAR PRISÕES E FIANÇAS (Busca ESTRITA = false)
     const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
@@ -64,7 +60,7 @@ module.exports = async (req, res) => {
     );
     const todosRegistros = [...prisoes, ...fiancas];
 
-    // 3. CÁLCULO DE MULTAS E INAFIANÇÁVEIS
+    // 3. CÁLCULO DE PENAS
     let somaMultas = 0;
     let totalInafiancaveis = 0;
 
@@ -90,19 +86,17 @@ module.exports = async (req, res) => {
         if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
           const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
           if (matchMulta && matchMulta[1]) {
-            const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
-            somaMultas += valorLimpo;
+            somaMultas += parseInt(matchMulta[1].replace(/\./g, "")) || 0;
           }
         }
 
-        // Conta Crimes Inafiançáveis
+        // Conta Crimes
         if (nomeCampo.includes("CRIMES")) {
           const linhas = valorCampo.split("\n");
           linhas.forEach((linha) => {
             const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
               linha.includes(keyword)
             );
-            // Verifica tamanho mínimo para evitar falsos positivos com palavras curtas
             if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
               totalInafiancaveis++;
             }
@@ -134,7 +128,6 @@ module.exports = async (req, res) => {
   }
 };
 
-// Função auxiliar para padronizar texto (caixa alta e sem acentos)
 function normalizarTexto(texto) {
   if (!texto) return "";
   return texto
@@ -157,8 +150,7 @@ async function buscarMensagensDiscord(
 
   if (!channelId) return [];
 
-  // Regex estrita: Garante que o ID é um número isolado
-  // Evita que ID "2337" dê match dentro de "12337" ou "RG 23370"
+  // Regex para garantir que o ID é exato (não pega parte de outro número)
   const safeId = idCidadao.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regexIdEstrita = new RegExp(`(?:^|[^0-9])${safeId}(?:$|[^0-9])`);
 
@@ -169,72 +161,101 @@ async function buscarMensagensDiscord(
     const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
-
-    if (!res.ok) {
-      console.error(`Erro Discord ${res.status}: ${res.statusText}`);
-      break;
-    }
+    if (!res.ok) break;
 
     const mensagens = await res.json();
-
     if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
       break;
 
     for (const msg of mensagens) {
       processadas++;
       ultimoId = msg.id;
-
-      // Respeita a data de corte (última limpeza)
       if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
+      // Logica de Filtro
       const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
-        // --- MODO 1: LIMPEZA (Busca Ampla) ---
-        // Na limpeza, aceitamos achar o ID em qualquer lugar do embed/descrição
+        // --- MODO 1: LIMPEZA (Simples) ---
         if (buscaAmpla) {
-          const tudo = JSON.stringify(embed).toLowerCase();
-          return tudo.includes(idCidadao.toLowerCase());
+          return JSON.stringify(embed)
+            .toLowerCase()
+            .includes(idCidadao.toLowerCase());
         }
 
-        // --- MODO 2: AUDITORIA CRIMINAL (Busca Estrita) ---
+        // --- MODO 2: FICHA CRIMINAL (Blindada) ---
         const fields = embed.fields || [];
 
-        // Passo A: Identificar o campo "PRESO"
-        const campoPreso = fields.find((field) => {
-          const nomeCampo = normalizarTexto(field.name);
-          // Lista de títulos aceitos para o campo do criminoso
-          const titulosAlvo = [
-            "PRESO",
-            "DETENTO",
-            "CIDADAO",
-            "INDICIADO",
-            "REU",
-          ];
-          return titulosAlvo.some((t) => nomeCampo.includes(t));
-        });
+        // ESTRATÉGIA A: Se existem campos (Fields)
+        if (fields.length > 0) {
+          return fields.some((field) => {
+            const nomeCampo = normalizarTexto(field.name);
 
-        // Passo B: Se achou o campo PRESO, verifica se o ID está DENTRO DELE
-        if (campoPreso) {
-          const valorCampo = campoPreso.value || "";
-          // Usa regex para garantir que não é parte de outro número
-          return regexIdEstrita.test(valorCampo);
+            // 1. LISTA NEGRA: Se for campo de oficial/participante, PULA FORA
+            const titulosProibidos = [
+              "PARTICIPANTE",
+              "OFICIAL",
+              "ADVOGADO",
+              "POLICIAL",
+              "QRA",
+              "TESTEMUNHA",
+            ];
+            if (
+              titulosProibidos.some((proibido) => nomeCampo.includes(proibido))
+            ) {
+              return false;
+            }
+
+            // 2. LISTA BRANCA: Só aceita se for campo de Preso
+            const titulosPermitidos = [
+              "PRESO",
+              "DETENTO",
+              "CIDADAO",
+              "INDICIADO",
+              "REU",
+            ];
+            const ehCampoDePreso = titulosPermitidos.some((permitido) =>
+              nomeCampo.includes(permitido)
+            );
+
+            if (ehCampoDePreso) {
+              // Verifica ID apenas aqui dentro
+              const match = regexIdEstrita.test(field.value || "");
+              if (match) {
+                // DEBUG: Descomente se precisar ver no terminal
+                // console.log(`[MATCH] ID ${idCidadao} encontrado no campo '${field.name}'`);
+              }
+              return match;
+            }
+            return false;
+          });
         }
 
-        // Passo C: Fallback para embeds antigos sem Fields (apenas Description)
-        // MAS CUIDADO: Só aceita se NÃO tiver fields de "Oficial/Participantes"
-        // Se tiver fields e não achou "Preso", ignoramos para não pegar o ID do oficial
+        // ESTRATÉGIA B: Se NÃO tem campos (Layout antigo/Descrição pura)
+        // Só executa se fields.length === 0 para evitar falsos positivos
         if (embed.description && fields.length === 0) {
-          return regexIdEstrita.test(embed.description);
+          const desc = embed.description;
+
+          // Tenta encontrar onde começa a parte do preso
+          // Procura por "Preso" ou "Detento"
+          const matchInicioPreso = desc.match(
+            /(?:\n|^).*(?:PRESO|DETENTO|INDICIADO|REU).*/i
+          );
+
+          if (matchInicioPreso) {
+            // Corta o texto: Pega apenas do índice encontrado para frente
+            // Isso descarta o topo da mensagem onde ficam os oficiais
+            const textoRelevante = desc.substring(matchInicioPreso.index);
+            return regexIdEstrita.test(textoRelevante);
+          }
+
+          // Se não achou separação clara, NÃO considera (segurança para oficiais)
+          return false;
         }
 
-        // Se tem fields (ex: Oficial, Participantes) mas não achou o campo PRESO,
-        // ou achou o campo PRESO mas o ID não estava lá => RETORNA FALSO.
-        // Isso garante que se o ID estiver em "Participantes", retorna false.
         return false;
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
     }
-    // Proteção de loop infinito
     if (mensagens.length < 100) break;
   }
   return filtradas;
