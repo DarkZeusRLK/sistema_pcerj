@@ -203,15 +203,35 @@ async function buscarMensagensDiscord(
           return relevantText.includes(idCidadao.toLowerCase());
         }
 
-        // Padrões estritos que indicam o ID do réu (RG / Passaporte / ID).
-        const strictPatterns = [
-          new RegExp(`rg\\D*${idEsc}(\\D|$)`, "i"),
-          new RegExp(`passaport(?:e)?\\D*${idEsc}(\\D|$)`, "i"),
-          new RegExp(`\\bid\\D*${idEsc}(\\D|$)`, "i"),
-          // alguns formatos usam 'RG: 30013' ou 'RG:30013' — o padrão acima cobre ambos
-        ];
+        // Extração explícita de identificadores na seção 'Preso'
+        // 1) Procura por 'RG: 12345' ou 'RG 12345' (com ou sem acentos/formatos)
+        const matchRg = relevantText.match(/rg\s*[:\-\s`]*([0-9]{2,10})/i);
+        if (matchRg && matchRg[1] && matchRg[1] === idCidadao) return true;
 
-        return strictPatterns.some((p) => p.test(relevantText));
+        // 2) Procura por 'Passaporte: 12345' (variações)
+        const matchPass = relevantText.match(
+          /passaport(?:e)?\s*[:\-\s`]*([0-9]{2,10})/i
+        );
+        if (matchPass && matchPass[1] && matchPass[1] === idCidadao)
+          return true;
+
+        // 3) Procura por 'ID: 12345' ou '`12345`' no escopo 'Preso'
+        const matchIdLabel = relevantText.match(
+          /\bid\s*[:\-\s`]*([0-9]{2,10})/i
+        );
+        if (matchIdLabel && matchIdLabel[1] && matchIdLabel[1] === idCidadao)
+          return true;
+
+        // 4) Fallback estrito: procura por um token numérico id exato depois de 'Nome'/'Preso'
+        const tokens = relevantText.match(/\b([0-9]{2,10})\b/g) || [];
+        if (tokens.includes(idCidadao)) {
+          // para evitar pegar IDs mencionados em 'Participantes' que por acaso venham
+          // depois de 'Preso', tentamos confirmar que há uma linha com 'Nome' ou 'RG' próxima
+          const contexto = relevantText.slice(0, 200); // começo da seção 'Preso'
+          if (/nome|rg|passaport/i.test(contexto)) return true;
+        }
+
+        return false;
       });
 
       if (pertenceAoCidadao) filtradas.push(msg);
