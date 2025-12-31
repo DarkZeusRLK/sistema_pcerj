@@ -9,10 +9,6 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const idCidadao = String(req.body.idCidadao || "").trim();
-  if (!idCidadao) {
-    return res.status(400).json({ error: "ID não fornecido" });
-  }
-
   const {
     Discord_Bot_Token,
     CHANNEL_PRISOES_ID,
@@ -20,164 +16,177 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
   } = process.env;
 
+  if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
+
   try {
+    // === CONFIGURAÇÃO DE DATA INICIAL (10/12/2025) ===
     const DATA_INICIO_SISTEMA = new Date("2025-12-10T00:00:00");
 
-    /* ================= LIMPEZAS ================= */
-    const limpezas = await buscarGenerico(
+    // 1. BUSCAR ÚLTIMA LIMPEZA (A partir do dia 10/12)
+    const mensagensLimpeza = await buscarMensagensDiscord(
       CHANNEL_LIMPEZA_ID,
       idCidadao,
       Discord_Bot_Token,
-      DATA_INICIO_SISTEMA,
+      DATA_INICIO_SISTEMA, // Ignora limpezas antes do dia 10
+      100,
       true
     );
 
-    const totalLimpezasAnteriores = limpezas.length;
-    const dataCorteFinal =
-      limpezas.length > 0
-        ? new Date(limpezas[0].timestamp)
-        : DATA_INICIO_SISTEMA;
+    // Define o corte: ou a data da limpeza mais recente, ou o dia 10/12
+    let dataCorteFinal = DATA_INICIO_SISTEMA;
+    let totalLimpezasAnteriores = mensagensLimpeza.length;
 
-    /* ================= PRISÕES / FIANÇAS ================= */
-    const prisoes = await buscarGenerico(
+    if (totalLimpezasAnteriores > 0) {
+      const dataRecenteLimpeza = new Date(mensagensLimpeza[0].timestamp);
+      if (dataRecenteLimpeza > dataCorteFinal) {
+        dataCorteFinal = dataRecenteLimpeza;
+      }
+    }
+
+    // 2. BUSCAR PRISÕES E FIANÇAS (Limite aumentado para 2000 para cobrir o histórico)
+    const prisoes = await buscarMensagensDiscord(
       CHANNEL_PRISOES_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
+      2000,
       false
     );
-
-    const fiancas = await buscarGenerico(
+    const fiancas = await buscarMensagensDiscord(
       CHANNEL_FIANCAS_ID,
       idCidadao,
       Discord_Bot_Token,
       dataCorteFinal,
+      2000,
       false
     );
+    const todosRegistros = [...prisoes, ...fiancas];
 
-    const registros = [...prisoes, ...fiancas];
-
-    /* ================= PROCESSAMENTO ================= */
     let somaMultas = 0;
-    const crimesInafiancaveis = new Set();
+    let totalInafiancaveis = 0;
 
-    const ARTIGOS_INAFIANCAVEIS = [
-      "ART. 101",
-      "ART. 102",
-      "ART. 103",
-      "ART. 104",
-      "ART. 105",
-      "ART. 106",
-      "ART. 110",
-      "ART. 150",
-      "ART. 159",
-      "ART. 160",
-      "ART. 161",
+    const listaKeywordsInafiancaveis = [
+      "DESACATO",
+      "ASSEDIO",
+      "AZARALHAMENTO",
+      "AGRESSAO",
+      "PREVARICACAO",
+      "HOMICIDIO",
+      "SEQUESTRO",
     ];
 
-    registros.forEach((msg) => {
-      const embed = msg.embeds?.[0];
-      if (!embed) return;
+    todosRegistros.forEach((msg) => {
+      if (!msg.embeds || msg.embeds.length === 0) return;
+      const embed = msg.embeds[0];
 
       embed.fields?.forEach((f) => {
-        const texto = normalizar(`${f.name} ${f.value}`);
+        const nomeCampo = f.name
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const valorCampo = f.value
+          .toUpperCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
 
-        /* 💰 MULTAS (procura em qualquer campo) */
-        const multaMatch = texto.match(/MULTA[: ]*R?\$?\s*([\d.]+)/);
-        if (multaMatch) {
-          somaMultas += parseInt(multaMatch[1].replace(/\./g, "")) || 0;
+        if (nomeCampo.includes("SENTENCA") || nomeCampo.includes("MULTA")) {
+          const matchMulta = f.value.match(/Multa[:\* \s]+R?\$?\s*([\d.]+)/i);
+          if (matchMulta && matchMulta[1]) {
+            const valorLimpo = parseInt(matchMulta[1].replace(/\./g, "")) || 0;
+            somaMultas += valorLimpo;
+          }
         }
 
-        /* ⚖️ CRIMES */
-        ARTIGOS_INAFIANCAVEIS.forEach((art) => {
-          if (texto.includes(art)) crimesInafiancaveis.add(art);
-        });
+        if (nomeCampo.includes("CRIMES")) {
+          const linhas = valorCampo.split("\n");
+          linhas.forEach((linha) => {
+            const ehInafiancavel = listaKeywordsInafiancaveis.some((keyword) =>
+              linha.includes(keyword)
+            );
+            if (ehInafiancavel && linha.replace(/[*`\s]/g, "").length > 3) {
+              totalInafiancaveis++;
+            }
+          });
+        }
       });
     });
 
-    /* ================= CÁLCULO ================= */
-    const taxaBase = 1_000_000 + totalLimpezasAnteriores * 400_000;
-    const custoInafiancaveis = crimesInafiancaveis.size * 400_000;
+    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
+    const custoInafiancaveis = totalInafiancaveis * 400000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
-    /* ================= RESPOSTA ================= */
     res.status(200).json({
       taxaBase,
       somaMultas,
-      totalInafiancaveis: crimesInafiancaveis.size,
+      totalInafiancaveis,
       custoInafiancaveis,
       totalGeral,
       totalLimpezasAnteriores,
       ultimaLimpeza:
-        limpezas.length > 0
+        totalLimpezasAnteriores > 0
           ? dataCorteFinal.toLocaleString("pt-BR")
-          : "Nunca Limpou",
-      registrosEncontrados: registros.length,
+          : "Nunca Limpou (Busca desde 10/12)",
+      registrosEncontrados: todosRegistros.length,
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
-/* ================= FUNÇÕES ================= */
-
-function normalizar(txt) {
-  return txt
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-async function buscarGenerico(
+async function buscarMensagensDiscord(
   channelId,
   idCidadao,
   token,
   dataCorte,
-  isLimpeza
+  limite,
+  buscaAmpla = false
 ) {
-  let resultado = [];
+  let filtradas = [];
   let ultimoId = null;
+  let processadas = 0;
+  if (!channelId) return [];
 
-  while (true) {
+  while (processadas < limite) {
     let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
     if (ultimoId) url += `&before=${ultimoId}`;
 
     const res = await fetch(url, {
       headers: { Authorization: `Bot ${token}` },
     });
+    const mensagens = await res.json();
 
-    const msgs = await res.json();
-    if (!Array.isArray(msgs) || msgs.length === 0) break;
+    if (!mensagens || !Array.isArray(mensagens) || mensagens.length === 0)
+      break;
 
-    for (const msg of msgs) {
+    for (const msg of mensagens) {
+      processadas++;
       ultimoId = msg.id;
 
-      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return resultado;
+      // Se a mensagem for anterior ou igual à data de corte, para a busca
+      if (dataCorte && new Date(msg.timestamp) <= dataCorte) return filtradas;
 
-      const embed = msg.embeds?.[0];
-      if (!embed) continue;
-
-      if (isLimpeza) {
-        if (
-          normalizar(embed.title || "").includes("LIMPEZA") &&
-          msg.content.includes(idCidadao)
-        ) {
-          resultado.push(msg);
+      const pertenceAoCidadao = (msg.embeds || []).some((embed) => {
+        if (buscaAmpla) {
+          return JSON.stringify(embed).toLowerCase().includes(idCidadao);
         }
-        continue;
-      }
 
-      const textoCompleto = normalizar(
-        embed.fields?.map((f) => f.value).join(" ") || ""
-      );
+        return (embed.fields || []).some((field) => {
+          const nome = field.name.toLowerCase();
+          const valor = field.value.toLowerCase();
 
-      if (new RegExp(`\\b${idCidadao}\\b`).test(textoCompleto)) {
-        resultado.push(msg);
-      }
+          // ✅ SOMENTE se estiver no bloco "Preso"
+          if (nome.includes("preso")) {
+            const regexID = new RegExp(`(\\D|^)${idCidadao}(\\D|$)`);
+            return regexID.test(valor);
+          }
+
+          return false;
+        });
+      });
+
+      if (pertenceAoCidadao) filtradas.push(msg);
     }
-
-    if (msgs.length < 100) break;
+    if (mensagens.length < 100) break;
   }
-
-  return resultado;
+  return filtradas;
 }
