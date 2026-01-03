@@ -51,7 +51,7 @@
           <li id="menu-revogacao" onclick="navegar('revogacao')">
             <i class="fa-solid fa-ban"></i> Revogações
           </li>
-          <li class="nav-item" onclick="mostrarSecao('recompra')">
+          <li class="nav-item" onclick="navegar('recompra')">
             <i class="fa-solid fa-arrows-rotate"></i>
             <span>Recompra</span>
           </li>
@@ -382,7 +382,7 @@
           </table>
         </div>
       </section>
-      <section id="section-recompra" class="app-section hidden">
+      <section id="sec-recompra" class="screen hidden">
         <header class="section-header">
           <h2><i class="fa-solid fa-toolbox"></i> Recompra de Equipamentos</h2>
           <p>Selecione um porte ativo para repor munição ou armamento.</p>
@@ -398,33 +398,37 @@
           </button>
         </div>
 
-        <div id="lista-portes-recompra" class="grid-cards hidden" style="margin-top: 20px;">
-        </div>
+        <div id="lista-portes-recompra" class="grid-cards hidden" style="margin-top: 20px;"></div>
 
         <div id="form-recompra-detalhes" class="glass-panel hidden" style="margin-top: 20px; border-left: 4px solid var(--gold-accent);">
           <h3 style="margin-bottom: 15px; color: var(--gold-accent);">Finalizar Recompra</h3>
-          <p id="recompra-arma-selecionada" style="margin-bottom: 10px; font-weight: bold;">Arma: ...</p>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <span id="recompra-arma-display" style="font-weight: bold; font-size: 18px;">Arma Selecionada</span>
+            <span id="recompra-preco-base" style="color: #ccc;">Valor Base: R$ 0</span>
+          </div>
 
           <div class="checkbox-group" style="display: flex; gap: 20px; margin-bottom: 20px;">
-            <label style="cursor: pointer;">
+            <label style="cursor: pointer;" id="lbl-municao">
               <input type="checkbox" id="chk-municao" onchange="calcularTotalRecompra()">
-              Recompra de Munição
+              Munição (+ R$ 100.000)
             </label>
+
             <label style="cursor: pointer;">
               <input type="checkbox" id="chk-arma" onchange="calcularTotalRecompra()">
-              Recompra de Arma (Perda/Roubo)
+              Arma Completa (Perda/Roubo)
             </label>
           </div>
 
           <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="display: flex; justify-content: space-between;">
-              <span>Valor Total:</span>
-              <span id="recompra-valor-total" style="color: #4cd137; font-weight: bold;">R$ 0</span>
+              <span>Valor Total a Pagar:</span>
+              <span id="recompra-valor-total" style="color: #4cd137; font-weight: bold; font-size: 20px;">R$ 0</span>
             </div>
           </div>
 
           <button class="btn-primary" style="width: 100%;" onclick="emitirRecompra()">
-            <i class="fa-solid fa-check"></i> Registrar Recompra
+            <i class="fa-solid fa-cart-shopping"></i> Registrar Recompra
           </button>
         </div>
       </section>
