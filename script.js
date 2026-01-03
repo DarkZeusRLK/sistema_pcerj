@@ -1523,6 +1523,9 @@ function calcularTotalRecompra() {
 // ==========================================
 // 5. Função de Emissão (Embed Padronizado)
 // ==========================================
+// ==========================================
+// 5. Função de Emissão (Embed com Menção Correta)
+// ==========================================
 async function emitirRecompra() {
   if (!porteSelecionadoParaRecompra) return;
 
@@ -1538,9 +1541,23 @@ async function emitirRecompra() {
     );
   }
 
-  // Tenta pegar o nome do oficial logado
+  // --- CORREÇÃO DA IDENTIFICAÇÃO DO OFICIAL ---
   const sessionData = JSON.parse(localStorage.getItem("pc_session") || "{}");
-  const nomeOficial = sessionData.user || "Sistema";
+
+  // 1. Tenta pegar o ID (Para mencionar no Discord)
+  // Verifica se o ID está na raiz ou dentro de um objeto 'user'
+  const idOficial = sessionData.id || (sessionData.user && sessionData.user.id);
+
+  // 2. Tenta pegar o Nome (Para escrever na imagem)
+  const nomeVisual =
+    sessionData.global_name ||
+    sessionData.username ||
+    (sessionData.user && sessionData.user.username) ||
+    "Oficial";
+
+  // 3. Cria a string de menção: Se tiver ID, usa <@ID>, senão usa o nome texto
+  const mencaoOficial = idOficial ? `<@${idOficial}>` : `\`${nomeVisual}\``;
+  // ---------------------------------------------
 
   // Recalcula total internamente
   let total = 0;
@@ -1584,8 +1601,9 @@ async function emitirRecompra() {
   let y = 350;
   ctx.fillStyle = "#D4AF37";
   ctx.fillText("Oficial:", 100, y);
+  // Na imagem escrevemos o NOME VISUAL (Texto), pois imagem não aceita menção
   ctx.fillStyle = "#FFF";
-  ctx.fillText(nomeOficial, 400, y);
+  ctx.fillText(nomeVisual, 400, y);
 
   y += 100;
   ctx.fillStyle = "#D4AF37";
@@ -1622,24 +1640,25 @@ async function emitirRecompra() {
     const formData = new FormData();
     formData.append("file", blob, "recompra.png");
 
-    // PAYLOAD PADRONIZADO (Igual aos demais)
+    // PAYLOAD
     const payload = {
       embeds: [
         {
           title: "📦 REGISTRO DE RECOMPRA",
           description: `Reposição de equipamento autorizada para porte ativo.`,
-          color: 5034295, // Verde (#4cd137)
+          color: 5034295, // Verde
           author: {
             name: "Polícia Civil do Estado do Rio de Janeiro",
-            icon_url: CONFIG.BRASAO_URL, // Usa o brasão do seu CONFIG
+            icon_url: CONFIG.BRASAO_URL,
           },
           thumbnail: {
-            url: CONFIG.BRASAO_URL, // Brasão na lateral
+            url: CONFIG.BRASAO_URL,
           },
           fields: [
+            // AQUI usamos a variável mencaoOficial que contém o <@ID>
             {
               name: "👮 Oficial Responsável",
-              value: `\`${nomeOficial}\``,
+              value: mencaoOficial,
               inline: true,
             },
             {
@@ -1647,7 +1666,7 @@ async function emitirRecompra() {
               value: `\`${idCidadao}\``,
               inline: true,
             },
-            { name: "⠀", value: "⠀", inline: false }, // Espaçador
+            { name: "⠀", value: "⠀", inline: false },
             {
               name: "🔫 Armamento Base",
               value: `**${porteSelecionadoParaRecompra.arma}**`,
@@ -1665,9 +1684,9 @@ async function emitirRecompra() {
             },
           ],
           image: {
-            url: "attachment://recompra.png", // Anexa a imagem do canvas
+            url: "attachment://recompra.png",
           },
-          footer: FOOTER_PADRAO, // Usa o rodapé do seu CONFIG
+          footer: FOOTER_PADRAO,
           timestamp: new Date().toISOString(),
         },
       ],
