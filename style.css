@@ -1025,59 +1025,280 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-bottom: 20px;
 }
 /* =========================================
-   AJUSTES DE ESPAÇAMENTO (RECOMPRA)
+   ESTILOS DA ABA RECOMPRA
    ========================================= */
 
-/* 1. Container da Busca (Input + Botão) */
-#sec-recompra .search-box-container {
-  display: flex;
-  align-items: flex-end; /* Alinha o botão com a parte de baixo do input */
-  gap: 25px; /* AUMENTA A DISTÂNCIA ENTRE O INPUT E O BOTÃO */
-  padding: 30px;
-  margin-bottom: 30px;
-  flex-wrap: wrap; /* Garante que não quebre em telas pequenas */
+#lista-portes-recompra {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  margin-top: 25px;
 }
 
-/* 2. O Grupo do Input (Label + Campo) */
-#sec-recompra .form-group {
+.card-porte-item {
+  background: rgba(30, 30, 30, 0.6);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Distância entre o texto "ID do Agente" e o campo de digitar */
+  gap: 10px;
 }
 
-/* 3. O Campo de Digitação (Input) */
-#sec-recompra input[type="number"] {
-  height: 50px; /* Mesma altura do botão */
-  padding-left: 45px; /* Espaço para o ícone */
+.card-porte-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 215, 0, 0.03) 100%
+  );
+  pointer-events: none;
 }
 
-/* 4. Títulos e Textos da Página */
-#sec-recompra .section-header h2 {
-  margin-bottom: 15px; /* Afasta o Título do parágrafo */
+.card-porte-item:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 215, 0, 0.4);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
 
-#sec-recompra .section-header p {
-  margin-bottom: 35px; /* Afasta o texto explicativo da caixa de busca */
-  line-height: 1.6; /* Melhora a leitura do texto */
-  color: #ccc;
-  font-size: 1.05rem;
+.card-porte-item.selected {
+  background: rgba(255, 215, 0, 0.08);
+  border: 2px solid var(--gold-accent);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
 }
 
-/* 5. Painel de Detalhes (Parte inferior) */
+.card-porte-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-porte-title {
+  color: var(--gold-accent);
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-ativo {
+  font-size: 0.75rem;
+  background: rgba(76, 209, 55, 0.15);
+  color: #4cd137;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .recompra-details-panel {
-  padding: 35px; /* Mais espaço interno */
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid var(--gold-accent);
+  border-radius: 8px;
+  padding: 25px;
+  margin-top: 30px;
+  backdrop-filter: blur(10px);
 }
 
 .recompra-header-info {
-  margin-bottom: 30px; /* Afasta o título da arma dos checkboxes */
-  padding-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Texto descritivo da arma */
-#recompra-arma-display {
-  margin-top: 8px;
-  font-size: 1.3rem; /* Aumenta um pouco o nome da arma */
-  letter-spacing: 0.5px;
+.recompra-header-info h3 {
+  color: var(--gold-accent);
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.recompra-base-price {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.checkbox-group-styled {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.custom-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  padding: 12px 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 200px;
+}
+
+.custom-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.custom-checkbox-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: relative;
+  height: 22px;
+  width: 22px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 2px solid #555;
+  border-radius: 4px;
+  margin-right: 12px;
+  transition: all 0.2s;
+}
+
+.custom-checkbox-label input:checked ~ .checkmark {
+  background-color: var(--gold-accent);
+  border-color: var(--gold-accent);
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 7px;
+  top: 3px;
+  width: 5px;
+  height: 10px;
+  border: solid black;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.custom-checkbox-label input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-text {
+  font-weight: 500;
+  color: #eee;
+}
+
+.checkbox-price {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--gold-accent);
+  margin-top: 2px;
+}
+
+.recompra-summary-box {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-label {
+  font-size: 1.1rem;
+  color: #ccc;
+}
+
+.summary-total {
+  color: #4cd137;
+  font-weight: bold;
+  font-size: 1.8rem;
+  text-shadow: 0 0 10px rgba(76, 209, 55, 0.3);
+}
+
+/* =========================================
+   NOVO: CORREÇÃO DE ESPAÇAMENTO E MENU ATIVO
+   ========================================= */
+
+/* 1. Ajuste do Menu Lateral (Ficar Amarelo) */
+/* Quando a classe .active é adicionada pelo JS, isso aplica a cor */
+.nav-links li.active,
+.sidebar ul li.active {
+  color: var(--gold-accent) !important;
+  border-left: 3px solid var(--gold-accent); /* Detalhe lateral */
+  background: rgba(255, 215, 0, 0.05); /* Fundo leve */
+}
+
+.nav-links li.active i,
+.sidebar ul li.active i {
+  color: var(--gold-accent) !important;
+}
+
+/* 2. Ajuste de Espaçamento do Formulário de Busca */
+#sec-recompra .search-box-container {
+  display: flex;
+  align-items: flex-end; /* Alinha o botão com a parte de baixo do input */
+  gap: 20px; /* DISTÂNCIA IMPORTANTE entre Input e Botão */
+  flex-wrap: wrap;
+  background: rgba(20, 20, 20, 0.5);
+  padding: 25px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 30px;
+}
+
+/* O container do Label + Input */
+#sec-recompra .form-group {
+  flex: 1; /* Ocupa todo espaço disponível menos o do botão */
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Espaço entre o texto "ID do Agente" e o campo */
+  min-width: 250px;
+}
+
+/* O Campo de Digitação */
+#sec-recompra input[type="number"] {
+  height: 50px; /* Altura exata para alinhar com botão */
+  width: 100%;
+  padding-left: 45px; /* Espaço para o ícone */
+}
+
+/* O Botão de Consultar */
+#sec-recompra button.btn-primary {
+  height: 50px; /* Mesma altura do input */
+  padding: 0 30px;
+  white-space: nowrap; /* Impede que o texto quebre */
+}
+
+/* Espaçamento dos Textos do Topo */
+#sec-recompra .section-header h2 {
+  margin-bottom: 10px;
+}
+#sec-recompra .section-header p {
+  margin-bottom: 25px;
+  color: #ccc;
+  line-height: 1.5;
 }
 /* =========================================
    LOADING OVERLAY
