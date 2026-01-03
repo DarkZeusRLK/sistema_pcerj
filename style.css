@@ -1025,233 +1025,59 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin-bottom: 20px;
 }
 /* =========================================
-   ESTILOS DA ABA RECOMPRA
+   AJUSTES DE ESPAÇAMENTO (RECOMPRA)
    ========================================= */
 
-/* Container dos resultados da busca */
-#lista-portes-recompra {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(280px, 1fr)
-  ); /* Cards responsivos */
-  gap: 15px;
-  margin-top: 25px;
+/* 1. Container da Busca (Input + Botão) */
+#sec-recompra .search-box-container {
+  display: flex;
+  align-items: flex-end; /* Alinha o botão com a parte de baixo do input */
+  gap: 25px; /* AUMENTA A DISTÂNCIA ENTRE O INPUT E O BOTÃO */
+  padding: 30px;
+  margin-bottom: 30px;
+  flex-wrap: wrap; /* Garante que não quebre em telas pequenas */
 }
 
-/* Estilo do Card de Porte */
-.card-porte-item {
-  background: rgba(30, 30, 30, 0.6); /* Fundo escuro translúcido */
-  border: 1px solid rgba(255, 215, 0, 0.15); /* Borda dourada sutil */
-  border-radius: 8px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
+/* 2. O Grupo do Input (Label + Campo) */
+#sec-recompra .form-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px; /* Distância entre o texto "ID do Agente" e o campo de digitar */
 }
 
-/* Efeito sutil de "tech" no fundo do card */
-.card-porte-item::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    rgba(255, 215, 0, 0.03) 100%
-  );
-  pointer-events: none;
+/* 3. O Campo de Digitação (Input) */
+#sec-recompra input[type="number"] {
+  height: 50px; /* Mesma altura do botão */
+  padding-left: 45px; /* Espaço para o ícone */
 }
 
-/* Hover no card */
-.card-porte-item:hover {
-  transform: translateY(-3px);
-  border-color: rgba(255, 215, 0, 0.4);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+/* 4. Títulos e Textos da Página */
+#sec-recompra .section-header h2 {
+  margin-bottom: 15px; /* Afasta o Título do parágrafo */
 }
 
-/* Card Selecionado (Ativo) */
-.card-porte-item.selected {
-  background: rgba(255, 215, 0, 0.08); /* Fundo dourado bem suave */
-  border: 2px solid var(--gold-accent);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+#sec-recompra .section-header p {
+  margin-bottom: 35px; /* Afasta o texto explicativo da caixa de busca */
+  line-height: 1.6; /* Melhora a leitura do texto */
+  color: #ccc;
+  font-size: 1.05rem;
 }
 
-/* Header do Card */
-.card-porte-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-porte-title {
-  color: var(--gold-accent);
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Badge de Status */
-.badge-ativo {
-  font-size: 0.75rem;
-  background: rgba(76, 209, 55, 0.15);
-  color: #4cd137;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Painel de Detalhes (Formulário) */
+/* 5. Painel de Detalhes (Parte inferior) */
 .recompra-details-panel {
-  background: rgba(20, 20, 20, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid var(--gold-accent);
-  border-radius: 8px;
-  padding: 25px;
-  margin-top: 30px;
-  backdrop-filter: blur(10px);
+  padding: 35px; /* Mais espaço interno */
 }
 
 .recompra-header-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 30px; /* Afasta o título da arma dos checkboxes */
+  padding-bottom: 20px;
 }
 
-.recompra-header-info h3 {
-  color: var(--gold-accent);
-  margin: 0;
-  font-size: 1.4rem;
-}
-
-.recompra-base-price {
-  color: #aaa;
-  font-size: 0.9rem;
-}
-
-/* Checkboxes Personalizados (Mais profissionais) */
-.checkbox-group-styled {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 25px;
-}
-
-.custom-checkbox-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  position: relative;
-  padding: 12px 15px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  transition: all 0.2s;
-  flex: 1;
-  min-width: 200px;
-}
-
-.custom-checkbox-label:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-/* Esconde o checkbox nativo */
-.custom-checkbox-label input[type="checkbox"] {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-  height: 0;
-  width: 0;
-}
-
-/* Cria o quadrado do checkbox personalizado */
-.checkmark {
-  position: relative;
-  height: 22px;
-  width: 22px;
-  background-color: rgba(0, 0, 0, 0.3);
-  border: 2px solid #555;
-  border-radius: 4px;
-  margin-right: 12px;
-  transition: all 0.2s;
-}
-
-/* Quando marcado */
-.custom-checkbox-label input:checked ~ .checkmark {
-  background-color: var(--gold-accent);
-  border-color: var(--gold-accent);
-}
-
-/* Ícone de check */
-.checkmark:after {
-  content: "";
-  position: absolute;
-  display: none;
-  left: 7px;
-  top: 3px;
-  width: 5px;
-  height: 10px;
-  border: solid black;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.custom-checkbox-label input:checked ~ .checkmark:after {
-  display: block;
-}
-
-.checkbox-text {
-  font-weight: 500;
-  color: #eee;
-}
-
-.checkbox-price {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--gold-accent);
-  margin-top: 2px;
-}
-
-/* Área de Total Financeiro */
-.recompra-summary-box {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.summary-label {
-  font-size: 1.1rem;
-  color: #ccc;
-}
-
-.summary-total {
-  color: #4cd137; /* Verde dinheiro */
-  font-weight: bold;
-  font-size: 1.8rem;
-  text-shadow: 0 0 10px rgba(76, 209, 55, 0.3);
+/* Texto descritivo da arma */
+#recompra-arma-display {
+  margin-top: 8px;
+  font-size: 1.3rem; /* Aumenta um pouco o nome da arma */
+  letter-spacing: 0.5px;
 }
 /* =========================================
    LOADING OVERLAY
