@@ -1520,6 +1520,9 @@ function calcularTotalRecompra() {
 }
 
 // 5. Função de Emissão
+// ==========================================
+// 5. Função de Emissão (Embed Padronizado)
+// ==========================================
 async function emitirRecompra() {
   if (!porteSelecionadoParaRecompra) return;
 
@@ -1535,46 +1538,56 @@ async function emitirRecompra() {
     );
   }
 
+  // Tenta pegar o nome do oficial logado
+  const sessionData = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  const nomeOficial = sessionData.user || "Sistema";
+
   // Recalcula total internamente
   let total = 0;
   if (chkMunicao) total += PRECOS_RECOMPRA.MUNICAO;
   if (chkArma) total += porteSelecionadoParaRecompra.precoBaseArma;
 
-  // Monta texto do recibo
+  // Monta texto dos itens
   let itens = [];
   if (chkArma) itens.push(`Armamento (${porteSelecionadoParaRecompra.arma})`);
   if (chkMunicao) itens.push("Recarga de Munição");
-  const resumoItens = itens.join(" + ");
+  const resumoItens = itens.join("\n+ ");
 
-  // Ativa loading (Se você adicionou a função mostrarCarregando)
+  // Ativa loading
   if (typeof mostrarCarregando === "function") mostrarCarregando(true);
 
-  // --- GERAR CANVAS ---
+  // --- GERAR CANVAS (O Recibo Visual) ---
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   canvas.width = 1080;
   canvas.height = 1080;
 
-  // Fundo
+  // Fundo Preto
   ctx.fillStyle = "#121212";
   ctx.fillRect(0, 0, 1080, 1080);
 
-  // Faixa
+  // Faixa Topo Dourada
   ctx.fillStyle = "#D4AF37";
   ctx.fillRect(0, 0, 1080, 180);
 
-  // Título
+  // Título Recibo
   ctx.fillStyle = "#000";
   ctx.font = "bold 70px Roboto, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("RECIBO DE RECOMPRA", 540, 115);
 
-  // Dados
+  // Conteúdo do Recibo
   ctx.fillStyle = "#FFF";
   ctx.textAlign = "left";
   ctx.font = "45px Roboto, sans-serif";
 
   let y = 350;
+  ctx.fillStyle = "#D4AF37";
+  ctx.fillText("Oficial:", 100, y);
+  ctx.fillStyle = "#FFF";
+  ctx.fillText(nomeOficial, 400, y);
+
+  y += 100;
   ctx.fillStyle = "#D4AF37";
   ctx.fillText("Cidadão:", 100, y);
   ctx.fillStyle = "#FFF";
@@ -1590,45 +1603,72 @@ async function emitirRecompra() {
   ctx.fillStyle = "#D4AF37";
   ctx.fillText("Itens:", 100, y);
   ctx.fillStyle = "#FFF";
-  ctx.fillText(resumoItens, 400, y, 600);
+  ctx.fillText(resumoItens.replace("\n", " "), 400, y, 600);
 
-  // Total
+  // Valor Gigante
   y += 200;
   ctx.textAlign = "center";
   ctx.fillStyle = "#4cd137";
   ctx.font = "bold 100px Roboto, sans-serif";
   ctx.fillText(`R$ ${total.toLocaleString("pt-BR")}`, 540, y);
 
-  // Data
+  // Data Rodapé
   ctx.fillStyle = "#666";
   ctx.font = "30px Roboto, sans-serif";
   ctx.fillText(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 540, 1020);
 
-  // Envia
+  // --- ENVIO DISCORD ---
   canvas.toBlob(async (blob) => {
     const formData = new FormData();
     formData.append("file", blob, "recompra.png");
 
+    // PAYLOAD PADRONIZADO (Igual aos demais)
     const payload = {
       embeds: [
         {
-          title: "📦 Recompra Registrada",
-          color: 3066993,
+          title: "📦 REGISTRO DE RECOMPRA",
+          description: `Reposição de equipamento autorizada para porte ativo.`,
+          color: 5034295, // Verde (#4cd137)
+          author: {
+            name: "Polícia Civil do Estado do Rio de Janeiro",
+            icon_url: CONFIG.BRASAO_URL, // Usa o brasão do seu CONFIG
+          },
+          thumbnail: {
+            url: CONFIG.BRASAO_URL, // Brasão na lateral
+          },
           fields: [
-            { name: "Cidadão", value: idCidadao, inline: true },
             {
-              name: "Arma",
-              value: porteSelecionadoParaRecompra.arma,
+              name: "👮 Oficial Responsável",
+              value: `\`${nomeOficial}\``,
               inline: true,
             },
-            { name: "Itens Adquiridos", value: resumoItens, inline: false },
             {
-              name: "Valor Total",
-              value: `R$ ${total.toLocaleString("pt-BR")}`,
+              name: "👤 Cidadão (ID)",
+              value: `\`${idCidadao}\``,
+              inline: true,
+            },
+            { name: "⠀", value: "⠀", inline: false }, // Espaçador
+            {
+              name: "🔫 Armamento Base",
+              value: `**${porteSelecionadoParaRecompra.arma}**`,
+              inline: true,
+            },
+            {
+              name: "📦 Itens Adquiridos",
+              value: `\`${resumoItens}\``,
+              inline: true,
+            },
+            {
+              name: "💰 Valor Total",
+              value: `\`R$ ${total.toLocaleString("pt-BR")}\``,
               inline: false,
             },
           ],
-          footer: { text: "Sistema de Logística Policial" },
+          image: {
+            url: "attachment://recompra.png", // Anexa a imagem do canvas
+          },
+          footer: FOOTER_PADRAO, // Usa o rodapé do seu CONFIG
+          timestamp: new Date().toISOString(),
         },
       ],
     };
@@ -1642,15 +1682,19 @@ async function emitirRecompra() {
       });
 
       if (resp.ok) {
-        mostrarAlerta("Sucesso", "Recompra registrada!", "success");
-        // Limpa
+        mostrarAlerta(
+          "Sucesso",
+          "Recompra registrada e enviada ao Discord!",
+          "success"
+        );
+        // Limpa formulário
         document.getElementById("lista-portes-recompra").innerHTML = "";
         document
           .getElementById("form-recompra-detalhes")
           .classList.add("hidden");
         document.getElementById("busca-recompra-id").value = "";
       } else {
-        mostrarAlerta("Erro", "Falha no Discord.", "error");
+        mostrarAlerta("Erro", "Falha ao enviar para o Discord.", "error");
       }
     } catch (e) {
       console.error(e);
