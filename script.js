@@ -1378,6 +1378,10 @@ const PRECOS_RECOMPRA = {
 
 let porteSelecionadoParaRecompra = null;
 
+// ==========================================
+// FUNÇÕES JS ATUALIZADAS (Recompra)
+// ==========================================
+
 async function buscarPortesParaRecompra() {
   const idInput = document.getElementById("busca-recompra-id").value.trim();
   if (!idInput) return mostrarAlerta("Erro", "Digite um ID.", "error");
@@ -1385,7 +1389,8 @@ async function buscarPortesParaRecompra() {
   const container = document.getElementById("lista-portes-recompra");
   const formDetalhes = document.getElementById("form-recompra-detalhes");
 
-  container.innerHTML = '<p style="color:white">Buscando portes ativos...</p>';
+  container.innerHTML =
+    '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color: var(--gold-accent);"></i><p style="margin-top: 15px; color: #ccc;">Consultando base de dados...</p></div>';
   container.classList.remove("hidden");
   formDetalhes.classList.add("hidden");
 
@@ -1399,35 +1404,34 @@ async function buscarPortesParaRecompra() {
     const portes = await res.json();
 
     if (!portes || portes.length === 0) {
-      container.innerHTML =
-        '<p style="color:#ccc">Nenhum porte ativo encontrado para este ID.</p>';
+      container.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(255,0,0,0.05); border-radius: 8px; border: 1px dashed rgba(255,0,0,0.2);">
+            <i class="fa-solid fa-folder-open fa-3x" style="color: #555; margin-bottom: 15px;"></i>
+            <p style="color:#ccc; font-size: 1.1rem;">Nenhum porte ativo encontrado para o ID <strong>${idInput}</strong>.</p>
+        </div>`;
       return;
     }
 
     container.innerHTML = "";
 
-    // Cria cards para cada porte encontrado
+    // Cria cards usando a NOVA ESTRUTURA HTML/CSS
     portes.forEach((porte) => {
       const card = document.createElement("div");
-      card.className = "card-porte";
-      card.style.background = "rgba(255,255,255,0.05)";
-      card.style.padding = "15px";
-      card.style.borderRadius = "8px";
-      card.style.cursor = "pointer";
-      card.style.border = "1px solid rgba(255,255,255,0.1)";
-      card.style.marginBottom = "10px";
+      card.className = "card-porte-item"; // Nova classe CSS
 
-      // Ícone baseado na arma
       let icone = '<i class="fa-solid fa-gun"></i>';
       if (porte.arma.toUpperCase().includes("TASER"))
         icone = '<i class="fa-solid fa-bolt"></i>';
 
       card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h4 style="color: var(--gold-accent); margin:0;">${icone} ${porte.arma}</h4>
-            <span style="font-size:12px; background:rgba(0,255,0,0.1); color:#4cd137; padding:2px 6px; border-radius:4px;">Ativo</span>
+        <div class="card-porte-header">
+            <h4 class="card-porte-title">${icone} ${porte.arma}</h4>
+            <span class="badge-ativo"><i class="fa-solid fa-check-circle"></i> Ativo</span>
         </div>
-        <small style="display:block; color:#ccc; margin-top:5px;">Validade: ${porte.validade}</small>
+        <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+             <small style="display:block; color:#aaa;"><i class="fa-regular fa-calendar"></i> Validade: <span style="color: #eee;">${porte.validade}</span></small>
+             <small style="display:block; color: var(--gold-accent); margin-top:8px; text-align: right; font-weight: bold;">Clique para selecionar <i class="fa-solid fa-arrow-right"></i></small>
+        </div>
       `;
 
       card.onclick = () => selecionarPorteRecompra(porte, card);
@@ -1436,218 +1440,54 @@ async function buscarPortesParaRecompra() {
   } catch (err) {
     console.error(err);
     container.innerHTML =
-      '<p style="color:red">Erro ao buscar dados. Verifique a conexão.</p>';
+      '<p style="color:red; grid-column: 1/-1; text-align:center;">Erro de conexão com a API.</p>';
   }
 }
 
 function selecionarPorteRecompra(porte, elementoCard) {
-  // Visual de seleção
+  // Remove seleção anterior de todos os cards
   document
-    .querySelectorAll(".card-porte")
-    .forEach((c) => (c.style.border = "1px solid rgba(255,255,255,0.1)"));
-  elementoCard.style.border = "2px solid var(--gold-accent)";
+    .querySelectorAll(".card-porte-item")
+    .forEach((c) => c.classList.remove("selected"));
+  // Adiciona classe 'selected' ao card clicado
+  elementoCard.classList.add("selected");
 
   porteSelecionadoParaRecompra = porte;
 
-  // Normaliza o nome da arma para buscar no objeto de preços
   const nomeArma = porte.arma.toUpperCase();
-
-  // Define se é TASER (Sem munição) ou ARMA NORMAL
   const isTaser = nomeArma.includes("TASER");
-  const divMunicao = document.getElementById("lbl-municao");
 
+  // Lógica do Taser (Visual)
+  const divMunicaoLabel = document.getElementById("lbl-municao");
   if (isTaser) {
-    divMunicao.style.display = "none"; // Esconde opção de munição
-    document.getElementById("chk-municao").checked = false; // Desmarca
+    divMunicaoLabel.style.display = "none";
+    document.getElementById("chk-municao").checked = false;
   } else {
-    divMunicao.style.display = "flex"; // Mostra opção de munição
+    divMunicaoLabel.style.display = "flex"; // Flex para manter o alinhamento do custom checkbox
   }
 
-  // Define Preço da Arma Baseado na Tabela
+  // Preços
   let precoArma = 0;
   if (nomeArma.includes("GLOCK")) precoArma = PRECOS_RECOMPRA.ARMAS.GLOCK;
   else if (nomeArma.includes("MP5")) precoArma = PRECOS_RECOMPRA.ARMAS.MP5;
   else if (nomeArma.includes("TASER")) precoArma = PRECOS_RECOMPRA.ARMAS.TASER;
 
-  // Salva o preço encontrado no objeto do porte para usar no cálculo
   porteSelecionadoParaRecompra.precoBaseArma = precoArma;
 
-  // Atualiza UI
+  // Atualiza UI do Painel
   const form = document.getElementById("form-recompra-detalhes");
   document.getElementById("recompra-arma-display").innerText = porte.arma;
   document.getElementById(
     "recompra-preco-base"
-  ).innerText = `Custo da Arma: R$ ${precoArma.toLocaleString("pt-BR")}`;
+  ).innerText = `Custo Base da Arma: R$ ${precoArma.toLocaleString("pt-BR")}`;
 
   // Reseta inputs
   document.getElementById("chk-arma").checked = false;
   document.getElementById("chk-municao").checked = false;
 
   calcularTotalRecompra();
+
+  // Efeito de scroll suave até o formulário
   form.classList.remove("hidden");
-}
-
-function calcularTotalRecompra() {
-  if (!porteSelecionadoParaRecompra) return;
-
-  const querMunicao = document.getElementById("chk-municao").checked;
-  const querArma = document.getElementById("chk-arma").checked;
-
-  let total = 0;
-
-  // Adiciona valor da Munição (Fixo)
-  if (querMunicao) {
-    total += PRECOS_RECOMPRA.MUNICAO;
-  }
-
-  // Adiciona valor da Arma (Variável conforme o modelo)
-  if (querArma) {
-    total += porteSelecionadoParaRecompra.precoBaseArma;
-  }
-
-  document.getElementById(
-    "recompra-valor-total"
-  ).innerText = `R$ ${total.toLocaleString("pt-BR")}`;
-}
-
-async function emitirRecompra() {
-  if (!porteSelecionadoParaRecompra) return;
-
-  const chkMunicao = document.getElementById("chk-municao").checked;
-  const chkArma = document.getElementById("chk-arma").checked;
-  const idCidadao = document.getElementById("busca-recompra-id").value;
-
-  if (!chkMunicao && !chkArma) {
-    return mostrarAlerta(
-      "Atenção",
-      "Selecione o que será comprado (Munição ou Arma).",
-      "warning"
-    );
-  }
-
-  // Recalcula total para garantir segurança
-  let total = 0;
-  if (chkMunicao) total += PRECOS_RECOMPRA.MUNICAO;
-  if (chkArma) total += porteSelecionadoParaRecompra.precoBaseArma;
-
-  // Monta lista de itens
-  let itens = [];
-  if (chkArma) itens.push(`Armamento (${porteSelecionadoParaRecompra.arma})`);
-  if (chkMunicao) itens.push("Recarga de Munição");
-  const resumoItens = itens.join(" + ");
-
-  mostrarCarregando(true);
-
-  // GERAÇÃO DO RECIBO (CANVAS)
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  canvas.width = 1080;
-  canvas.height = 1080;
-
-  // Fundo Preto
-  ctx.fillStyle = "#121212";
-  ctx.fillRect(0, 0, 1080, 1080);
-
-  // Faixa Topo Dourada
-  ctx.fillStyle = "#D4AF37";
-  ctx.fillRect(0, 0, 1080, 180);
-
-  // Título
-  ctx.fillStyle = "#000";
-  ctx.font = "bold 70px Roboto, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("RECIBO DE RECOMPRA", 540, 115);
-
-  // Conteúdo
-  ctx.fillStyle = "#FFF";
-  ctx.textAlign = "left";
-  ctx.font = "45px Roboto, sans-serif";
-
-  let y = 350;
-  ctx.fillStyle = "#D4AF37"; // Label Dourado
-  ctx.fillText("Cidadão:", 100, y);
-  ctx.fillStyle = "#FFF";
-  ctx.fillText(idCidadao, 400, y);
-
-  y += 100;
-  ctx.fillStyle = "#D4AF37";
-  ctx.fillText("Porte Base:", 100, y);
-  ctx.fillStyle = "#FFF";
-  ctx.fillText(porteSelecionadoParaRecompra.arma, 400, y);
-
-  y += 100;
-  ctx.fillStyle = "#D4AF37";
-  ctx.fillText("Itens:", 100, y);
-  ctx.fillStyle = "#FFF";
-  // Quebra de linha simples se for muito longo
-  ctx.fillText(resumoItens, 400, y, 600);
-
-  // Valor Gigante
-  y += 200;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#4cd137"; // Verde
-  ctx.font = "bold 100px Roboto, sans-serif";
-  ctx.fillText(`R$ ${total.toLocaleString("pt-BR")}`, 540, y);
-
-  // Data Rodapé
-  ctx.fillStyle = "#666";
-  ctx.font = "30px Roboto, sans-serif";
-  ctx.fillText(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 540, 1020);
-
-  // Envio
-  canvas.toBlob(async (blob) => {
-    const formData = new FormData();
-    formData.append("file", blob, "recompra.png");
-
-    const payload = {
-      embeds: [
-        {
-          title: "📦 Recompra Registrada",
-          color: 3066993, // Azul Esverdeado
-          fields: [
-            { name: "Cidadão", value: idCidadao, inline: true },
-            {
-              name: "Arma",
-              value: porteSelecionadoParaRecompra.arma,
-              inline: true,
-            },
-            { name: "Itens Adquiridos", value: resumoItens, inline: false },
-            {
-              name: "Valor Total",
-              value: `R$ ${total.toLocaleString("pt-BR")}`,
-              inline: false,
-            },
-          ],
-          footer: { text: "Sistema de Logística Policial" },
-        },
-      ],
-    };
-
-    formData.append("payload_json", JSON.stringify(payload));
-
-    try {
-      // Envia com tipo=recompra (vai cair no CHANNEL_RENOVACAO_ID)
-      const resp = await fetch("/api/enviar?tipo=recompra", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (resp.ok) {
-        mostrarAlerta("Sucesso", "Recompra registrada!", "success");
-        // Reseta tudo
-        document.getElementById("lista-portes-recompra").innerHTML = "";
-        document
-          .getElementById("form-recompra-detalhes")
-          .classList.add("hidden");
-        document.getElementById("busca-recompra-id").value = "";
-      } else {
-        mostrarAlerta("Erro", "Falha no Discord.", "error");
-      }
-    } catch (e) {
-      console.error(e);
-      mostrarAlerta("Erro", "Erro de conexão.", "error");
-    } finally {
-      mostrarCarregando(false);
-    }
-  });
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
