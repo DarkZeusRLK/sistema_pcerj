@@ -30,6 +30,7 @@ module.exports = (req, res) => {
       porte: process.env.CHANNEL_PORTE_ID,
       revogacao: process.env.CHANNEL_REVOGACAO_ID,
       limpeza: process.env.CHANNEL_LIMPEZA_ID,
+      recompra: process.env.CHANNEL_RENOVACAO_ID,
     };
 
     const { tipo } = req.query;
