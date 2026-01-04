@@ -1329,37 +1329,29 @@ async function verificarPermissaoRelatorio() {
 
 // protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
+// 🔎 SISTEMA DE VARREDURA (ESTILO BARRA SUPERIOR DISCRETA)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
-  console.log("🔍 Auditoria: Iniciando varredura...");
+  console.log("🔍 Auditoria: Iniciando varredura em background...");
 
+  // Elementos da barra superior (Visual da imagem que você mandou)
   const statusAuditoria = document.getElementById("status-auditoria");
   const textoAuditoria = document.getElementById("texto-auditoria");
+  const barraProgresso = document.getElementById("barra-progresso-auditoria");
 
+  // 1. Mostrar a barra superior (sem bloquear a tela)
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
+  if (barraProgresso) barraProgresso.style.width = "0%";
 
-  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
-  const corpoTabela =
-    document.getElementById("lista-ativos-para-revogar") ||
-    document.getElementById("corpo-revogacao");
-  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
+  // 2. Pegar dados da memória (para cobrir todas as páginas)
+  const alvos = dbPortes.filter((p) => p.status !== "Revogado");
 
-  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
-  const temDadosReais = Array.from(linhas).some((linha) => {
-    const idCidadao = linha.cells[1]?.innerText.trim();
-    return idCidadao && !isNaN(idCidadao);
-  });
-
-  if (!temDadosReais) {
-    console.warn(
-      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
-    );
+  if (alvos.length === 0) {
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Não há portes ativos na tabela para auditar.",
+      "Não há portes ativos para auditar.",
       "warning"
     );
   }
@@ -1367,17 +1359,26 @@ window.verificarConformidadePortes = async function () {
   let detectados = 0;
   let processados = 0;
 
-  for (const linha of linhas) {
-    const idCidadao = linha.cells[1]?.innerText.trim();
-    if (!idCidadao || isNaN(idCidadao)) continue;
+  // REMOVIDO: window.mostrarCarregando(true); -> Isso que bloqueava a tela!
 
+  for (const porte of alvos) {
+    const idCidadao = porte.id;
     processados++;
-    if (textoAuditoria)
-      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
 
-    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
+    // 3. Atualizar visual da barra superior
+    const porcentagem = (processados / alvos.length) * 100;
+
+    if (barraProgresso) {
+      barraProgresso.style.width = `${porcentagem}%`;
+    }
+
+    if (textoAuditoria) {
+      // Ícone de lupa e contagem, igual na imagem
+      textoAuditoria.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Auditando... ID ${idCidadao} (${processados}/${alvos.length})...`;
+    }
 
     try {
+      // Chama API
       const res = await fetch("/api/consultar-ficha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1386,31 +1387,61 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
+      // Verifica infrações
       if (data.registrosEncontrados > 0) {
-        console.log(
-          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
-        );
-        marcarLinhaComoInfrator(linha, data);
+        // Salva flag de crime
+        porte.crimesDetectados = data.registrosEncontrados;
+        porte.detalhesCrimes = data.detalhes || [];
         detectados++;
+      } else {
+        // Limpa flag se estiver limpo
+        delete porte.crimesDetectados;
+        delete porte.detalhesCrimes;
       }
     } catch (e) {
-      console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
+      console.error(`Erro ID ${idCidadao}`, e);
     }
+
+    // Pequeno delay visual para a barra andar suavemente
+    await new Promise((r) => setTimeout(r, 100));
   }
 
-  if (statusAuditoria) statusAuditoria.classList.add("hidden");
+  // 4. Reordenar: Criminosos para o topo
+  dbPortes.sort((a, b) => {
+    const crimesA = a.crimesDetectados || 0;
+    const crimesB = b.crimesDetectados || 0;
+    return crimesB - crimesA;
+  });
 
+  // 5. Salvar e Atualizar Interface
+  if (window.salvarDadosLocal) window.salvarDadosLocal();
+  if (window.renderTables) window.renderTables();
+
+  // 6. Finalizar e Esconder a Barra
+  if (statusAuditoria) {
+    // Deixa a barra cheia verde por um instante antes de sumir
+    if (barraProgresso) barraProgresso.style.backgroundColor = "#04d361";
+
+    setTimeout(() => {
+      statusAuditoria.classList.add("hidden");
+      if (barraProgresso) {
+        barraProgresso.style.width = "0%";
+        barraProgresso.style.backgroundColor = ""; // Reseta cor
+      }
+    }, 2000);
+  }
+
+  // Alerta de Conclusão
   if (detectados > 0) {
     mostrarAlerta(
-      "Auditoria Concluída",
-      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
+      "Varredura Finalizada",
+      `⚠️ ${detectados} infrações detectadas! Os nomes foram movidos para o topo.`,
       "error"
     );
   } else {
     mostrarAlerta(
-      "Auditoria Concluída",
-      `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
+      "Tudo limpo",
+      `Nenhuma irregularidade encontrada em ${processados} cidadãos.`,
       "success"
     );
   }
