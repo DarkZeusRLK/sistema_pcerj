@@ -4,7 +4,8 @@
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
   // Link direto para o brasão (necessário para o Discord conseguir carregar no footer)
-  BRASAO_URL: "assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png",
+  BRASAO_URL:
+    "https://pt.wikipedia.org/wiki/Ficheiro:Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png",
 };
 
 // 👇 RODAPÉ PADRÃO PARA TODOS OS EMBEDS 👇
