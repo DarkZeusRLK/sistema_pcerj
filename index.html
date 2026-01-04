@@ -364,149 +364,137 @@
             <tbody id="lista-ativos-para-revogar">
             </tbody>
           </table>
-          <div class="pagination-controls" style="display: flex; justify-content: center; gap: 15px; margin-top: 15px; align-items: center; padding: 10px;">
-            <button onclick="mudarPaginaRevogacao(-1)" class="btn-secondary" id="btn-prev-revogacao" style="padding: 5px 15px;" disabled>
-              <i class="fa-solid fa-chevron-left"></i> Anterior
-            </button>
+        </div>
 
-            <span id="info-paginacao-revogacao" style="color: #fff; font-weight: bold;">Página 1</span>
+        <div class="table-container" style="margin-top: 30px;">
+          <h3>Histórico de Revogações</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Cidadão</th>
+                <th>ID</th>
+                <th>Data Revogação</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="lista-ja-revogados">
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section id="sec-recompra" class="screen hidden">
+        <header class="section-header">
+          <h2><i class="fa-solid fa-toolbox" style="color: var(--gold-accent);"></i> Recompra de Equipamentos</h2>
+          <p>Logística de reposição de armamento e munição para agentes ativos.</p>
+        </header>
 
-            <button onclick="mudarPaginaRevogacao(1)" class="btn-secondary" id="btn-next-revogacao" style="padding: 5px 15px;">
-              Próxima <i class="fa-solid fa-chevron-right"></i>
-            </button>
+        <div class="search-box-container" style="background: rgba(20,20,20,0.5); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+          <div class="form-group" style="flex: 1;">
+            <label for="busca-recompra-id" style="color: var(--gold-accent); font-weight: bold;">ID do Agente</label>
+            <div style="position: relative;">
+              <i class="fa-solid fa-user-shield" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #666;"></i>
+              <input type="number" id="busca-recompra-id" placeholder="Informe o ID do cidadão" style="padding-left: 45px;">
+            </div>
           </div>
+          <button class="btn-primary" onclick="buscarPortesParaRecompra()" style="height: 50px; align-self: flex-end;">
+            <i class="fa-solid fa-magnifying-glass"></i> Consultar Base
+          </button>
         </div>
-  </div>
 
-  <div class="table-container" style="margin-top: 30px;">
-    <h3>Histórico de Revogações</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Cidadão</th>
-          <th>ID</th>
-          <th>Data Revogação</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="lista-ja-revogados">
-      </tbody>
-    </table>
-  </div>
-  </section>
-  <section id="sec-recompra" class="screen hidden">
-    <header class="section-header">
-      <h2><i class="fa-solid fa-toolbox" style="color: var(--gold-accent);"></i> Recompra de Equipamentos</h2>
-      <p>Logística de reposição de armamento e munição para agentes ativos.</p>
-    </header>
+        <div id="lista-portes-recompra" class="hidden"></div>
 
-    <div class="search-box-container" style="background: rgba(20,20,20,0.5); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-      <div class="form-group" style="flex: 1;">
-        <label for="busca-recompra-id" style="color: var(--gold-accent); font-weight: bold;">ID do Agente</label>
-        <div style="position: relative;">
-          <i class="fa-solid fa-user-shield" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #666;"></i>
-          <input type="number" id="busca-recompra-id" placeholder="Informe o ID do cidadão" style="padding-left: 45px;">
-        </div>
-      </div>
-      <button class="btn-primary" onclick="buscarPortesParaRecompra()" style="height: 50px; align-self: flex-end;">
-        <i class="fa-solid fa-magnifying-glass"></i> Consultar Base
-      </button>
-    </div>
+        <div id="form-recompra-detalhes" class="recompra-details-panel hidden">
 
-    <div id="lista-portes-recompra" class="hidden"></div>
-
-    <div id="form-recompra-detalhes" class="recompra-details-panel hidden">
-
-      <div class="recompra-header-info">
-        <div>
-          <h3><i class="fa-solid fa-crosshairs"></i> Equipamento Selecionado</h3>
-          <p id="recompra-arma-display" style="color: white; font-size: 1.1rem; margin-top: 5px;">-</p>
-        </div>
-        <span id="recompra-preco-base" class="recompra-base-price">Valor Base: R$ 0</span>
-      </div>
-
-      <div class="checkbox-group-styled">
-        <label class="custom-checkbox-label" id="lbl-municao">
-          <input type="checkbox" id="chk-municao" onchange="calcularTotalRecompra()">
-          <span class="checkmark"></span>
-          <div>
-            <span class="checkbox-text">Repor Munição</span>
-            <small class="checkbox-price">+ R$ 100.000</small>
+          <div class="recompra-header-info">
+            <div>
+              <h3><i class="fa-solid fa-crosshairs"></i> Equipamento Selecionado</h3>
+              <p id="recompra-arma-display" style="color: white; font-size: 1.1rem; margin-top: 5px;">-</p>
+            </div>
+            <span id="recompra-preco-base" class="recompra-base-price">Valor Base: R$ 0</span>
           </div>
-        </label>
 
-        <label class="custom-checkbox-label">
-          <input type="checkbox" id="chk-arma" onchange="calcularTotalRecompra()">
-          <span class="checkmark"></span>
-          <div>
-            <span class="checkbox-text">Armamento Completo</span>
-            <small class="checkbox-price" style="color: #aaa;">(Em caso de perda/roubo)</small>
+          <div class="checkbox-group-styled">
+            <label class="custom-checkbox-label" id="lbl-municao">
+              <input type="checkbox" id="chk-municao" onchange="calcularTotalRecompra()">
+              <span class="checkmark"></span>
+              <div>
+                <span class="checkbox-text">Repor Munição</span>
+                <small class="checkbox-price">+ R$ 100.000</small>
+              </div>
+            </label>
+
+            <label class="custom-checkbox-label">
+              <input type="checkbox" id="chk-arma" onchange="calcularTotalRecompra()">
+              <span class="checkmark"></span>
+              <div>
+                <span class="checkbox-text">Armamento Completo</span>
+                <small class="checkbox-price" style="color: #aaa;">(Em caso de perda/roubo)</small>
+              </div>
+            </label>
           </div>
-        </label>
-      </div>
 
-      <div class="recompra-summary-box">
-        <div class="summary-row">
-          <span class="summary-label">Total a Pagar:</span>
-          <span id="recompra-valor-total" class="summary-total">R$ 0</span>
+          <div class="recompra-summary-box">
+            <div class="summary-row">
+              <span class="summary-label">Total a Pagar:</span>
+              <span id="recompra-valor-total" class="summary-total">R$ 0</span>
+            </div>
+          </div>
+
+          <button class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem;" onclick="emitirRecompra()">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Recompra
+          </button>
         </div>
-      </div>
+      </section>
+      <section id="sec-relatorios" class="screen hidden">
 
-      <button class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1rem;" onclick="emitirRecompra()">
-        <i class="fa-solid fa-file-invoice-dollar"></i> Registrar Recompra
-      </button>
-    </div>
-  </section>
-  <section id="sec-relatorios" class="screen hidden">
+        <div class="top-bar">
+          <h1><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h1>
+          <span class="date-display">Gestão de Metas e Atividades</span>
+        </div>
 
-    <div class="top-bar">
-      <h1><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h1>
-      <span class="date-display">Gestão de Metas e Atividades</span>
-    </div>
+        <div class="filter-bar">
 
-    <div class="filter-bar">
+          <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
+            <label for="rel-inicio"><i class="fa-regular fa-calendar"></i> Data Início</label>
+            <input type="date" id="rel-inicio">
+          </div>
 
-      <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
-        <label for="rel-inicio"><i class="fa-regular fa-calendar"></i> Data Início</label>
-        <input type="date" id="rel-inicio">
-      </div>
+          <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
+            <label for="rel-fim"><i class="fa-regular fa-calendar"></i> Data Fim</label>
+            <input type="date" id="rel-fim">
+          </div>
 
-      <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
-        <label for="rel-fim"><i class="fa-regular fa-calendar"></i> Data Fim</label>
-        <input type="date" id="rel-fim">
-      </div>
+          <button id="btn-filtrar-relatorio">
+            <i class="fa-solid fa-filter"></i> Gerar Relatório
+          </button>
+        </div>
 
-      <button id="btn-filtrar-relatorio">
-        <i class="fa-solid fa-filter"></i> Gerar Relatório
-      </button>
-    </div>
-
-    <div class="table-container">
-      <h3><i class="fa-solid fa-list"></i> Resultados da Equipe</h3>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Oficial</th>
-            <th style="text-align: center;">Portes</th>
-            <th style="text-align: center;">Renov.</th>
-            <th style="text-align: center;">Limp.</th>
-            <th style="text-align: center;">Revog.</th>
-            <th style="text-align: center; background: rgba(255,255,255,0.05); color: var(--gold-accent);">TOTAL</th>
-            <th style="text-align: center;">Status (Meta: 15)</th>
-          </tr>
-        </thead>
-        <tbody id="corpo-relatorio">
-          <tr>
-            <td colspan="7" align="center" style="padding: 40px; color: var(--text-secondary);">
-              <i class="fa-solid fa-arrow-up" style="font-size: 20px; margin-bottom: 10px;"></i><br>
-              Selecione o período acima e clique em <strong>GERAR RELATÓRIO</strong>.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-  </main>
+        <div class="table-container">
+          <h3><i class="fa-solid fa-list"></i> Resultados da Equipe</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Oficial</th>
+                <th style="text-align: center;">Portes</th>
+                <th style="text-align: center;">Renov.</th>
+                <th style="text-align: center;">Limp.</th>
+                <th style="text-align: center;">Revog.</th>
+                <th style="text-align: center; background: rgba(255,255,255,0.05); color: var(--gold-accent);">TOTAL</th>
+                <th style="text-align: center;">Status (Meta: 15)</th>
+              </tr>
+            </thead>
+            <tbody id="corpo-relatorio">
+              <tr>
+                <td colspan="7" align="center" style="padding: 40px; color: var(--text-secondary);">
+                  <i class="fa-solid fa-arrow-up" style="font-size: 20px; margin-bottom: 10px;"></i><br>
+                  Selecione o período acima e clique em <strong>GERAR RELATÓRIO</strong>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
   </div>
 
   <div id="custom-modal" class="modal-overlay hidden">
