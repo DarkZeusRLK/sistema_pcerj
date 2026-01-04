@@ -1329,7 +1329,7 @@ async function verificarPermissaoRelatorio() {
 
 // protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA (ADAPTADO PARA PAGINAÇÃO)
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
@@ -1338,21 +1338,28 @@ window.verificarConformidadePortes = async function () {
   const statusAuditoria = document.getElementById("status-auditoria");
   const textoAuditoria = document.getElementById("texto-auditoria");
 
-  // Exibe feedback visual se existir o elemento
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // MUDANÇA CRÍTICA: Pegamos os dados da MEMÓRIA (dbPortes), não do HTML.
-  // Filtramos apenas quem não está revogado.
-  const alvos = dbPortes.filter((p) => p.status !== "Revogado");
+  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
+  const corpoTabela =
+    document.getElementById("lista-ativos-para-revogar") ||
+    document.getElementById("corpo-revogacao");
+  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  if (alvos.length === 0) {
+  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
+  const temDadosReais = Array.from(linhas).some((linha) => {
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    return idCidadao && !isNaN(idCidadao);
+  });
+
+  if (!temDadosReais) {
     console.warn(
-      "⚠️ Auditoria: Nenhum porte ativo encontrado no banco de dados."
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
     );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Não há portes ativos para auditar.",
+      "Não há portes ativos na tabela para auditar.",
       "warning"
     );
   }
@@ -1360,24 +1367,17 @@ window.verificarConformidadePortes = async function () {
   let detectados = 0;
   let processados = 0;
 
-  // Mostra loading global (opcional, se tiver a função)
-  if (window.mostrarCarregando) window.mostrarCarregando(true);
-
-  for (const porte of alvos) {
-    const idCidadao = porte.id;
+  for (const linha of linhas) {
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
-    if (textoAuditoria) {
-      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${alvos.length})...`;
-    }
+    if (textoAuditoria)
+      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
 
-    // Atualiza texto do loading overlay se existir
-    const overlayText = document.querySelector(".loading-overlay p");
-    if (overlayText)
-      overlayText.innerText = `Auditando ${processados}/${alvos.length}\nID: ${idCidadao}`;
+    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
-      // Chama sua API de consulta
       const res = await fetch("/api/consultar-ficha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1386,52 +1386,25 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Se encontrar registros
+      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
-
-        // SALVA NO OBJETO DO CIDADÃO
-        porte.crimesDetectados = data.registrosEncontrados; // Salva o número de crimes
-        porte.detalhesCrimes = data.detalhes || []; // Opcional: salva detalhes se a API mandar
-
+        marcarLinhaComoInfrator(linha, data);
         detectados++;
-      } else {
-        // Limpa se não tiver crimes (caso tenha sido limpo recentemente)
-        delete porte.crimesDetectados;
-        delete porte.detalhesCrimes;
       }
     } catch (e) {
       console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
     }
-
-    // Pequeno delay para não travar a UI
-    await new Promise((r) => setTimeout(r, 100));
   }
 
-  // REORDENAÇÃO: Joga quem tem crimes para o TOPO da lista
-  dbPortes.sort((a, b) => {
-    const crimesA = a.crimesDetectados || 0;
-    const crimesB = b.crimesDetectados || 0;
-    return crimesB - crimesA; // Maior número de crimes primeiro
-  });
-
-  // Salva e Redesenha
-  if (window.salvarDadosLocal) window.salvarDadosLocal();
-
-  // Atualiza a tabela (O renderTables já sabe pintar de vermelho quem tem crimesDetectados)
-  if (window.renderTables) window.renderTables();
-
-  // Esconde feedbacks
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
-  if (window.mostrarCarregando) window.mostrarCarregando(false);
 
-  // Alerta Final
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados! Eles foram movidos para o topo da lista.`,
+      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
       "error"
     );
   } else {
