@@ -617,7 +617,20 @@ async function carregarPortesDoDiscord() {
     console.error("Erro ao listar:", erro);
   }
 }
+// =========================================================
+// VARIÁVEIS DE CONTROLE DA PAGINAÇÃO
+// =========================================================
+let paginaAtualRevogacao = 1;
+const ITENS_POR_PAGINA = 20;
 
+// Função chamada pelos botões HTML
+window.mudarPaginaRevogacao = function (direcao) {
+  paginaAtualRevogacao += direcao;
+  renderTables(); // Recarrega a tabela na nova página
+};
+// =========================================================
+// RENDERIZAÇÃO DAS TABELAS (ADAPTADA)
+// =========================================================
 window.renderTables = function () {
   const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
   const tbodyRenovacao = document.getElementById("lista-renovacao");
@@ -625,81 +638,142 @@ window.renderTables = function () {
     ? document.getElementById("input-busca").value.toLowerCase()
     : "";
 
+  // 1. Limpeza inicial
   if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
   if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
 
-  dbPortes
+  // 2. Obter dados base (Invertidos para mostrar mais recentes primeiro)
+  // Filtramos logo de cara quem NÃO é revogado, pois essa função cuida dos Ativos/Renovação
+  let dadosFiltrados = dbPortes
     .slice()
     .reverse()
-    .forEach((porte, index) => {
-      if (porte.status === "Revogado") return;
+    .filter((p) => p.status !== "Revogado");
 
-      if (
-        filtro &&
-        !porte.nome.toLowerCase().includes(filtro) &&
-        !porte.id.includes(filtro)
-      )
-        return;
+  // 3. Aplicar filtro de busca (Nome ou ID)
+  if (filtro) {
+    dadosFiltrados = dadosFiltrados.filter(
+      (porte) =>
+        porte.nome.toLowerCase().includes(filtro) || porte.id.includes(filtro)
+    );
+  }
 
+  // =========================================================
+  // LOGICA A: TABELA DE RENOVAÇÃO (Sem paginação, mostra tudo que encontrar)
+  // =========================================================
+  if (tbodyRenovacao) {
+    dadosFiltrados.forEach((porte) => {
       const diasCorridos = calcularDiasCorridos(porte.expedicao);
 
-      // 1. RENOVAÇÃO (30 a 33 dias)
+      // Regra: 30 a 33 dias
       if (diasCorridos >= 30 && diasCorridos <= 33) {
-        if (tbodyRenovacao) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-                <td>${porte.nome}</td>
-                <td>${porte.id}</td>
-                <td>${porte.expedicao}</td>
-                <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
-                <td>
-                    <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
-                        <i class="fa-solid fa-arrows-rotate"></i> Renovar
-                    </button>
-                </td>
-            `;
-          tbodyRenovacao.appendChild(tr);
-        }
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${porte.nome}</td>
+            <td>${porte.id}</td>
+            <td>${porte.expedicao}</td>
+            <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
+            <td>
+                <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
+                    <i class="fa-solid fa-arrows-rotate"></i> Renovar
+                </button>
+            </td>
+        `;
+        tbodyRenovacao.appendChild(tr);
       }
+    });
+  }
 
-      // 2. REVOGAÇÃO (Todos ativos)
-      if (tbodyRevogacao) {
-        const trRev = document.createElement("tr");
+  // =========================================================
+  // LOGICA B: TABELA DE REVOGAÇÃO (COM PAGINAÇÃO)
+  // =========================================================
+  if (tbodyRevogacao) {
+    // Cálculos da paginação
+    const totalPaginas =
+      Math.ceil(dadosFiltrados.length / ITENS_POR_PAGINA) || 1;
+
+    // Trava para não estourar paginação
+    if (paginaAtualRevogacao > totalPaginas)
+      paginaAtualRevogacao = totalPaginas;
+    if (paginaAtualRevogacao < 1) paginaAtualRevogacao = 1;
+
+    // Fatiar o array (Slice)
+    const inicio = (paginaAtualRevogacao - 1) * ITENS_POR_PAGINA;
+    const fim = inicio + ITENS_POR_PAGINA;
+    const dadosPagina = dadosFiltrados.slice(inicio, fim);
+
+    // Renderizar linhas da página atual
+    if (dadosPagina.length === 0) {
+      tbodyRevogacao.innerHTML = `<tr><td colspan="5" align="center" style="padding:20px;">Nenhum registro encontrado.</td></tr>`;
+    } else {
+      dadosPagina.forEach((porte) => {
+        const diasCorridos = calcularDiasCorridos(porte.expedicao);
         let validadeHTML = porte.validade || "N/A";
 
+        // Lógica de Badges de Validade
         if (diasCorridos > 33) {
           validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
         } else if (diasCorridos >= 30) {
           validadeHTML = `<span class="badge-warning" style="color:orange">Período de Graça</span>`;
         }
 
+        const trRev = document.createElement("tr");
         trRev.innerHTML = `
-            <td>${porte.nome}</td>
-            <td>${porte.id}</td>
-            <td>${porte.arma}</td>
-            <td>${validadeHTML}</td>
-            <td>
-                <button class="btn-danger" onclick="revogar('${porte.id}')">
-                    <i class="fa-solid fa-ban"></i>
-                </button>
-            </td>
-        `;
+              <td>${porte.nome}</td>
+              <td>${porte.id}</td>
+              <td>${porte.arma}</td>
+              <td>${validadeHTML}</td>
+              <td>
+                  <button class="btn-danger" onclick="revogar('${porte.id}')">
+                      <i class="fa-solid fa-ban"></i>
+                  </button>
+              </td>
+          `;
         tbodyRevogacao.appendChild(trRev);
-      }
-    });
+      });
+    }
 
+    // Atualizar Controles da Paginação (Botões HTML)
+    const btnPrev = document.getElementById("btn-prev-revogacao");
+    const btnNext = document.getElementById("btn-next-revogacao");
+    const infoPag = document.getElementById("info-paginacao-revogacao");
+
+    if (infoPag)
+      infoPag.innerText = `Página ${paginaAtualRevogacao} de ${totalPaginas}`;
+    if (btnPrev) btnPrev.disabled = paginaAtualRevogacao === 1;
+    if (btnNext) btnNext.disabled = paginaAtualRevogacao === totalPaginas;
+  }
+
+  // Funções auxiliares mantidas
   renderRevogadosHistorico();
   atualizarStats();
 };
 
+// =========================================================
+// HISTÓRICO DE REVOGADOS (Mantido igual, mas com verificação de null)
+// =========================================================
 function renderRevogadosHistorico() {
   const tbodyJaRevogados = document.getElementById("lista-ja-revogados");
+  // Se a tabela não existir na tela atual, para a execução
   if (!tbodyJaRevogados) return;
+
   tbodyJaRevogados.innerHTML = "";
+
+  // Pegar filtro também, caso queira buscar nos revogados
+  const filtro = document.getElementById("input-busca")
+    ? document.getElementById("input-busca").value.toLowerCase()
+    : "";
 
   dbPortes
     .filter((p) => p.status === "Revogado")
     .forEach((p) => {
+      // Aplica filtro de busca também no histórico
+      if (
+        filtro &&
+        !p.nome.toLowerCase().includes(filtro) &&
+        !p.id.includes(filtro)
+      )
+        return;
+
       tbodyJaRevogados.innerHTML += `
             <tr style="opacity:0.7">
                 <td>${p.nome}</td>
@@ -709,7 +783,6 @@ function renderRevogadosHistorico() {
             </tr>`;
     });
 }
-
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
