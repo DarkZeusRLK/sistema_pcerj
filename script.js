@@ -617,20 +617,7 @@ async function carregarPortesDoDiscord() {
     console.error("Erro ao listar:", erro);
   }
 }
-// =========================================================
-// VARIÁVEIS DE CONTROLE DA PAGINAÇÃO
-// =========================================================
-let paginaAtualRevogacao = 1;
-const ITENS_POR_PAGINA = 20;
 
-// Função chamada pelos botões HTML
-window.mudarPaginaRevogacao = function (direcao) {
-  paginaAtualRevogacao += direcao;
-  renderTables(); // Recarrega a tabela na nova página
-};
-// =========================================================
-// RENDERIZAÇÃO DAS TABELAS (ADAPTADA)
-// =========================================================
 window.renderTables = function () {
   const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
   const tbodyRenovacao = document.getElementById("lista-renovacao");
@@ -638,142 +625,81 @@ window.renderTables = function () {
     ? document.getElementById("input-busca").value.toLowerCase()
     : "";
 
-  // 1. Limpeza inicial
   if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
   if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
 
-  // 2. Obter dados base (Invertidos para mostrar mais recentes primeiro)
-  // Filtramos logo de cara quem NÃO é revogado, pois essa função cuida dos Ativos/Renovação
-  let dadosFiltrados = dbPortes
+  dbPortes
     .slice()
     .reverse()
-    .filter((p) => p.status !== "Revogado");
+    .forEach((porte, index) => {
+      if (porte.status === "Revogado") return;
 
-  // 3. Aplicar filtro de busca (Nome ou ID)
-  if (filtro) {
-    dadosFiltrados = dadosFiltrados.filter(
-      (porte) =>
-        porte.nome.toLowerCase().includes(filtro) || porte.id.includes(filtro)
-    );
-  }
+      if (
+        filtro &&
+        !porte.nome.toLowerCase().includes(filtro) &&
+        !porte.id.includes(filtro)
+      )
+        return;
 
-  // =========================================================
-  // LOGICA A: TABELA DE RENOVAÇÃO (Sem paginação, mostra tudo que encontrar)
-  // =========================================================
-  if (tbodyRenovacao) {
-    dadosFiltrados.forEach((porte) => {
       const diasCorridos = calcularDiasCorridos(porte.expedicao);
 
-      // Regra: 30 a 33 dias
+      // 1. RENOVAÇÃO (30 a 33 dias)
       if (diasCorridos >= 30 && diasCorridos <= 33) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${porte.nome}</td>
-            <td>${porte.id}</td>
-            <td>${porte.expedicao}</td>
-            <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
-            <td>
-                <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
-                    <i class="fa-solid fa-arrows-rotate"></i> Renovar
-                </button>
-            </td>
-        `;
-        tbodyRenovacao.appendChild(tr);
+        if (tbodyRenovacao) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+                <td>${porte.nome}</td>
+                <td>${porte.id}</td>
+                <td>${porte.expedicao}</td>
+                <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
+                <td>
+                    <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
+                        <i class="fa-solid fa-arrows-rotate"></i> Renovar
+                    </button>
+                </td>
+            `;
+          tbodyRenovacao.appendChild(tr);
+        }
       }
-    });
-  }
 
-  // =========================================================
-  // LOGICA B: TABELA DE REVOGAÇÃO (COM PAGINAÇÃO)
-  // =========================================================
-  if (tbodyRevogacao) {
-    // Cálculos da paginação
-    const totalPaginas =
-      Math.ceil(dadosFiltrados.length / ITENS_POR_PAGINA) || 1;
-
-    // Trava para não estourar paginação
-    if (paginaAtualRevogacao > totalPaginas)
-      paginaAtualRevogacao = totalPaginas;
-    if (paginaAtualRevogacao < 1) paginaAtualRevogacao = 1;
-
-    // Fatiar o array (Slice)
-    const inicio = (paginaAtualRevogacao - 1) * ITENS_POR_PAGINA;
-    const fim = inicio + ITENS_POR_PAGINA;
-    const dadosPagina = dadosFiltrados.slice(inicio, fim);
-
-    // Renderizar linhas da página atual
-    if (dadosPagina.length === 0) {
-      tbodyRevogacao.innerHTML = `<tr><td colspan="5" align="center" style="padding:20px;">Nenhum registro encontrado.</td></tr>`;
-    } else {
-      dadosPagina.forEach((porte) => {
-        const diasCorridos = calcularDiasCorridos(porte.expedicao);
+      // 2. REVOGAÇÃO (Todos ativos)
+      if (tbodyRevogacao) {
+        const trRev = document.createElement("tr");
         let validadeHTML = porte.validade || "N/A";
 
-        // Lógica de Badges de Validade
         if (diasCorridos > 33) {
           validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
         } else if (diasCorridos >= 30) {
           validadeHTML = `<span class="badge-warning" style="color:orange">Período de Graça</span>`;
         }
 
-        const trRev = document.createElement("tr");
         trRev.innerHTML = `
-              <td>${porte.nome}</td>
-              <td>${porte.id}</td>
-              <td>${porte.arma}</td>
-              <td>${validadeHTML}</td>
-              <td>
-                  <button class="btn-danger" onclick="revogar('${porte.id}')">
-                      <i class="fa-solid fa-ban"></i>
-                  </button>
-              </td>
-          `;
+            <td>${porte.nome}</td>
+            <td>${porte.id}</td>
+            <td>${porte.arma}</td>
+            <td>${validadeHTML}</td>
+            <td>
+                <button class="btn-danger" onclick="revogar('${porte.id}')">
+                    <i class="fa-solid fa-ban"></i>
+                </button>
+            </td>
+        `;
         tbodyRevogacao.appendChild(trRev);
-      });
-    }
+      }
+    });
 
-    // Atualizar Controles da Paginação (Botões HTML)
-    const btnPrev = document.getElementById("btn-prev-revogacao");
-    const btnNext = document.getElementById("btn-next-revogacao");
-    const infoPag = document.getElementById("info-paginacao-revogacao");
-
-    if (infoPag)
-      infoPag.innerText = `Página ${paginaAtualRevogacao} de ${totalPaginas}`;
-    if (btnPrev) btnPrev.disabled = paginaAtualRevogacao === 1;
-    if (btnNext) btnNext.disabled = paginaAtualRevogacao === totalPaginas;
-  }
-
-  // Funções auxiliares mantidas
   renderRevogadosHistorico();
   atualizarStats();
 };
 
-// =========================================================
-// HISTÓRICO DE REVOGADOS (Mantido igual, mas com verificação de null)
-// =========================================================
 function renderRevogadosHistorico() {
   const tbodyJaRevogados = document.getElementById("lista-ja-revogados");
-  // Se a tabela não existir na tela atual, para a execução
   if (!tbodyJaRevogados) return;
-
   tbodyJaRevogados.innerHTML = "";
-
-  // Pegar filtro também, caso queira buscar nos revogados
-  const filtro = document.getElementById("input-busca")
-    ? document.getElementById("input-busca").value.toLowerCase()
-    : "";
 
   dbPortes
     .filter((p) => p.status === "Revogado")
     .forEach((p) => {
-      // Aplica filtro de busca também no histórico
-      if (
-        filtro &&
-        !p.nome.toLowerCase().includes(filtro) &&
-        !p.id.includes(filtro)
-      )
-        return;
-
       tbodyJaRevogados.innerHTML += `
             <tr style="opacity:0.7">
                 <td>${p.nome}</td>
@@ -783,6 +709,7 @@ function renderRevogadosHistorico() {
             </tr>`;
     });
 }
+
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
@@ -1328,7 +1255,7 @@ async function verificarPermissaoRelatorio() {
 
 // protecao contra cliques aqui
 // =========================================================
-// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA (ADAPTADO PARA PAGINAÇÃO)
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
@@ -1337,21 +1264,28 @@ window.verificarConformidadePortes = async function () {
   const statusAuditoria = document.getElementById("status-auditoria");
   const textoAuditoria = document.getElementById("texto-auditoria");
 
-  // Exibe feedback visual se existir o elemento
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // MUDANÇA CRÍTICA: Pegamos os dados da MEMÓRIA (dbPortes), não do HTML.
-  // Filtramos apenas quem não está revogado.
-  const alvos = dbPortes.filter((p) => p.status !== "Revogado");
+  // CORREÇÃO DO SELETOR: O ID já é do TBODY no seu index.html
+  const corpoTabela =
+    document.getElementById("lista-ativos-para-revogar") ||
+    document.getElementById("corpo-revogacao");
+  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
 
-  if (alvos.length === 0) {
+  // Validação: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
+  const temDadosReais = Array.from(linhas).some((linha) => {
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    return idCidadao && !isNaN(idCidadao);
+  });
+
+  if (!temDadosReais) {
     console.warn(
-      "⚠️ Auditoria: Nenhum porte ativo encontrado no banco de dados."
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
     );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "Não há portes ativos para auditar.",
+      "Não há portes ativos na tabela para auditar.",
       "warning"
     );
   }
@@ -1359,24 +1293,17 @@ window.verificarConformidadePortes = async function () {
   let detectados = 0;
   let processados = 0;
 
-  // Mostra loading global (opcional, se tiver a função)
-  if (window.mostrarCarregando) window.mostrarCarregando(true);
-
-  for (const porte of alvos) {
-    const idCidadao = porte.id;
+  for (const linha of linhas) {
+    const idCidadao = linha.cells[1]?.innerText.trim();
+    if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
-    if (textoAuditoria) {
-      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${alvos.length})...`;
-    }
+    if (textoAuditoria)
+      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
 
-    // Atualiza texto do loading overlay se existir
-    const overlayText = document.querySelector(".loading-overlay p");
-    if (overlayText)
-      overlayText.innerText = `Auditando ${processados}/${alvos.length}\nID: ${idCidadao}`;
+    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
-      // Chama sua API de consulta
       const res = await fetch("/api/consultar-ficha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1385,52 +1312,25 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Se encontrar registros
+      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
-
-        // SALVA NO OBJETO DO CIDADÃO
-        porte.crimesDetectados = data.registrosEncontrados; // Salva o número de crimes
-        porte.detalhesCrimes = data.detalhes || []; // Opcional: salva detalhes se a API mandar
-
+        marcarLinhaComoInfrator(linha, data);
         detectados++;
-      } else {
-        // Limpa se não tiver crimes (caso tenha sido limpo recentemente)
-        delete porte.crimesDetectados;
-        delete porte.detalhesCrimes;
       }
     } catch (e) {
       console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
     }
-
-    // Pequeno delay para não travar a UI
-    await new Promise((r) => setTimeout(r, 100));
   }
 
-  // REORDENAÇÃO: Joga quem tem crimes para o TOPO da lista
-  dbPortes.sort((a, b) => {
-    const crimesA = a.crimesDetectados || 0;
-    const crimesB = b.crimesDetectados || 0;
-    return crimesB - crimesA; // Maior número de crimes primeiro
-  });
-
-  // Salva e Redesenha
-  if (window.salvarDadosLocal) window.salvarDadosLocal();
-
-  // Atualiza a tabela (O renderTables já sabe pintar de vermelho quem tem crimesDetectados)
-  if (window.renderTables) window.renderTables();
-
-  // Esconde feedbacks
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
-  if (window.mostrarCarregando) window.mostrarCarregando(false);
 
-  // Alerta Final
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados! Eles foram movidos para o topo da lista.`,
+      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
       "error"
     );
   } else {
