@@ -185,6 +185,16 @@
                 <span>TOTAL A PAGAR</span>
                 <span id="val-total" class="total-big">R$ 0</span>
               </div>
+              <div id="split-porte" style="padding: 10px 20px; font-size: 0.85rem; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="color: #a8a8b3;">Painel (60%)</span>
+                  <span id="val-split-painel-porte" style="color: var(--gold-accent); font-weight: bold;">R$ 0,00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #a8a8b3;">Oficial (40%)</span>
+                  <span id="val-split-oficial-porte" style="color: var(--blue-accent); font-weight: bold;">R$ 0,00</span>
+                </div>
+              </div>
             </div>
 
             <div class="form-actions">
@@ -304,6 +314,21 @@
                 <div class="invoice-total">
                   <label>TOTAL A PAGAR</label>
                   <h2 id="total-geral-exibicao">R$ 0</h2>
+                  <div class="input-box">
+                    <label>Valor da Limpeza</label>
+                    <input type="number" id="input-valor-limpeza" placeholder="Digite o valor...">
+                  </div>
+
+                  <div id="split-limpeza-manual" style="margin-top: 8px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                      <span style="color: #a8a8b3;">Painel (60%)</span>
+                      <span id="txt-painel-limpeza" style="color: var(--gold-accent); font-weight: bold;">R$ 0,00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                      <span style="color: #a8a8b3;">Oficial (40%)</span>
+                      <span id="txt-oficial-limpeza" style="color: var(--blue-accent); font-weight: bold;">R$ 0,00</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

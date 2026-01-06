@@ -209,6 +209,16 @@ window.atualizarValoresPorte = function () {
 
   document.getElementById("val-total").innerText = fmt(totalFinal);
 
+  // --- ADICIONE ESTE BLOCO ---
+  const portePainel = totalFinal * 0.6;
+  const porteOficial = totalFinal * 0.4;
+
+  const elPainelPorte = document.getElementById("val-split-painel-porte");
+  const elOficialPorte = document.getElementById("val-split-oficial-porte");
+
+  if (elPainelPorte) elPainelPorte.innerText = fmt(portePainel);
+  if (elOficialPorte) elOficialPorte.innerText = fmt(porteOficial);
+
   painel.dataset.total = totalFinal;
   painel.dataset.desconto = valorDesconto;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
@@ -1740,3 +1750,34 @@ window.mostrarCarregando = (ativar) => {
     overlay.classList.add("hidden");
   }
 };
+// ==========================================
+// 💰 CÁLCULO AUTOMÁTICO - LIMPEZA DE FICHA
+// ==========================================
+document.addEventListener("DOMContentLoaded", function () {
+  const inputLimpeza = document.getElementById("input-valor-limpeza");
+
+  // Elementos onde mostraremos os valores
+  const txtPainel = document.getElementById("txt-painel-limpeza");
+  const txtOficial = document.getElementById("txt-oficial-limpeza");
+
+  if (inputLimpeza) {
+    // Função que calcula a cada tecla digitada
+    inputLimpeza.addEventListener("input", function () {
+      let valor = parseFloat(this.value);
+
+      if (isNaN(valor) || valor < 0) valor = 0;
+
+      const valPainel = valor * 0.6;
+      const valOficial = valor * 0.4;
+
+      // Formatação de moeda
+      const formatoBR = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+
+      if (txtPainel) txtPainel.innerText = formatoBR.format(valPainel);
+      if (txtOficial) txtOficial.innerText = formatoBR.format(valOficial);
+    });
+  }
+});
