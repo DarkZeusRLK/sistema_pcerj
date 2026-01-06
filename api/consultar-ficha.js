@@ -164,9 +164,9 @@ module.exports = async (req, res) => {
 
     // CÁLCULO DA TAXA (Se quiser fixo em 1 milhão, mude a linha abaixo)
     // Lógica progressiva: 1M + (400k por limpeza anterior)
-    const taxaBase = 1000000 + totalLimpezasAnteriores * 400000;
+    const taxaBase = 1600000 + totalLimpezasAnteriores * 500000;
 
-    const custoInafiancaveis = totalInafiancaveis * 400000;
+    const custoInafiancaveis = totalInafiancaveis * 500000;
     const totalGeral = taxaBase + somaMultas + custoInafiancaveis;
 
     res.status(200).json({
