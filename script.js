@@ -373,8 +373,8 @@ async function processarEmissao() {
     }
   });
 }
-/// ==========================================
-// 🔍 CONSULTA CRIMINAL INTEGRADA (VERSÃO ORGANIZADA)
+// ==========================================
+// 🔍 CONSULTA CRIMINAL INTEGRADA (COM DIVISÃO DE VALORES)
 // ==========================================
 window.consultarFicha = async function () {
   const id = document.getElementById("limpeza-id").value;
@@ -406,14 +406,22 @@ window.consultarFicha = async function () {
     }
     // ------------------------
 
-    // 1. Preenche o input invisível...
+    // Função de formatação local (mantendo seu padrão)
+    // style: 'decimal' garante que mostre casas decimais corretamente se necessário
+    const fmt = (v) =>
+      (v || 0).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    // 1. Preenche o input invisível (usado no envio do relatório)
     const inputValor = document.getElementById("input-valor-limpeza");
     if (inputValor) {
-      inputValor.value = dados.totalGeral || 0; // Proteção || 0
+      // Aqui usamos o fmt para ficar bonito no input readonly também, ou raw value se preferir
+      inputValor.value = `R$ ${fmt(dados.totalGeral)}`;
     }
-    // 2. ATUALIZA O RECIBO VISUAL COM PROTEÇÃO
-    const fmt = (v) => (v || 0).toLocaleString("pt-BR");
 
+    // 2. ATUALIZA O RECIBO VISUAL (EXTRATO)
     document.getElementById("resumo-taxa-base").innerText = `R$ ${fmt(
       dados.taxaBase
     )}`;
@@ -423,9 +431,26 @@ window.consultarFicha = async function () {
     document.getElementById("resumo-inafiancaveis").innerText = `R$ ${fmt(
       dados.custoInafiancaveis
     )}`;
+
+    // Total Geral Grande
+    const totalGeral = dados.totalGeral || 0;
     document.getElementById("total-geral-exibicao").innerText = `R$ ${fmt(
-      dados.totalGeral
+      totalGeral
     )}`;
+
+    // ============================================================
+    // 2.1. CÁLCULO E EXIBIÇÃO DA DIVISÃO (60% / 40%)
+    // ============================================================
+    const valPainel = totalGeral * 0.6;
+    const valOficial = totalGeral * 0.4;
+
+    const elPainel = document.getElementById("txt-painel-limpeza-auto");
+    const elOficial = document.getElementById("txt-oficial-limpeza-auto");
+
+    if (elPainel) elPainel.innerText = `R$ ${fmt(valPainel)}`;
+    if (elOficial) elOficial.innerText = `R$ ${fmt(valOficial)}`;
+    // ============================================================
+
     // 3. Alerta de sucesso com resumo rápido
     mostrarAlerta(
       "Histórico Recuperado",
@@ -436,7 +461,7 @@ window.consultarFicha = async function () {
     console.error(erro);
     mostrarAlerta(
       "Erro de Conexão",
-      "Não foi possível recuperar os dados do Discord. Verifique o ID ou tente novamente.",
+      "Não foi possível recuperar os dados. Verifique o ID ou tente novamente.",
       "error"
     );
   } finally {
@@ -1750,34 +1775,3 @@ window.mostrarCarregando = (ativar) => {
     overlay.classList.add("hidden");
   }
 };
-// ==========================================
-// 💰 CÁLCULO AUTOMÁTICO - LIMPEZA DE FICHA
-// ==========================================
-document.addEventListener("DOMContentLoaded", function () {
-  const inputLimpeza = document.getElementById("input-valor-limpeza");
-
-  // Elementos onde mostraremos os valores
-  const txtPainel = document.getElementById("txt-painel-limpeza");
-  const txtOficial = document.getElementById("txt-oficial-limpeza");
-
-  if (inputLimpeza) {
-    // Função que calcula a cada tecla digitada
-    inputLimpeza.addEventListener("input", function () {
-      let valor = parseFloat(this.value);
-
-      if (isNaN(valor) || valor < 0) valor = 0;
-
-      const valPainel = valor * 0.6;
-      const valOficial = valor * 0.4;
-
-      // Formatação de moeda
-      const formatoBR = new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      });
-
-      if (txtPainel) txtPainel.innerText = formatoBR.format(valPainel);
-      if (txtOficial) txtOficial.innerText = formatoBR.format(valOficial);
-    });
-  }
-});
