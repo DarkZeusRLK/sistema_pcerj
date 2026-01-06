@@ -35,9 +35,9 @@ const POSICOES_LIMPEZA = {
 
 // TABELA DE PREÇOS
 const PRECOS = {
-  GLOCK: { arma: 700000, laudo: 450000, municao: 100000 },
-  MP5: { arma: 900000, laudo: 500000, municao: 100000 },
-  TASER: { arma: 1000000, laudo: 500000, municao: 0 },
+  GLOCK: { arma: 1200000, laudo: 600000, municao: 120000 },
+  MP5: { arma: 1600000, laudo: 600000, municao: 120000 },
+  TASER: { arma: 1400000, laudo: 600000, municao: 0 },
 };
 
 let dbPortes = [];
@@ -1368,11 +1368,11 @@ function marcarLinhaComoInfrator(linha, data) {
 
 // 1. Tabela de Preços
 const PRECOS_RECOMPRA = {
-  MUNICAO: 100000,
+  MUNICAO: 120000,
   ARMAS: {
-    GLOCK: 700000,
-    MP5: 900000,
-    TASER: 1000000,
+    GLOCK: 1200000,
+    MP5: 1600000,
+    TASER: 1400000,
   },
 };
 
