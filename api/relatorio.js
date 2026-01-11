@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
         if (!msg.embeds || msg.embeds.length === 0) return;
 
         const embed = msg.embeds[0];
+        // Normaliza o título para maiúsculas e remove acentos
         const title = (embed.title || "")
           .toUpperCase()
           .normalize("NFD")
@@ -61,6 +62,9 @@ module.exports = async (req, res) => {
 
         // 1. Identificar Oficial (ID)
         let oficialId = null;
+
+        // Regex busca por "OFICIAL", "RESPONSAVEL", etc.
+        // Isso vai pegar o "Oficial Responsável" que aparece na sua imagem de Recompra
         const campoOficial = embed.fields?.find((f) =>
           /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -84,16 +88,22 @@ module.exports = async (req, res) => {
           };
         }
 
-        // --- Contagem ---
+        // --- Contagem e Categorização ---
+
+        // A. EMISSÃO
         if (
           title.includes("EMISSAO") ||
           title.includes("EMITIDO") ||
           title.includes("PORTE DE ARMA")
         ) {
           statsPorID[oficialId].emissao++;
-        } else if (title.includes("REVOGA")) {
+        }
+
+        // B. REVOGAÇÃO
+        else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
-          // Recuperar emissor original
+
+          // Recuperar emissor original para dar o ponto da emissão a ele
           const campoEmissorOriginal = embed.fields?.find((f) =>
             /ORIGINAL|EMITIDO POR/i.test(
               f.name
@@ -117,26 +127,37 @@ module.exports = async (req, res) => {
               statsPorID[idOriginal].emissao++;
             }
           }
-        } else if (
+        }
+
+        // C. LIMPEZA
+        else if (
           title.includes("LIMPEZA") ||
           title.includes("CERTIFICADO") ||
           title.includes("ANTECEDENTES")
         ) {
           statsPorID[oficialId].limpeza++;
-        } else if (title.includes("RENOVA")) {
+        }
+
+        // D. RENOVAÇÃO / RECOMPRA (Alterado aqui)
+        // Adicionamos "RECOMPRA" e "REPOSICAO" baseado no título da imagem
+        else if (
+          title.includes("RENOVA") ||
+          title.includes("RECOMPRA") ||
+          title.includes("REPOSICAO")
+        ) {
           statsPorID[oficialId].renovacao++;
         }
       });
     }
 
-    // --- TRADUÇÃO DE NOMES (Reforçada) ---
+    // --- TRADUÇÃO DE NOMES (Mantendo a lógica reforçada anterior) ---
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
 
     await Promise.all(
       ids.map(async (id) => {
         try {
-          // 1. Busca no Servidor (Guild) - Prioridade Máxima
+          // 1. Busca no Servidor (Guild) - Para pegar o Apelido
           const rGuild = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
             { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
@@ -144,8 +165,6 @@ module.exports = async (req, res) => {
 
           if (rGuild.ok) {
             const memberData = await rGuild.json();
-            // Tenta pegar o Apelido (nick). Se for null, pega o username.
-            // O Discord retorna "nick": null se o usuário não tiver apelido neste servidor específico.
             mapaNomes[id] =
               memberData.nick ||
               memberData.user?.global_name ||
@@ -153,7 +172,7 @@ module.exports = async (req, res) => {
             return;
           }
 
-          // 2. Fallback: Busca Global (se o usuário saiu do servidor)
+          // 2. Fallback: Busca Global
           const rUser = await fetch(`https://discord.com/api/v10/users/${id}`, {
             headers: { Authorization: `Bot ${Discord_Bot_Token}` },
           });
