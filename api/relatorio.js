@@ -3,7 +3,7 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
-  // --- Configuração de CORS ---
+  // Configuração de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
 
   const {
     Discord_Bot_Token,
-    Discord_Guild_ID,
+    Discord_Guild_ID, // CERTIFIQUE-SE QUE ESTE ID É DO SERVIDOR DA POLÍCIA (ONDE ESTÃO OS CARGOS E NICKNAMES)
     CHANNEL_PORTE_ID,
     CHANNEL_REVOGACAO_ID,
     CHANNEL_LIMPEZA_ID,
@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
     const endObj = new Date(`${dataFim}T23:59:59`);
     const statsPorID = {};
 
-    // --- Função para buscar mensagens com paginação segura ---
+    // Função auxiliar para buscar mensagens
     async function fetchMessages(channelId) {
       if (!channelId) return [];
       try {
@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
       CHANNEL_LIMPEZA_ID,
     ].filter(Boolean);
 
-    // --- Processamento das Mensagens ---
+    // --- PROCESSAMENTO DAS MENSAGENS ---
     for (const channelId of canais) {
       const msgs = await fetchMessages(channelId);
       msgs.forEach((msg) => {
@@ -54,7 +54,6 @@ module.exports = async (req, res) => {
         if (!msg.embeds || msg.embeds.length === 0) return;
 
         const embed = msg.embeds[0];
-        // Normaliza o título para maiúsculas e remove acentos
         const title = (embed.title || "")
           .toUpperCase()
           .normalize("NFD")
@@ -63,8 +62,7 @@ module.exports = async (req, res) => {
         // 1. Identificar Oficial (ID)
         let oficialId = null;
 
-        // Regex busca por "OFICIAL", "RESPONSAVEL", etc.
-        // Isso vai pegar o "Oficial Responsável" que aparece na sua imagem de Recompra
+        // Procura nos campos por "Oficial Responsável", "Emitido Por", etc.
         const campoOficial = embed.fields?.find((f) =>
           /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -75,10 +73,13 @@ module.exports = async (req, res) => {
           const match = campoOficial.value.match(/<@!?(\d+)>/);
           if (match) oficialId = match[1];
         }
+
+        // Fallback: Autor da mensagem (caso o embed não tenha o campo explícito)
         if (!oficialId && msg.author) oficialId = msg.author.id;
+
         if (!oficialId) return;
 
-        // Inicializar objeto
+        // Inicializa estatísticas
         if (!statsPorID[oficialId]) {
           statsPorID[oficialId] = {
             emissao: 0,
@@ -88,7 +89,7 @@ module.exports = async (req, res) => {
           };
         }
 
-        // --- Contagem e Categorização ---
+        // --- REGRAS DE CONTAGEM ---
 
         // A. EMISSÃO
         if (
@@ -103,7 +104,7 @@ module.exports = async (req, res) => {
         else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++;
 
-          // Recuperar emissor original para dar o ponto da emissão a ele
+          // Tenta recuperar quem emitiu originalmente para dar o ponto de emissão a ele
           const campoEmissorOriginal = embed.fields?.find((f) =>
             /ORIGINAL|EMITIDO POR/i.test(
               f.name
@@ -112,6 +113,7 @@ module.exports = async (req, res) => {
                 .replace(/[\u0300-\u036f]/g, "")
             )
           );
+
           if (campoEmissorOriginal) {
             const matchO = campoEmissorOriginal.value.match(/<@!?(\d+)>/);
             if (matchO) {
@@ -138,11 +140,10 @@ module.exports = async (req, res) => {
           statsPorID[oficialId].limpeza++;
         }
 
-        // D. RENOVAÇÃO / RECOMPRA (Alterado aqui)
-        // Adicionamos "RECOMPRA" e "REPOSICAO" baseado no título da imagem
+        // D. RENOVAÇÃO & RECOMPRA (CORREÇÃO AQUI)
         else if (
           title.includes("RENOVA") ||
-          title.includes("RECOMPRA") ||
+          title.includes("RECOMPRA") || // Adicionado para pegar "Registro de Recompra"
           title.includes("REPOSICAO")
         ) {
           statsPorID[oficialId].renovacao++;
@@ -150,54 +151,58 @@ module.exports = async (req, res) => {
       });
     }
 
-    // --- TRADUÇÃO DE NOMES (Mantendo a lógica reforçada anterior) ---
+    // --- TRADUÇÃO DE IDs PARA NOMES (CORREÇÃO AQUI) ---
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
 
     await Promise.all(
       ids.map(async (id) => {
         try {
-          // 1. Busca no Servidor (Guild) - Para pegar o Apelido
-          const rGuild = await fetch(
+          // TENTATIVA 1: Buscar no SERVIDOR (Guild Member)
+          // Isso é o que traz o Apelido [TAG] Nome
+          let r = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
+            {
+              headers: { Authorization: `Bot ${Discord_Bot_Token}` },
+            }
           );
 
-          if (rGuild.ok) {
-            const memberData = await rGuild.json();
-            mapaNomes[id] =
-              memberData.nick ||
-              memberData.user?.global_name ||
-              memberData.user?.username;
+          if (r.ok) {
+            const d = await r.json();
+            // Prioridade: Apelido (nick) > Nome Global > Username
+            mapaNomes[id] = d.nick || d.user?.global_name || d.user?.username;
             return;
           }
 
-          // 2. Fallback: Busca Global
-          const rUser = await fetch(`https://discord.com/api/v10/users/${id}`, {
+          // TENTATIVA 2: Buscar USUÁRIO GLOBAL (Caso tenha saído do servidor)
+          r = await fetch(`https://discord.com/api/v10/users/${id}`, {
             headers: { Authorization: `Bot ${Discord_Bot_Token}` },
           });
 
-          if (rUser.ok) {
-            const userData = await rUser.json();
-            mapaNomes[id] = userData.global_name || userData.username;
+          if (r.ok) {
+            const d = await r.json();
+            mapaNomes[id] = d.global_name || d.username;
             return;
           }
 
+          // Fallback final
           mapaNomes[id] = `Oficial (${id})`;
-        } catch (error) {
+        } catch {
           mapaNomes[id] = `Oficial (${id})`;
         }
       })
     );
 
+    // Monta o objeto final substituindo IDs pelos nomes encontrados
     const final = {};
     ids.forEach((id) => {
-      final[mapaNomes[id] || `Oficial (${id})`] = statsPorID[id];
+      const nomeFinal = mapaNomes[id] || `Oficial (${id})`;
+      final[nomeFinal] = statsPorID[id];
     });
 
     res.status(200).json(final);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Erro interno no relatório" });
+    console.error("Erro Relatório:", e);
+    res.status(500).json({ error: "Erro ao gerar relatório" });
   }
 };
