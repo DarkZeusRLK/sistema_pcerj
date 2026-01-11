@@ -3,6 +3,7 @@ const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
+  // Configuração de CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -24,6 +25,7 @@ module.exports = async (req, res) => {
     const endObj = new Date(`${dataFim}T23:59:59`);
     const statsPorID = {};
 
+    // Função auxiliar para buscar mensagens
     async function fetchMessages(channelId) {
       if (!channelId) return [];
       try {
@@ -44,6 +46,7 @@ module.exports = async (req, res) => {
       CHANNEL_LIMPEZA_ID,
     ].filter(Boolean);
 
+    // Loop principal de processamento das mensagens
     for (const channelId of canais) {
       const msgs = await fetchMessages(channelId);
       msgs.forEach((msg) => {
@@ -59,15 +62,20 @@ module.exports = async (req, res) => {
 
         // 1. Identificar quem fez a ação da mensagem atual
         let oficialId = null;
+
+        // Tenta achar campos específicos no embed
         const campoOficial = embed.fields?.find((f) =>
           /OFICIAL|RESPONSAVEL|POLICIAL|EMISSOR|AUTOR|REVOGADO POR/i.test(
             f.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           )
         );
+
         if (campoOficial) {
           const match = campoOficial.value.match(/<@!?(\d+)>/);
           if (match) oficialId = match[1];
         }
+
+        // Se não achar no campo, usa o autor da mensagem
         if (!oficialId && msg.author) oficialId = msg.author.id;
         if (!oficialId) return;
 
@@ -96,7 +104,7 @@ module.exports = async (req, res) => {
         else if (title.includes("REVOGA")) {
           statsPorID[oficialId].revogacao++; // Conta 1 revogação para quem clicou no botão
 
-          // ✨ A MÁGICA AQUI: Recuperar o ponto de quem emitiu originalmente
+          // Recuperar o ponto de quem emitiu originalmente para não prejudicar a contagem
           const campoEmissorOriginal = embed.fields?.find((f) =>
             /ORIGINAL|EMITIDO POR/i.test(
               f.name
@@ -143,32 +151,57 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Tradução de IDs para Nomes e resposta final...
+    // --- CORREÇÃO AQUI: Tradução de IDs para Nomes ---
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
+
     await Promise.all(
       ids.map(async (id) => {
         try {
-          const r = await fetch(
+          // TENTATIVA 1: Buscar membro dentro do servidor (Guild Member)
+          let r = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
             {
               headers: { Authorization: `Bot ${Discord_Bot_Token}` },
             }
           );
-          const d = await r.json();
-          mapaNomes[id] = d.nick || d.user.global_name || d.user.username;
+
+          if (r.ok) {
+            const d = await r.json();
+            // Prioridade: Apelido > Nome Global > Username
+            mapaNomes[id] = d.nick || d.user?.global_name || d.user?.username;
+            return;
+          }
+
+          // TENTATIVA 2: Se falhar (ex: saiu do servidor), buscar usuário global
+          r = await fetch(`https://discord.com/api/v10/users/${id}`, {
+            headers: { Authorization: `Bot ${Discord_Bot_Token}` },
+          });
+
+          if (r.ok) {
+            const d = await r.json();
+            mapaNomes[id] = d.global_name || d.username;
+            return;
+          }
+
+          // Fallback final se nada der certo
+          throw new Error("User not found");
         } catch {
           mapaNomes[id] = `Oficial (${id})`;
         }
       })
     );
 
+    // Montagem do objeto final
     const final = {};
     ids.forEach((id) => {
-      final[mapaNomes[id] || id] = statsPorID[id];
+      const nomeFinal = mapaNomes[id] || `Oficial (${id})`;
+      final[nomeFinal] = statsPorID[id];
     });
+
     res.status(200).json(final);
   } catch (e) {
+    console.error(e); // Log para debug interno, se necessário
     res.status(500).json({ error: "Erro ao gerar relatório" });
   }
 };
