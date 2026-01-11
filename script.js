@@ -1173,86 +1173,117 @@ async function verificarPermissaoRelatorio() {
 }
 
 // ===============================================
-// 📊 LÓGICA DE RELATÓRIOS (Atualizada)
+// 📊 LÓGICA DE RELATÓRIOS (Atualizada e Ordenada)
 // ===============================================
 
-// 1. Função Principal de Geração
 window.gerarRelatorio = async function () {
   const corpo = document.getElementById("corpo-relatorio");
   const inicioInput = document.getElementById("rel-inicio");
   const fimInput = document.getElementById("rel-fim");
 
   if (!inicioInput.value || !fimInput.value) {
-    return mostrarAlerta(
-      "Atenção",
-      "Selecione o período inicial e final.",
-      "warning"
-    );
+    // Certifique-se de que a função mostrarAlerta existe ou use alert()
+    if (typeof mostrarAlerta === "function") {
+      return mostrarAlerta(
+        "Atenção",
+        "Selecione o período inicial e final.",
+        "warning"
+      );
+    } else {
+      return alert("Selecione o período inicial e final.");
+    }
   }
 
   corpo.innerHTML = `<tr><td colspan="7" align="center">🔎 Analisando registros...</td></tr>`;
 
   try {
     const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
+
     const response = await fetch("/api/relatorio", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         dataInicio: inicioInput.value,
         dataFim: fimInput.value,
-        roles: user.roles,
+        roles: user.roles, // Enviado caso precise filtrar permissões no backend
       }),
     });
 
     const dados = await response.json();
     corpo.innerHTML = "";
 
-    if (Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado.</td></tr>`;
+    if (!dados || Object.keys(dados).length === 0) {
+      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado neste período.</td></tr>`;
       return;
     }
 
-    Object.keys(dados).forEach((oficial) => {
-      const d = dados[oficial];
+    // --- NOVA LÓGICA DE ORDENAÇÃO ---
+    // 1. Converte o objeto { "Nome": {stats} } em um Array para poder ordenar
+    const listaOrdenada = Object.entries(dados).map(([nome, stats]) => {
       const total =
-        (d.emissao || 0) +
-        (d.renovacao || 0) +
-        (d.limpeza || 0) +
-        (d.revogacao || 0);
-      const meta = 15;
-      const status =
-        total >= meta
-          ? `<span class="badge-success">Meta Batida</span>`
-          : `<span class="badge-warning">Faltam ${meta - total}</span>`;
+        (stats.emissao || 0) +
+        (stats.renovacao || 0) +
+        (stats.limpeza || 0) +
+        (stats.revogacao || 0);
+      return {
+        nome: nome,
+        ...stats,
+        total: total,
+      };
+    });
+
+    // 2. Ordena do Maior Total para o Menor (Decrescente)
+    listaOrdenada.sort((a, b) => b.total - a.total);
+
+    // 3. Renderiza na tabela
+    const meta = 15;
+
+    listaOrdenada.forEach((d) => {
+      // Definição do Badge de Status
+      let statusHtml = "";
+      if (d.total >= meta) {
+        statusHtml = `<span class="badge badge-success" style="background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px;">Meta Batida</span>`;
+      } else {
+        const falta = meta - d.total;
+        statusHtml = `<span class="badge badge-warning" style="background-color: #ffc107; color: black; padding: 4px 8px; border-radius: 4px;">Faltam ${falta}</span>`;
+      }
 
       corpo.innerHTML += `
         <tr>
-          <td>${oficial}</td>
+          <td style="font-weight: 500;">${d.nome}</td>
           <td align="center">${d.emissao || 0}</td>
           <td align="center">${d.renovacao || 0}</td>
           <td align="center">${d.limpeza || 0}</td>
           <td align="center">${d.revogacao || 0}</td>
-          <td align="center"><strong>${total}</strong></td>
-          <td align="center">${status}</td>
+          <td align="center"><strong style="font-size: 1.1em;">${
+            d.total
+          }</strong></td>
+          <td align="center">${statusHtml}</td>
         </tr>`;
     });
   } catch (error) {
-    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color:red">Erro ao carregar relatório.</td></tr>`;
+    console.error(error);
+    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color:red">Erro ao carregar relatório. Tente novamente.</td></tr>`;
   }
 };
 
-// 2. Event Listener (CORREÇÃO DO CLIQUE)
-// Adicione isto no final do seu arquivo ou dentro da função que inicia o app
+// ===============================================
+// 2. Event Listener (Seguro)
+// ===============================================
 document.addEventListener("DOMContentLoaded", () => {
   const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
 
   if (btnFiltrar) {
-    // Remove listeners antigos para evitar duplicação e adiciona o novo
-    btnFiltrar.replaceWith(btnFiltrar.cloneNode(true));
-    document
-      .getElementById("btn-filtrar-relatorio")
-      .addEventListener("click", window.gerarRelatorio);
-    console.log("Botão de Relatório ativado com sucesso!");
+    // Remove listeners antigos (cloneNode é um hack eficiente para isso)
+    const novoBtn = btnFiltrar.cloneNode(true);
+    btnFiltrar.parentNode.replaceChild(novoBtn, btnFiltrar);
+
+    novoBtn.addEventListener("click", (e) => {
+      e.preventDefault(); // Previne reload se estiver dentro de um form
+      window.gerarRelatorio();
+    });
+
+    console.log("Botão de Relatório ativado.");
   }
 });
 // ==========================================
