@@ -1250,7 +1250,7 @@ window.gerarRelatorio = async function () {
 
       corpo.innerHTML += `
         <tr>
-          <td style="font-weight: 500;">${d.nick}</td>
+          <td style="font-weight: 500;">${d.nome}</td>
           <td align="center">${d.emissao || 0}</td>
           <td align="center">${d.renovacao || 0}</td>
           <td align="center">${d.limpeza || 0}</td>
