@@ -172,17 +172,19 @@ module.exports = async (req, res) => {
     await Promise.all(
       ids.map(async (id) => {
         try {
-          // Tenta pegar do Servidor (com Nickname)
+          // Tenta pegar do Servidor (com Nickname - apelido do servidor)
           const rGuild = await fetch(
             `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
             { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
           );
           if (rGuild.ok) {
             const d = await rGuild.json();
-            mapaNomes[id] = d.nick || d.user?.global_name || d.user?.username;
+            // Prioriza o nickname do servidor (d.nick), que contém o cargo e formatação
+            // Se não tiver nickname, usa o username como fallback
+            mapaNomes[id] = d.nick || d.user?.username || d.user?.global_name;
             return;
           }
-          // Fallback: API de Usuário
+          // Fallback: API de Usuário (quando não está no servidor)
           const rUser = await fetch(`https://discord.com/api/v10/users/${id}`, {
             headers: { Authorization: `Bot ${Discord_Bot_Token}` },
           });
