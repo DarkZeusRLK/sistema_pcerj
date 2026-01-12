@@ -25,7 +25,7 @@ const POSICOES = {
 };
 
 const POSICOES_LIMPEZA = {
-  nome: { x: 180, y: 380 },
+  nome: { x: 100, y: 380 },
   id: { x: 550, y: 380 },
   rg: { x: 180, y: 440 },
   data: { x: 680, y: 380 },
