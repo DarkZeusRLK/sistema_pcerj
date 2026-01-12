@@ -179,9 +179,16 @@ module.exports = async (req, res) => {
           );
           if (rGuild.ok) {
             const d = await rGuild.json();
-            // Prioriza o nickname do servidor (d.nick), que contém o cargo e formatação
-            // Se não tiver nickname, usa o username como fallback
-            mapaNomes[id] = d.nick || d.user?.username || d.user?.global_name;
+            // Prioriza o nickname do servidor (d.nick)
+            // Verifica explicitamente se d.nick existe (não é null/undefined)
+            if (d.nick !== null && d.nick !== undefined && d.nick !== '') {
+              mapaNomes[id] = d.nick;
+            } else {
+              // Se não tem nickname configurado, usa o username como fallback
+              // Log para debug (pode ser removido depois)
+              console.log(`[DEBUG] ID ${id} não tem nickname, usando username: ${d.user?.username}`);
+              mapaNomes[id] = d.user?.username || d.user?.global_name || `Oficial (${id})`;
+            }
             return;
           }
           // Fallback: API de Usuário (quando não está no servidor)
@@ -194,7 +201,8 @@ module.exports = async (req, res) => {
             return;
           }
           mapaNomes[id] = `Oficial (${id})`;
-        } catch {
+        } catch (err) {
+          console.error(`[ERRO] Ao buscar nome para ID ${id}:`, err);
           mapaNomes[id] = `Oficial (${id})`;
         }
       })
