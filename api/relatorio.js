@@ -179,14 +179,14 @@ module.exports = async (req, res) => {
           );
           if (rGuild.ok) {
             const d = await rGuild.json();
-            // Prioriza o nickname do servidor (d.nick)
-            // Verifica explicitamente se d.nick existe (não é null/undefined)
-            if (d.nick !== null && d.nick !== undefined && d.nick !== '') {
+            // SEMPRE prioriza o nickname do servidor (d.nick)
+            // Se d.nick existe (não é null/undefined/string vazia), usa ele
+            // Caso contrário, usa o que aparece no servidor (username ou global_name)
+            if (d.nick && d.nick.trim() !== '') {
               mapaNomes[id] = d.nick;
             } else {
-              // Se não tem nickname configurado, usa o username como fallback
-              // Log para debug (pode ser removido depois)
-              console.log(`[DEBUG] ID ${id} não tem nickname, usando username: ${d.user?.username}`);
+              // Se não tem nickname, ainda estamos no servidor, então usa o username
+              // (não deveria acontecer se todos têm apelido configurado)
               mapaNomes[id] = d.user?.username || d.user?.global_name || `Oficial (${id})`;
             }
             return;
