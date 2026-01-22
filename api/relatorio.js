@@ -17,6 +17,7 @@ module.exports = async (req, res) => {
     CHANNEL_REVOGACAO_ID,
     CHANNEL_LIMPEZA_ID,
     CHANNEL_RECOMPRA_ID, // <--- NOVA VARIÃVEL
+    CAT_CHANNEL_ID,
   } = process.env;
 
   const { dataInicio, dataFim } = req.body || {};
@@ -59,6 +60,7 @@ module.exports = async (req, res) => {
       CHANNEL_REVOGACAO_ID,
       CHANNEL_LIMPEZA_ID,
       CHANNEL_RECOMPRA_ID,
+      CAT_CHANNEL_ID,
     ];
     // Filtra nulos e remove duplicados
     const canais = [...new Set(canaisBrutos.filter(Boolean))];
@@ -70,6 +72,27 @@ module.exports = async (req, res) => {
       msgs.forEach((msg) => {
         const dataMsg = new Date(msg.timestamp);
         if (dataMsg < startObj || dataMsg > endObj) return;
+
+        if (channelId === CAT_CHANNEL_ID) {
+          const matches = [...(msg.content || "").matchAll(/<@!?(\d+)>/g)];
+          if (matches.length === 0) return;
+
+          matches.forEach((m) => {
+            const oficialId = m[1];
+            if (!statsPorID[oficialId]) {
+              statsPorID[oficialId] = {
+                emissao: 0,
+                revogacao: 0,
+                limpeza: 0,
+                renovacao: 0,
+                cat: 0,
+              };
+            }
+            statsPorID[oficialId].cat++;
+          });
+          return;
+        }
+
         if (!msg.embeds || msg.embeds.length === 0) return;
 
         const embed = msg.embeds[0];
@@ -105,6 +128,7 @@ module.exports = async (req, res) => {
             revogacao: 0,
             limpeza: 0,
             renovacao: 0,
+            cat: 0,
           };
         }
 
@@ -140,6 +164,7 @@ module.exports = async (req, res) => {
                   revogacao: 0,
                   limpeza: 0,
                   renovacao: 0,
+                  cat: 0,
                 };
               }
               statsPorID[idOriginal].emissao++;

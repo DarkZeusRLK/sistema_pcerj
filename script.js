@@ -1232,16 +1232,16 @@ window.gerarRelatorio = async function () {
     // Certifique-se de que a funÃ§Ã£o mostrarAlerta existe ou use alert()
     if (typeof mostrarAlerta === "function") {
       return mostrarAlerta(
-        "AtenÃ§Ã£o",
-        "Selecione o perÃ­odo inicial e final.",
+        "Atenção",
+        "Selecione o período inicial e final.",
         "warning"
       );
     } else {
-      return alert("Selecione o perÃ­odo inicial e final.");
+      return alert("Selecione o período inicial e final.");
     }
   }
 
-  corpo.innerHTML = `<tr><td colspan="7" align="center">ðŸ”Ž Analisando registros...</td></tr>`;
+  corpo.innerHTML = `<tr><td colspan="8" align="center"><i class="fa-solid fa-magnifying-glass"></i> Analisando registros...</td></tr>`;
 
   try {
     const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -1260,7 +1260,7 @@ window.gerarRelatorio = async function () {
     corpo.innerHTML = "";
 
     if (!dados || Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="7" align="center">Nenhum registro encontrado neste perÃ­odo.</td></tr>`;
+      corpo.innerHTML = `<tr><td colspan="8" align="center">Nenhum registro encontrado neste período.</td></tr>`;
       return;
     }
 
@@ -1271,7 +1271,8 @@ window.gerarRelatorio = async function () {
         (stats.emissao || 0) +
         (stats.renovacao || 0) +
         (stats.limpeza || 0) +
-        (stats.revogacao || 0);
+        (stats.revogacao || 0) +
+        (stats.cat || 0);
       return {
         nome: nome,
         ...stats,
@@ -1286,7 +1287,7 @@ window.gerarRelatorio = async function () {
     const meta = 15;
 
     listaOrdenada.forEach((d) => {
-      // DefiniÃ§Ã£o do Badge de Status
+      // Definicao do Badge de Status
       let statusHtml = "";
       if (d.total >= meta) {
         statusHtml = `<span class="badge badge-success" style="background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px;">Meta Batida</span>`;
@@ -1302,6 +1303,7 @@ window.gerarRelatorio = async function () {
           <td align="center">${d.renovacao || 0}</td>
           <td align="center">${d.limpeza || 0}</td>
           <td align="center">${d.revogacao || 0}</td>
+          <td align="center">${d.cat || 0}</td>
           <td align="center"><strong style="font-size: 1.1em;">${
             d.total
           }</strong></td>
@@ -1310,7 +1312,7 @@ window.gerarRelatorio = async function () {
     });
   } catch (error) {
     console.error(error);
-    corpo.innerHTML = `<tr><td colspan="7" align="center" style="color:red">Erro ao carregar relatÃ³rio. Tente novamente.</td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="8" align="center" style="color:red">Erro ao carregar relatório. Tente novamente.</td></tr>`;
   }
 };
 
