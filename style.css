@@ -815,21 +815,61 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border: 1px solid #fba94c;
 }
 #sec-cat .cat-form {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 20px;
+  background: linear-gradient(180deg, rgba(32, 32, 36, 0.95), rgba(22, 22, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
 #sec-cat .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 #sec-cat .input-group textarea,
 #sec-cat .input-group input {
   width: 100%;
+}
+
+#sec-cat .input-group label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#sec-cat .input-group input,
+#sec-cat .input-group textarea {
+  background: rgba(18, 18, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 10px 12px;
+}
+
+#sec-cat .input-group input:focus,
+#sec-cat .input-group textarea:focus {
+  outline: none;
+  border-color: var(--gold-accent);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+#sec-cat .hint-text {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+#sec-cat #btn-registrar-cat {
+  margin-top: 18px;
+  align-self: flex-start;
+  padding: 12px 22px;
+  font-weight: 700;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.25);
 }
 
 .mention-picker {
@@ -854,6 +894,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: rgba(212, 175, 55, 0.15);
   color: var(--gold-accent);
   font-size: 0.85rem;
+  border: 1px solid rgba(212, 175, 55, 0.35);
 }
 
 .mention-tag button {
@@ -870,12 +911,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   left: 0;
   right: 0;
   background: #141416;
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
   z-index: 10;
   max-height: 220px;
   overflow-y: auto;
   display: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
 .mention-results.visible {

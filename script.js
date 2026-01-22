@@ -663,6 +663,7 @@ window.registrarCAT = async function () {
   const printTransferencia = document
     .getElementById("cat-print-transferencia")
     ?.value.trim();
+  const anexo = document.getElementById("cat-anexo")?.files?.[0] || null;
   const itens = document.getElementById("cat-itens")?.value.trim();
   const obs = document.getElementById("cat-obs")?.value.trim();
 
@@ -727,10 +728,12 @@ window.registrarCAT = async function () {
 
   try {
     if (typeof mostrarCarregando === "function") mostrarCarregando(true);
+    const formData = new FormData();
+    formData.append("content", mensagem);
+    if (anexo) formData.append("file", anexo, anexo.name);
     const response = await fetch("/api/enviar-cat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: mensagem }),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -749,6 +752,7 @@ window.registrarCAT = async function () {
     document.getElementById("cat-link-prisao").value = "";
     document.getElementById("cat-link-pericia").value = "";
     document.getElementById("cat-print-transferencia").value = "";
+    document.getElementById("cat-anexo").value = "";
     document.getElementById("cat-itens").value = "";
     document.getElementById("cat-obs").value = "";
 
