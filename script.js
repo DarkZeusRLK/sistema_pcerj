@@ -609,20 +609,6 @@ function preencherSelect(selectId, members, placeholder) {
   });
 }
 
-function filtrarSelect(selectId, term) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const busca = term.trim().toLowerCase();
-  Array.from(select.options).forEach((opt) => {
-    if (!opt.value) return;
-    const match = opt.textContent.toLowerCase().includes(busca);
-    opt.hidden = busca.length > 0 && !match;
-  });
-  if (busca.length === 0) {
-    Array.from(select.options).forEach((opt) => (opt.hidden = false));
-  }
-}
-
 async function prepararSelectsCAT() {
   if (!catMembersCache && !catMembersLoading) {
     preencherSelect("cat-investigador-select", [], "Carregando membros...");
@@ -647,17 +633,17 @@ function coletarSelecionados(selectId) {
     .filter(Boolean);
 }
 
-function coletarEnvolvidosIds() {
-  const list = document.getElementById("cat-envolvidos-list");
+function coletarListaIds(listId) {
+  const list = document.getElementById(listId);
   if (!list) return [];
   return Array.from(list.querySelectorAll("[data-id]")).map((el) =>
     el.getAttribute("data-id")
   );
 }
 
-function adicionarEnvolvido() {
-  const picker = document.getElementById("cat-envolvidos-select");
-  const list = document.getElementById("cat-envolvidos-list");
+function adicionarNaLista(selectId, listId) {
+  const picker = document.getElementById(selectId);
+  const list = document.getElementById(listId);
   if (!picker || !list) return;
 
   const selected = picker.value;
@@ -691,9 +677,9 @@ window.registrarCAT = async function () {
   const itens = document.getElementById("cat-itens")?.value.trim();
   const obs = document.getElementById("cat-obs")?.value.trim();
 
-  const investigadorIds = coletarSelecionados("cat-investigador-select");
-  const autorizouIds = coletarSelecionados("cat-autorizou-select");
-  const envolvidosIds = coletarEnvolvidosIds();
+  const investigadorIds = coletarListaIds("cat-investigador-list");
+  const autorizouIds = coletarListaIds("cat-autorizou-list");
+  const envolvidosIds = coletarListaIds("cat-envolvidos-list");
   const investigador = investigadorIds.map((id) => `<@${id}>`).join(" ");
   const autorizou = autorizouIds.map((id) => `<@${id}>`).join(" ");
   const envolvidos = envolvidosIds.map((id) => `<@${id}>`).join(" ");
@@ -787,9 +773,13 @@ window.registrarCAT = async function () {
 
     const selectInvestigador = document.getElementById("cat-investigador-select");
     const selectAutorizou = document.getElementById("cat-autorizou-select");
+    const listInvestigadorReset = document.getElementById("cat-investigador-list");
+    const listAutorizouReset = document.getElementById("cat-autorizou-list");
     const listEnvolvidosReset = document.getElementById("cat-envolvidos-list");
     if (selectInvestigador) selectInvestigador.selectedIndex = 0;
     if (selectAutorizou) selectAutorizou.selectedIndex = 0;
+    if (listInvestigadorReset) listInvestigadorReset.innerHTML = "";
+    if (listAutorizouReset) listAutorizouReset.innerHTML = "";
     if (listEnvolvidosReset) listEnvolvidosReset.innerHTML = "";
   } catch (err) {
     console.error(err);
@@ -2108,11 +2098,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const selectInvestigador = document.getElementById("cat-investigador-select");
   const selectAutorizou = document.getElementById("cat-autorizou-select");
   const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
+  const listInvestigador = document.getElementById("cat-investigador-list");
+  const listAutorizou = document.getElementById("cat-autorizou-list");
   const listEnvolvidos = document.getElementById("cat-envolvidos-list");
+  const btnAddInvestigador = document.getElementById("cat-investigador-add");
+  const btnAddAutorizou = document.getElementById("cat-autorizou-add");
   const btnAddEnvolvido = document.getElementById("cat-envolvidos-add");
-  const searchEnvolvidos = document.getElementById("cat-envolvidos-search");
-  const searchInvestigador = document.getElementById("cat-investigador-search");
-  const searchAutorizou = document.getElementById("cat-autorizou-search");
 
   [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
     if (!select) return;
@@ -2122,35 +2113,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   prepararSelectsCAT();
 
+  if (btnAddInvestigador) {
+    btnAddInvestigador.addEventListener("click", () =>
+      adicionarNaLista("cat-investigador-select", "cat-investigador-list")
+    );
+  }
+
+  if (btnAddAutorizou) {
+    btnAddAutorizou.addEventListener("click", () =>
+      adicionarNaLista("cat-autorizou-select", "cat-autorizou-list")
+    );
+  }
+
   if (btnAddEnvolvido) {
-    btnAddEnvolvido.addEventListener("click", adicionarEnvolvido);
+    btnAddEnvolvido.addEventListener("click", () =>
+      adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list")
+    );
   }
 
-  if (selectEnvolvidos) {
-    selectEnvolvidos.addEventListener("dblclick", adicionarEnvolvido);
-  }
-
-  if (listEnvolvidos) {
-    listEnvolvidos.innerHTML = "";
-  }
-
-  if (searchEnvolvidos) {
-    searchEnvolvidos.addEventListener("input", () => {
-      filtrarSelect("cat-envolvidos-select", searchEnvolvidos.value);
+  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
+    if (!select) return;
+    select.addEventListener("dblclick", () => {
+      if (select === selectInvestigador) {
+        adicionarNaLista("cat-investigador-select", "cat-investigador-list");
+      } else if (select === selectAutorizou) {
+        adicionarNaLista("cat-autorizou-select", "cat-autorizou-list");
+      } else {
+        adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list");
+      }
     });
-  }
+  });
 
-  if (searchInvestigador) {
-    searchInvestigador.addEventListener("input", () => {
-      filtrarSelect("cat-investigador-select", searchInvestigador.value);
-    });
-  }
-
-  if (searchAutorizou) {
-    searchAutorizou.addEventListener("input", () => {
-      filtrarSelect("cat-autorizou-select", searchAutorizou.value);
-    });
-  }
+  if (listInvestigador) listInvestigador.innerHTML = "";
+  if (listAutorizou) listAutorizou.innerHTML = "";
+  if (listEnvolvidos) listEnvolvidos.innerHTML = "";
 
   const drop = document.getElementById("cat-anexo-drop");
   const input = document.getElementById("cat-anexo");
