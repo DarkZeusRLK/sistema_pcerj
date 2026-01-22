@@ -169,44 +169,57 @@ module.exports = async (req, res) => {
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
 
-    await Promise.all(
-      ids.map(async (id) => {
-        try {
-          // Tenta pegar do Servidor (com Nickname - apelido do servidor)
-          const rGuild = await fetch(
-            `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
-            { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
-          );
-          if (rGuild.ok) {
-            const d = await rGuild.json();
-            // SEMPRE prioriza o nickname do servidor (d.nick)
-            // Se d.nick existe (nÃ£o Ã© null/undefined/string vazia), usa ele
-            // Caso contrÃ¡rio, usa o que aparece no servidor (username ou global_name)
-            if (d.nick && d.nick.trim() !== '') {
-              mapaNomes[id] = d.nick;
-            } else {
-              // Se nÃ£o tem nickname, ainda estamos no servidor, entÃ£o usa o username
-              // (nÃ£o deveria acontecer se todos tÃªm apelido configurado)
-              mapaNomes[id] = d.user?.global_name || d.user?.username || `Oficial (${id})`;
-            }
-            return;
-          }
-          // Fallback: API de UsuÃ¡rio (quando nÃ£o estÃ¡ no servidor)
-          const rUser = await fetch(`https://discord.com/api/v10/users/${id}`, {
-            headers: { Authorization: `Bot ${Discord_Bot_Token}` },
-          });
-          if (rUser.ok) {
-            const d = await rUser.json();
-            mapaNomes[id] = d.global_name || d.username;
-            return;
-          }
-          mapaNomes[id] = `Oficial (${id})`;
-        } catch (err) {
-          console.error(`[ERRO] Ao buscar nome para ID ${id}:`, err);
-          mapaNomes[id] = `Oficial (${id})`;
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    async function fetchWithRetry(url, options) {
+      while (true) {
+        const response = await fetch(url, options);
+        if (response.status === 429) {
+          const data = await response.json().catch(() => null);
+          const waitMs = Math.ceil((data?.retry_after || 1) * 1000);
+          await delay(waitMs);
+          continue;
         }
-      })
-    );
+        return response;
+      }
+    }
+
+    for (const id of ids) {
+      try {
+        // Tenta pegar do Servidor (com Nickname - apelido do servidor)
+        const rGuild = await fetchWithRetry(
+          `https://discord.com/api/v10/guilds/${Discord_Guild_ID}/members/${id}`,
+          { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
+        );
+        if (rGuild.ok) {
+          const d = await rGuild.json();
+          // SEMPRE prioriza o nickname do servidor (d.nick)
+          // Se d.nick existe (nÃ£o Ã© null/undefined/string vazia), usa ele
+          // Caso contrÃ¡rio, usa o que aparece no servidor (username ou global_name)
+          if (d.nick && d.nick.trim() !== "") {
+            mapaNomes[id] = d.nick;
+          } else {
+            mapaNomes[id] =
+              d.user?.global_name || d.user?.username || `Oficial (${id})`;
+          }
+          continue;
+        }
+        // Fallback: API de UsuÃ¡rio (quando nÃ£o estÃ¡ no servidor)
+        const rUser = await fetchWithRetry(
+          `https://discord.com/api/v10/users/${id}`,
+          { headers: { Authorization: `Bot ${Discord_Bot_Token}` } }
+        );
+        if (rUser.ok) {
+          const d = await rUser.json();
+          mapaNomes[id] = d.global_name || d.username;
+          continue;
+        }
+        mapaNomes[id] = `Oficial (${id})`;
+      } catch (err) {
+        console.error(`[ERRO] Ao buscar nome para ID ${id}:`, err);
+        mapaNomes[id] = `Oficial (${id})`;
+      }
+    }
 
     const final = {};
     ids.forEach((id) => {

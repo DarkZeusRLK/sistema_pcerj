@@ -1,4 +1,4 @@
-// api/listar.js
+﻿// api/listar.js
 const fetch = require("node-fetch");
 
 module.exports = async (req, res) => {
@@ -6,18 +6,43 @@ module.exports = async (req, res) => {
   const channelId = process.env.CHANNEL_PORTE_ID;
 
   if (!token || !channelId)
-    return res.status(500).json({ error: "Configuração faltando" });
+    return res.status(500).json({ error: "Configuracao faltando" });
 
   try {
-    const response = await fetch(
-      `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`,
-      {
-        headers: { Authorization: `Bot ${token}` },
-      }
-    );
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    if (!response.ok) throw new Error("Erro Discord");
-    const messages = await response.json();
+    async function fetchAllMessages() {
+      const mensagens = [];
+      let before = null;
+
+      while (true) {
+        const params = new URLSearchParams({ limit: "100" });
+        if (before) params.set("before", before);
+        const url = `https://discord.com/api/v10/channels/${channelId}/messages?${params.toString()}`;
+
+        const response = await fetch(url, {
+          headers: { Authorization: `Bot ${token}` },
+        });
+
+        if (response.status === 429) {
+          const data = await response.json().catch(() => null);
+          const waitMs = Math.ceil((data?.retry_after || 1) * 1000);
+          await delay(waitMs);
+          continue;
+        }
+
+        if (!response.ok) throw new Error("Erro Discord");
+        const batch = await response.json();
+        mensagens.push(...batch);
+
+        if (batch.length < 100) break;
+        before = batch[batch.length - 1].id;
+      }
+
+      return mensagens;
+    }
+
+    const messages = await fetchAllMessages();
 
     const lista = messages
       .filter((m) => m.embeds && m.embeds.length > 0)
@@ -25,15 +50,22 @@ module.exports = async (req, res) => {
         const e = m.embeds[0];
         const fields = e.fields || [];
 
+        const normalize = (text) =>
+          (text || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+
         const find = (key) => {
+          const keyNorm = normalize(key);
           const f = fields.find((field) =>
-            field.name.toLowerCase().includes(key.toLowerCase())
+            normalize(field.name).includes(keyNorm)
           );
-          // IMPORTANTE: Mantemos a menção <@ID> se existir, removendo apenas lixo visual
+          // Mantem a mencao <@ID> se existir, removendo apenas lixo visual
           return f ? f.value.replace(/[*`]/g, "").trim() : null;
         };
 
-        const nome = find("Cidadão") || find("Nome");
+        const nome = find("Cidadao") || find("Nome");
         const id = find("Passaporte") || find("ID");
 
         if (nome && id) {
@@ -41,10 +73,9 @@ module.exports = async (req, res) => {
             message_id: m.id,
             nome,
             id,
-            // 👇 ADICIONADO: Capturando o Oficial para as metas
             oficial:
-              find("Oficial") || find("Responsável") || "Oficial Desconhecido",
-            expedicao: find("Expedição") || find("Data") || "N/A",
+              find("Oficial") || find("Responsavel") || "Oficial Desconhecido",
+            expedicao: find("Expedicao") || find("Data") || "N/A",
             validade: find("Validade") || find("Vencimento") || "N/A",
             rg: find("RG") || "N/A",
             arma: find("Armamento") || find("Arma") || "N/A",

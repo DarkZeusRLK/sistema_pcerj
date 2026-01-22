@@ -817,6 +817,29 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 #limpeza-rg {
   width: 100%;
 }
+/* Revogacao - paginacao */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--text-secondary);
+}
+
+.btn-pagination {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-pagination:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /* Container de Limpeza */
 .cleaning-container {
   display: flex;
