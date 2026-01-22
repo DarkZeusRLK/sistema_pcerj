@@ -837,7 +837,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #sec-cat .input-group textarea,
-#sec-cat .input-group input {
+#sec-cat .input-group input,
+#sec-cat .input-group select {
   width: 100%;
 }
 
@@ -849,7 +850,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #sec-cat .input-group input,
-#sec-cat .input-group textarea {
+#sec-cat .input-group textarea,
+#sec-cat .input-group select {
   background: rgba(18, 18, 20, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
@@ -858,10 +860,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #sec-cat .input-group input:focus,
-#sec-cat .input-group textarea:focus {
+#sec-cat .input-group textarea:focus,
+#sec-cat .input-group select:focus {
   outline: none;
   border-color: var(--gold-accent);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+#sec-cat .input-group select[multiple] {
+  min-height: 120px;
 }
 
 #sec-cat .hint-text {

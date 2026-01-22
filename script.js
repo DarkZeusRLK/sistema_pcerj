@@ -45,11 +45,6 @@ let paginaRevogacao = 1;
 const limiteRevogacao = 20;
 let totalPaginasRevogacao = 1;
 let ultimoFiltroRevogacao = "";
-const catMentionStore = {
-  investigador: new Map(),
-  autorizou: new Map(),
-  envolvidos: new Map(),
-};
 let catAnexoFile = null;
 
 // ==========================================
@@ -565,93 +560,58 @@ function formatMemberLabel(member) {
   return member.nick || member.global_name || member.username || "Usuario";
 }
 
-function renderMentionTags(storeKey, tagsId) {
-  const container = document.getElementById(tagsId);
-  if (!container) return;
-  const store = catMentionStore[storeKey];
-  container.innerHTML = "";
-  store.forEach((label, id) => {
-    const tag = document.createElement("span");
-    tag.className = "mention-tag";
-    tag.innerHTML = `<span>${label}</span><button type="button" data-id="${id}">&times;</button>`;
-    const btn = tag.querySelector("button");
-    btn.addEventListener("click", () => {
-      store.delete(id);
-      renderMentionTags(storeKey, tagsId);
-    });
-    container.appendChild(tag);
-  });
-}
+let catMembersCache = null;
+let catMembersLoading = false;
 
-async function buscarMembrosDiscord(query) {
-  const response = await fetch(`/api/buscar-membros?q=${encodeURIComponent(query)}`);
-  if (!response.ok) return [];
-  return response.json();
-}
-
-function updateMentionResults(storeKey, resultsId, tagsId, members) {
-  const results = document.getElementById(resultsId);
-  if (!results) return;
-  results.innerHTML = "";
-
-  if (!members || members.length === 0) {
-    results.classList.remove("visible");
-    return;
+async function carregarMembrosDiscord() {
+  if (catMembersCache) return catMembersCache;
+  if (catMembersLoading) return [];
+  catMembersLoading = true;
+  try {
+    const response = await fetch("/api/listar-membros");
+    if (!response.ok) return [];
+    const data = await response.json();
+    catMembersCache = data || [];
+    return catMembersCache;
+  } finally {
+    catMembersLoading = false;
   }
+}
 
+function preencherSelect(selectId, members, placeholder) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const isMultiple = select.hasAttribute("multiple");
+  select.innerHTML = "";
+  if (!isMultiple) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder || "Selecione um oficial";
+    select.appendChild(opt);
+  }
   members.forEach((member) => {
     if (!member.id) return;
-    const item = document.createElement("div");
-    const label = formatMemberLabel(member);
-    item.className = "mention-item";
-    item.textContent = label;
-    item.addEventListener("click", () => {
-      catMentionStore[storeKey].set(member.id, label);
-      renderMentionTags(storeKey, tagsId);
-      const inputId = results.dataset.inputId;
-      const inputEl = inputId ? document.getElementById(inputId) : null;
-      if (inputEl) inputEl.value = "";
-      results.classList.remove("visible");
-    });
-    results.appendChild(item);
-  });
-
-  results.classList.add("visible");
-}
-
-function setupMentionPicker({ inputId, resultsId, tagsId, storeKey }) {
-  const input = document.getElementById(inputId);
-  const results = document.getElementById(resultsId);
-  if (!input || !results) return;
-
-  results.dataset.inputId = inputId;
-
-  let timeoutId = null;
-
-  input.addEventListener("input", () => {
-    const query = input.value.trim();
-    if (timeoutId) clearTimeout(timeoutId);
-
-    if (query.length < 2) {
-      results.classList.remove("visible");
-      results.innerHTML = "";
-      return;
-    }
-
-    timeoutId = setTimeout(async () => {
-      const members = await buscarMembrosDiscord(query);
-      updateMentionResults(storeKey, resultsId, tagsId, members);
-    }, 250);
-  });
-
-  input.addEventListener("blur", () => {
-    setTimeout(() => results.classList.remove("visible"), 150);
+    const opt = document.createElement("option");
+    opt.value = member.id;
+    opt.textContent = formatMemberLabel(member);
+    select.appendChild(opt);
   });
 }
 
-function buildMentions(storeKey) {
-  const ids = Array.from(catMentionStore[storeKey].keys());
-  return ids.map((id) => `<@${id}>`).join(" ");
+async function prepararSelectsCAT() {
+  const members = await carregarMembrosDiscord();
+  if (!members || members.length === 0) return;
+  preencherSelect("cat-investigador-select", members, "Selecione um oficial");
+  preencherSelect("cat-autorizou-select", members, "Selecione um oficial");
+  preencherSelect("cat-envolvidos-select", members, null);
+}
+
+function coletarSelecionados(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return [];
+  return Array.from(select.selectedOptions)
+    .map((opt) => opt.value)
+    .filter(Boolean);
 }
 
 window.registrarCAT = async function () {
@@ -669,9 +629,12 @@ window.registrarCAT = async function () {
   const itens = document.getElementById("cat-itens")?.value.trim();
   const obs = document.getElementById("cat-obs")?.value.trim();
 
-  const investigador = buildMentions("investigador");
-  const autorizou = buildMentions("autorizou");
-  const envolvidos = buildMentions("envolvidos");
+  const investigadorIds = coletarSelecionados("cat-investigador-select");
+  const autorizouIds = coletarSelecionados("cat-autorizou-select");
+  const envolvidosIds = coletarSelecionados("cat-envolvidos-select");
+  const investigador = investigadorIds.map((id) => `<@${id}>`).join(" ");
+  const autorizou = autorizouIds.map((id) => `<@${id}>`).join(" ");
+  const envolvidos = envolvidosIds.map((id) => `<@${id}>`).join(" ");
 
   const camposObrigatorios = [
     { label: "Nome da Operacao", value: operacao },
@@ -763,12 +726,16 @@ window.registrarCAT = async function () {
     document.getElementById("cat-itens").value = "";
     document.getElementById("cat-obs").value = "";
 
-    Object.keys(catMentionStore).forEach((key) => {
-      catMentionStore[key].clear();
-    });
-    renderMentionTags("investigador", "cat-investigador-tags");
-    renderMentionTags("autorizou", "cat-autorizou-tags");
-    renderMentionTags("envolvidos", "cat-envolvidos-tags");
+    const selectInvestigador = document.getElementById("cat-investigador-select");
+    const selectAutorizou = document.getElementById("cat-autorizou-select");
+    const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
+    if (selectInvestigador) selectInvestigador.selectedIndex = 0;
+    if (selectAutorizou) selectAutorizou.selectedIndex = 0;
+    if (selectEnvolvidos) {
+      Array.from(selectEnvolvidos.options).forEach((opt) => {
+        opt.selected = false;
+      });
+    }
   } catch (err) {
     console.error(err);
     if (typeof mostrarAlerta === "function") {
@@ -2083,25 +2050,14 @@ window.mostrarCarregando = (ativar) => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  setupMentionPicker({
-    inputId: "cat-investigador-input",
-    resultsId: "cat-investigador-results",
-    tagsId: "cat-investigador-tags",
-    storeKey: "investigador",
-  });
+  const selectInvestigador = document.getElementById("cat-investigador-select");
+  const selectAutorizou = document.getElementById("cat-autorizou-select");
+  const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
 
-  setupMentionPicker({
-    inputId: "cat-autorizou-input",
-    resultsId: "cat-autorizou-results",
-    tagsId: "cat-autorizou-tags",
-    storeKey: "autorizou",
-  });
-
-  setupMentionPicker({
-    inputId: "cat-envolvidos-input",
-    resultsId: "cat-envolvidos-results",
-    tagsId: "cat-envolvidos-tags",
-    storeKey: "envolvidos",
+  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
+    if (!select) return;
+    select.addEventListener("focus", prepararSelectsCAT);
+    select.addEventListener("click", prepararSelectsCAT);
   });
 
   const drop = document.getElementById("cat-anexo-drop");
