@@ -18,6 +18,7 @@ module.exports = async (req, res) => {
     CHANNEL_LIMPEZA_ID,
     CHANNEL_RECOMPRA_ID, // <--- NOVA VARIÃVEL
     CAT_CHANNEL_ID,
+    CARGOS_ESCRIVAES_RELATORIO,
   } = process.env;
 
   const { dataInicio, dataFim } = req.body || {};
@@ -193,6 +194,12 @@ module.exports = async (req, res) => {
     // --- TRADUÃ‡ÃƒO DE NOMES ---
     const ids = Object.keys(statsPorID);
     const mapaNomes = {};
+    const mapaRoles = {};
+    const cargosEscrivaes = (CARGOS_ESCRIVAES_RELATORIO || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const filtrarPorCargo = cargosEscrivaes.length > 0;
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -218,6 +225,7 @@ module.exports = async (req, res) => {
         );
         if (rGuild.ok) {
           const d = await rGuild.json();
+          mapaRoles[id] = d.roles || [];
           // SEMPRE prioriza o nickname do servidor (d.nick)
           // Se d.nick existe (nÃ£o Ã© null/undefined/string vazia), usa ele
           // Caso contrÃ¡rio, usa o que aparece no servidor (username ou global_name)
@@ -248,6 +256,13 @@ module.exports = async (req, res) => {
 
     const final = {};
     ids.forEach((id) => {
+      if (filtrarPorCargo) {
+        const roles = mapaRoles[id] || [];
+        const temCargo = roles.some((roleId) =>
+          cargosEscrivaes.includes(roleId)
+        );
+        if (!temCargo) return;
+      }
       final[mapaNomes[id] || `Oficial (${id})`] = statsPorID[id];
     });
 

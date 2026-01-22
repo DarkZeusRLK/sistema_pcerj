@@ -55,6 +55,9 @@
             <i class="fa-solid fa-arrows-rotate"></i>
             <span>Recompra</span>
           </li>
+          <li id="menu-cat" onclick="navegar('cat')">
+            <i class="fa-solid fa-clipboard"></i> Registrar C.A.T
+          </li>
           <li id="menu-relatorios" onclick="navegar('relatorios')">
             <i class="fa-solid fa-chart-line"></i> Relatórios
           </li>
@@ -519,6 +522,92 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+      <section id="sec-cat" class="screen hidden">
+        <div class="top-bar">
+          <h1><i class="fa-solid fa-clipboard"></i> Registrar C.A.T</h1>
+          <span class="date-display">Registro de Operação</span>
+        </div>
+
+        <div class="cat-form">
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Nome da Operação</label>
+              <input type="text" id="cat-operacao" placeholder="Informe o nome da operação">
+            </div>
+
+            <div class="input-group">
+              <label>Organização</label>
+              <input type="text" id="cat-organizacao" placeholder="Informe a organização">
+            </div>
+
+            <div class="input-group">
+              <label>Suspeito</label>
+              <input type="text" id="cat-suspeito" placeholder="Nome do suspeito">
+            </div>
+
+            <div class="input-group">
+              <label>RG</label>
+              <input type="text" id="cat-rg" placeholder="RG do suspeito">
+            </div>
+
+            <div class="input-group">
+              <label>Link da prisão/fiança</label>
+              <input type="text" id="cat-link-prisao" placeholder="Cole o link">
+            </div>
+
+            <div class="input-group">
+              <label>Link da perícia</label>
+              <input type="text" id="cat-link-pericia" placeholder="Cole o link">
+            </div>
+
+            <div class="input-group">
+              <label>Print da transferência + Apreensão realizada</label>
+              <input type="text" id="cat-print-transferencia" placeholder="Cole o link do print">
+            </div>
+
+            <div class="input-group">
+              <label>Itens apreendidos</label>
+              <textarea id="cat-itens" rows="3" placeholder="Descreva os itens apreendidos"></textarea>
+            </div>
+
+            <div class="input-group">
+              <label>Investigador(a) responsável</label>
+              <div class="mention-picker">
+                <div class="mention-tags" id="cat-investigador-tags"></div>
+                <input type="text" id="cat-investigador-input" placeholder="Digite para buscar membros">
+                <div class="mention-results" id="cat-investigador-results"></div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Quem Autorizou</label>
+              <div class="mention-picker">
+                <div class="mention-tags" id="cat-autorizou-tags"></div>
+                <input type="text" id="cat-autorizou-input" placeholder="Digite para buscar membros">
+                <div class="mention-results" id="cat-autorizou-results"></div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Policiais envolvidos</label>
+              <div class="mention-picker">
+                <div class="mention-tags" id="cat-envolvidos-tags"></div>
+                <input type="text" id="cat-envolvidos-input" placeholder="Digite para buscar membros">
+                <div class="mention-results" id="cat-envolvidos-results"></div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label>Obs</label>
+              <textarea id="cat-obs" rows="3" placeholder="Observações adicionais"></textarea>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btn-registrar-cat" onclick="registrarCAT()">
+            <i class="fa-solid fa-paper-plane"></i> Enviar C.A.T
+          </button>
         </div>
       </section>
     </main>

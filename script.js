@@ -45,6 +45,11 @@ let paginaRevogacao = 1;
 const limiteRevogacao = 20;
 let totalPaginasRevogacao = 1;
 let ultimoFiltroRevogacao = "";
+const catMentionStore = {
+  investigador: new Map(),
+  autorizou: new Map(),
+  envolvidos: new Map(),
+};
 
 // ==========================================
 // ðŸ•’ SISTEMA DE GATILHOS TEMPORAIS
@@ -552,6 +557,216 @@ window.processarLimpeza = async function () {
   } catch (erro) {
     console.error(erro);
     mostrarAlerta("Erro", "Erro ao processar limpeza.", "error");
+  }
+};
+
+function formatMemberLabel(member) {
+  return member.nick || member.global_name || member.username || "Usuario";
+}
+
+function renderMentionTags(storeKey, tagsId) {
+  const container = document.getElementById(tagsId);
+  if (!container) return;
+  const store = catMentionStore[storeKey];
+  container.innerHTML = "";
+  store.forEach((label, id) => {
+    const tag = document.createElement("span");
+    tag.className = "mention-tag";
+    tag.innerHTML = `<span>${label}</span><button type="button" data-id="${id}">&times;</button>`;
+    const btn = tag.querySelector("button");
+    btn.addEventListener("click", () => {
+      store.delete(id);
+      renderMentionTags(storeKey, tagsId);
+    });
+    container.appendChild(tag);
+  });
+}
+
+async function buscarMembrosDiscord(query) {
+  const response = await fetch(`/api/buscar-membros?q=${encodeURIComponent(query)}`);
+  if (!response.ok) return [];
+  return response.json();
+}
+
+function updateMentionResults(storeKey, resultsId, tagsId, members) {
+  const results = document.getElementById(resultsId);
+  if (!results) return;
+  results.innerHTML = "";
+
+  if (!members || members.length === 0) {
+    results.classList.remove("visible");
+    return;
+  }
+
+  members.forEach((member) => {
+    if (!member.id) return;
+    const item = document.createElement("div");
+    const label = formatMemberLabel(member);
+    item.className = "mention-item";
+    item.textContent = label;
+    item.addEventListener("click", () => {
+      catMentionStore[storeKey].set(member.id, label);
+      renderMentionTags(storeKey, tagsId);
+      const inputId = results.dataset.inputId;
+      const inputEl = inputId ? document.getElementById(inputId) : null;
+      if (inputEl) inputEl.value = "";
+      results.classList.remove("visible");
+    });
+    results.appendChild(item);
+  });
+
+  results.classList.add("visible");
+}
+
+function setupMentionPicker({ inputId, resultsId, tagsId, storeKey }) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  if (!input || !results) return;
+
+  results.dataset.inputId = inputId;
+
+  let timeoutId = null;
+
+  input.addEventListener("input", () => {
+    const query = input.value.trim();
+    if (timeoutId) clearTimeout(timeoutId);
+
+    if (query.length < 2) {
+      results.classList.remove("visible");
+      results.innerHTML = "";
+      return;
+    }
+
+    timeoutId = setTimeout(async () => {
+      const members = await buscarMembrosDiscord(query);
+      updateMentionResults(storeKey, resultsId, tagsId, members);
+    }, 250);
+  });
+
+  input.addEventListener("blur", () => {
+    setTimeout(() => results.classList.remove("visible"), 150);
+  });
+}
+
+function buildMentions(storeKey) {
+  const ids = Array.from(catMentionStore[storeKey].keys());
+  return ids.map((id) => `<@${id}>`).join(" ");
+}
+
+window.registrarCAT = async function () {
+  const operacao = document.getElementById("cat-operacao")?.value.trim();
+  const organizacao = document.getElementById("cat-organizacao")?.value.trim();
+  const suspeito = document.getElementById("cat-suspeito")?.value.trim();
+  const rg = document.getElementById("cat-rg")?.value.trim();
+  const linkPrisao = document.getElementById("cat-link-prisao")?.value.trim();
+  const linkPericia = document.getElementById("cat-link-pericia")?.value.trim();
+  const printTransferencia = document
+    .getElementById("cat-print-transferencia")
+    ?.value.trim();
+  const itens = document.getElementById("cat-itens")?.value.trim();
+  const obs = document.getElementById("cat-obs")?.value.trim();
+
+  const investigador = buildMentions("investigador");
+  const autorizou = buildMentions("autorizou");
+  const envolvidos = buildMentions("envolvidos");
+
+  const camposObrigatorios = [
+    { label: "Nome da Operacao", value: operacao },
+    { label: "Investigador(a) responsavel", value: investigador },
+    { label: "Quem Autorizou", value: autorizou },
+    { label: "Organizacao", value: organizacao },
+    { label: "Suspeito", value: suspeito },
+    { label: "RG", value: rg },
+    { label: "Itens apreendidos", value: itens },
+    { label: "Link da prisao/fianca", value: linkPrisao },
+    { label: "Link da pericia", value: linkPericia },
+    { label: "Print da transferencia + Apreensao realizada", value: printTransferencia },
+    { label: "Policiais envolvidos", value: envolvidos },
+    { label: "Obs", value: obs },
+  ];
+
+  const faltando = camposObrigatorios.find((c) => !c.value);
+  if (faltando) {
+    if (typeof mostrarAlerta === "function") {
+      return mostrarAlerta(
+        "Atenção",
+        `Preencha o campo: ${faltando.label}.`,
+        "warning"
+      );
+    }
+    return alert(`Preencha o campo: ${faltando.label}.`);
+  }
+
+  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+  if (!sessao.id) {
+    if (typeof mostrarAlerta === "function") {
+      return mostrarAlerta(
+        "Erro",
+        "Sessao invalida. Faça login novamente.",
+        "error"
+      );
+    }
+    return alert("Sessao invalida. Faça login novamente.");
+  }
+
+  const mensagem = [
+    `**Nome da Operação:** ${operacao}`,
+    `**Investigador(a) responsável:** ${investigador}`,
+    `**Quem Autorizou:** ${autorizou}`,
+    `**Organização:** ${organizacao}`,
+    `**Suspeito:** ${suspeito}`,
+    `**RG:** ${rg}`,
+    `**Itens apreendidos:** ${itens}`,
+    `**Link da prisão/fiança:** ${linkPrisao}`,
+    `**Link da perícia:** ${linkPericia}`,
+    `**Print da transferência + Apreensão realizada:** ${printTransferencia}`,
+    `**Policiais envolvidos:** ${envolvidos}`,
+    `**Obs:** ${obs}`,
+    `**Relatório emitido por:** <@${sessao.id}>`,
+  ].join("\n");
+
+  try {
+    if (typeof mostrarCarregando === "function") mostrarCarregando(true);
+    const response = await fetch("/api/enviar-cat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: mensagem }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || "Falha ao enviar C.A.T.");
+    }
+
+    if (typeof mostrarAlerta === "function") {
+      mostrarAlerta("Sucesso", "C.A.T enviado com sucesso!", "success");
+    }
+
+    document.getElementById("cat-operacao").value = "";
+    document.getElementById("cat-organizacao").value = "";
+    document.getElementById("cat-suspeito").value = "";
+    document.getElementById("cat-rg").value = "";
+    document.getElementById("cat-link-prisao").value = "";
+    document.getElementById("cat-link-pericia").value = "";
+    document.getElementById("cat-print-transferencia").value = "";
+    document.getElementById("cat-itens").value = "";
+    document.getElementById("cat-obs").value = "";
+
+    Object.keys(catMentionStore).forEach((key) => {
+      catMentionStore[key].clear();
+    });
+    renderMentionTags("investigador", "cat-investigador-tags");
+    renderMentionTags("autorizou", "cat-autorizou-tags");
+    renderMentionTags("envolvidos", "cat-envolvidos-tags");
+  } catch (err) {
+    console.error(err);
+    if (typeof mostrarAlerta === "function") {
+      mostrarAlerta("Erro", "Falha ao enviar C.A.T.", "error");
+    } else {
+      alert("Falha ao enviar C.A.T.");
+    }
+  } finally {
+    if (typeof mostrarCarregando === "function") mostrarCarregando(false);
   }
 };
 
@@ -1855,3 +2070,26 @@ window.mostrarCarregando = (ativar) => {
     overlay.classList.add("hidden");
   }
 };
+
+document.addEventListener("DOMContentLoaded", () => {
+  setupMentionPicker({
+    inputId: "cat-investigador-input",
+    resultsId: "cat-investigador-results",
+    tagsId: "cat-investigador-tags",
+    storeKey: "investigador",
+  });
+
+  setupMentionPicker({
+    inputId: "cat-autorizou-input",
+    resultsId: "cat-autorizou-results",
+    tagsId: "cat-autorizou-tags",
+    storeKey: "autorizou",
+  });
+
+  setupMentionPicker({
+    inputId: "cat-envolvidos-input",
+    resultsId: "cat-envolvidos-results",
+    tagsId: "cat-envolvidos-tags",
+    storeKey: "envolvidos",
+  });
+});

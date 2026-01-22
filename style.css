@@ -814,6 +814,83 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #fba94c;
   border: 1px solid #fba94c;
 }
+#sec-cat .cat-form {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+#sec-cat .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+#sec-cat .input-group textarea,
+#sec-cat .input-group input {
+  width: 100%;
+}
+
+.mention-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mention-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mention-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--gold-accent);
+  font-size: 0.85rem;
+}
+
+.mention-tag button {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.mention-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #141416;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  z-index: 10;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+}
+
+.mention-results.visible {
+  display: block;
+}
+
+.mention-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.mention-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
 #limpeza-rg {
   width: 100%;
 }
