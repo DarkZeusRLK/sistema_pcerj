@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema de EmissÃ£o - PolÃ­cia Civil</title>
+  <title>Sistema de Emissão - Polícia Civil</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <link rel="shortcut icon" href="assets/BrasÃ£o_da_PolÃ­cia_Civil_do_Estado_do_Rio_de_Janeiro.png" type="image/x-icon">
+  <link rel="shortcut icon" href="assets/Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png" type="image/x-icon">
   <script>
     (function () {
       const hash = window.location.hash;
@@ -27,9 +27,9 @@
   <div class="app-container">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <img src="assets/BrasÃ£o_da_PolÃ­cia_Civil_do_Estado_do_Rio_de_Janeiro.png" alt="Logo PC" class="logo">
+        <img src="assets/Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png" alt="Logo PC" class="logo">
         <div class="header-titles">
-          <h2>PolÃ­cia Civil</h2>
+          <h2>Polícia Civil</h2>
           <h4 class="subtitle-system">Sistema Integrado</h4>
         </div>
       </div>
@@ -43,24 +43,24 @@
             <i class="fa-solid fa-file-signature"></i> Emitir Porte
           </li>
           <li id="menu-renovacao" onclick="navegar('renovacao')">
-            <i class="fa-solid fa-arrows-rotate"></i> RenovaÃ§Ãµes
+            <i class="fa-solid fa-arrows-rotate"></i> Renovações
           </li>
           <li id="menu-limpeza" onclick="navegar('limpeza')">
             <i class="fa-solid fa-eraser"></i> Limpeza de Ficha
           </li>
           <li id="menu-revogacao" onclick="navegar('revogacao')">
-            <i class="fa-solid fa-ban"></i> RevogaÃ§Ãµes
+            <i class="fa-solid fa-ban"></i> Revogações
           </li>
           <li id="menu-recompra" onclick="navegar('recompra')">
             <i class="fa-solid fa-arrows-rotate"></i>
             <span>Recompra</span>
           </li>
           <li id="menu-relatorios" onclick="navegar('relatorios')">
-            <i class="fa-solid fa-chart-line"></i> RelatÃ³rios
+            <i class="fa-solid fa-chart-line"></i> Relatórios
           </li>
 
           <li id="menu-admin" onclick="window.location.href='https://administracao-pcerj.vercel.app/index.html'">
-            <i class="fa-solid fa-folder-tree"></i> AdministraÃ§Ã£o
+            <i class="fa-solid fa-folder-tree"></i> Administração
           </li>
         </ul>
       </nav>
@@ -126,17 +126,17 @@
               <select id="porte-arma" onchange="atualizarValoresPorte()">
                 <option value="GLOCK">Glock (9mm)</option>
                 <option value="MP5">MP5 (Submetralhadora)</option>
-                <option value="TASER">Taser (NÃ£o letal)</option>
+                <option value="TASER">Taser (Não letal)</option>
               </select>
             </div>
 
             <div class="row">
               <div class="input-group">
-                <label>Data de ExpediÃ§Ã£o</label>
+                <label>Data de Expedição</label>
                 <input type="text" id="porte-expedicao" readonly>
               </div>
               <div class="input-group">
-                <label>VÃ¡lido AtÃ©</label>
+                <label>Válido Até</label>
                 <input type="text" id="porte-validade" readonly>
               </div>
             </div>
@@ -147,7 +147,7 @@
               <div class="option-card" onclick="document.getElementById('check-municao').click()">
                 <input type="checkbox" id="check-municao" checked onchange="atualizarValoresPorte(); event.stopPropagation();">
                 <div class="option-info">
-                  <span class="opt-title">Incluir MuniÃ§Ã£o</span>
+                  <span class="opt-title">Incluir Munição</span>
                   <span class="opt-desc">+ R$ 100.000</span>
                 </div>
               </div>
@@ -155,7 +155,7 @@
               <div class="option-card" onclick="document.getElementById('check-desconto').click()">
                 <input type="checkbox" id="check-desconto" onchange="atualizarValoresPorte(); event.stopPropagation();">
                 <div class="option-info">
-                  <span class="opt-title" style="color: #66b2ff;">Oficial de PolÃ­cia</span>
+                  <span class="opt-title" style="color: #66b2ff;">Oficial de Polícia</span>
                   <span class="opt-desc">Desconto de 15%</span>
                 </div>
               </div>
@@ -171,10 +171,10 @@
                   <span>Valor da Arma</span> <span id="val-arma">R$ 0</span>
                 </div>
                 <div class="price-row">
-                  <span>Laudo TÃ©cnico</span> <span id="val-laudo">R$ 0</span>
+                  <span>Laudo Técnico</span> <span id="val-laudo">R$ 0</span>
                 </div>
                 <div class="price-row">
-                  <span>Kit MuniÃ§Ã£o</span> <span id="val-municao">R$ 0</span>
+                  <span>Kit Munição</span> <span id="val-municao">R$ 0</span>
                 </div>
                 <div class="price-row discount" id="row-desconto" style="display: none;">
                   <span>Desconto Policial</span> <span id="val-desconto">- R$ 0</span>
@@ -199,15 +199,15 @@
 
             <div class="form-actions">
               <button id="btn-gerar-previa" class="btn-secondary">
-                <i class="fa-solid fa-eye"></i> Gerar PrÃ©via
+                <i class="fa-solid fa-eye"></i> Gerar Prévia
               </button>
             </div>
           </div>
 
           <div class="preview-section hidden" id="preview-porte-container" style="display: none; margin-top: 20px;">
-            <h3>PrÃ©via do Documento</h3>
+            <h3>Prévia do Documento</h3>
             <div class="preview-box">
-              <canvas id="canvas-porte" style="display: none;"></canvas> <img id="img-porte-final" src="" alt="PrÃ©via" style="max-width: 100%; border-radius: 8px; border: 1px solid #444;">
+              <canvas id="canvas-porte" style="display: none;"></canvas> <img id="img-porte-final" src="" alt="Prévia" style="max-width: 100%; border-radius: 8px; border: 1px solid #444;">
             </div>
             <div class="form-actions" style="margin-top: 15px;">
               <button id="btn-emitir-final" class="btn-primary">
@@ -219,23 +219,23 @@
       </section>
       <section id="sec-renovacao" class="screen hidden">
         <header class="top-bar">
-          <h1>RenovaÃ§Ã£o de Portes</h1>
+          <h1>Renovação de Portes</h1>
         </header>
 
         <div class="alert-info" style="margin-bottom: 20px;">
           <i class="fa-solid fa-circle-info"></i>
-          <span>Aqui aparecem apenas portes entre <strong>30 e 33 dias</strong> de uso (PerÃ­odo de GraÃ§a).</span>
+          <span>Aqui aparecem apenas portes entre <strong>30 e 33 dias</strong> de uso (Período de Graça).</span>
         </div>
 
         <div class="table-container">
           <table>
             <thead>
               <tr>
-                <th>CidadÃ£o</th>
+                <th>Cidadão</th>
                 <th>ID</th>
                 <th>Expedido em</th>
                 <th>Dias Vencidos</th>
-                <th>AÃ§Ã£o</th>
+                <th>Ação</th>
               </tr>
             </thead>
             <tbody id="lista-renovacao">
@@ -245,19 +245,19 @@
       </section>
       <section id="sec-limpeza" class="screen hidden">
         <header class="top-bar">
-          <h1><i class="fa-solid fa-eraser"></i> Setor de ReabilitaÃ§Ã£o Criminal</h1>
+          <h1><i class="fa-solid fa-eraser"></i> Setor de Reabilitação Criminal</h1>
         </header>
 
         <div class="cleaning-container">
           <div class="cleaning-inputs">
             <div class="card-formal">
               <div class="card-header">
-                <h3><i class="fa-solid fa-address-card"></i> IdentificaÃ§Ã£o do CidadÃ£o</h3>
+                <h3><i class="fa-solid fa-address-card"></i> Identificação do Cidadão</h3>
               </div>
 
               <div class="input-row">
                 <div class="input-group">
-                  <label>Nome do CidadÃ£o</label>
+                  <label>Nome do Cidadão</label>
                   <input type="text" id="limpeza-nome" placeholder="Nome Completo">
                 </div>
                 <div class="input-group small">
@@ -271,7 +271,7 @@
                 <div class="search-wrapper">
                   <input type="number" id="limpeza-id" placeholder="Ex: 123">
                   <button onclick="window.consultarFicha()" class="btn-search">
-                    <i class="fa-solid fa-magnifying-glass"></i> Consultar HistÃ³rico
+                    <i class="fa-solid fa-magnifying-glass"></i> Consultar Histórico
                   </button>
                 </div>
               </div>
@@ -279,7 +279,7 @@
 
             <div class="info-alert">
               <i class="fa-solid fa-circle-info"></i>
-              <span>O valor final Ã© calculado automaticamente com base no histÃ³rico de crimes e limpezas anteriores.</span>
+              <span>O valor final é calculado automaticamente com base no histórico de crimes e limpezas anteriores.</span>
             </div>
           </div>
 
@@ -304,7 +304,7 @@
                 </div>
 
                 <div class="invoice-item">
-                  <span class="item-label">Crimes InafianÃ§Ã¡veis</span>
+                  <span class="item-label">Crimes Inafiançáveis</span>
                   <span class="item-dots"></span>
                   <span class="item-value" id="resumo-inafiancaveis">R$ 0</span>
                 </div>
@@ -330,7 +330,7 @@
 
               <div class="invoice-footer">
                 <div class="input-group">
-                  <label>Valor para o RelatÃ³rio (R$)</label>
+                  <label>Valor para o Relatório (R$)</label>
                   <input type="text" id="input-valor-limpeza" placeholder="R$ 0,00" readonly>
                 </div>
 
@@ -358,11 +358,11 @@
 
         <div class="alert-warning">
           <i class="fa-solid fa-circle-exclamation"></i>
-          <span>AtenÃ§Ã£o: Portes com crimes detectados aparecerÃ£o no topo da lista com destaque vermelho.</span>
+          <span>Atenção: Portes com crimes detectados aparecerão no topo da lista com destaque vermelho.</span>
         </div>
         <div class="alert-warning">
           <i class="fa-solid fa-circle-exclamation"></i>
-          <span>AtenÃ§Ã£o: O ato de revogar um porte Ã© irreversÃ­vel.</span>
+          <span>Atenção: O ato de revogar um porte é irreversível.</span>
         </div>
 
         <div class="table-container">
@@ -375,11 +375,11 @@
           <table>
             <thead>
               <tr>
-                <th>CidadÃ£o</th>
+                <th>Cidadão</th>
                 <th>ID</th>
                 <th>Arma</th>
                 <th>Status / Alerta</th>
-                <th>AÃ§Ã£o</th>
+                <th>Ação</th>
               </tr>
             </thead>
             <tbody id="lista-ativos-para-revogar">
@@ -388,18 +388,18 @@
           <div class="pagination-controls" id="paginacao-revogacao">
             <button class="btn-pagination" id="revogacao-prev" onclick="mudarPaginaRevogacao(-1)">Anterior</button>
             <span id="revogacao-paginacao-info">Pagina 1 de 1 (0)</span>
-            <button class="btn-pagination" id="revogacao-next" onclick="mudarPaginaRevogacao(1)">Proxima</button>
+            <button class="btn-pagination" id="revogacao-next" onclick="mudarPaginaRevogacao(1)">Próxima</button>
           </div>
         </div>
 
         <div class="table-container" style="margin-top: 30px;">
-          <h3>HistÃ³rico de RevogaÃ§Ãµes</h3>
+          <h3>Histórico de Revogações</h3>
           <table>
             <thead>
               <tr>
-                <th>CidadÃ£o</th>
+                <th>Cidadão</th>
                 <th>ID</th>
-                <th>Data RevogaÃ§Ã£o</th>
+                <th>Data Revogação</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -411,7 +411,7 @@
       <section id="sec-recompra" class="screen hidden">
         <header class="section-header">
           <h2><i class="fa-solid fa-toolbox" style="color: var(--gold-accent);"></i> Recompra de Equipamentos</h2>
-          <p>LogÃ­stica de reposiÃ§Ã£o de armamento e muniÃ§Ã£o para agentes ativos.</p>
+          <p>Logística de reposição de armamento e munição para agentes ativos.</p>
         </header>
 
         <div class="search-box-container" style="background: rgba(20,20,20,0.5); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
@@ -419,7 +419,7 @@
             <label for="busca-recompra-id" style="color: var(--gold-accent); font-weight: bold;">ID do Agente</label>
             <div style="position: relative;">
               <i class="fa-solid fa-user-shield" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #666;"></i>
-              <input type="number" id="busca-recompra-id" placeholder="Informe o ID do cidadÃ£o" style="padding-left: 45px;">
+              <input type="number" id="busca-recompra-id" placeholder="Informe o ID do cidadão" style="padding-left: 45px;">
             </div>
           </div>
           <button class="btn-primary" onclick="buscarPortesParaRecompra()" style="height: 50px; align-self: flex-end;">
@@ -444,7 +444,7 @@
               <input type="checkbox" id="chk-municao" onchange="calcularTotalRecompra()">
               <span class="checkmark"></span>
               <div>
-                <span class="checkbox-text">Repor MuniÃ§Ã£o</span>
+                <span class="checkbox-text">Repor Munição</span>
                 <small class="checkbox-price">+ R$ 120.000</small>
               </div>
             </label>
@@ -474,14 +474,14 @@
       <section id="sec-relatorios" class="screen hidden">
 
         <div class="top-bar">
-          <h1><i class="fa-solid fa-chart-pie"></i> RelatÃ³rio de Produtividade</h1>
-          <span class="date-display">GestÃ£o de Metas e Atividades</span>
+          <h1><i class="fa-solid fa-chart-pie"></i> Relatório de Produtividade</h1>
+          <span class="date-display">Gestão de Metas e Atividades</span>
         </div>
 
         <div class="filter-bar">
 
           <div class="input-group" style="margin-bottom: 0; flex: 1; max-width: 250px;">
-            <label for="rel-inicio"><i class="fa-regular fa-calendar"></i> Data InÃ­cio</label>
+            <label for="rel-inicio"><i class="fa-regular fa-calendar"></i> Data Início</label>
             <input type="date" id="rel-inicio">
           </div>
 
@@ -491,7 +491,7 @@
           </div>
 
           <button id="btn-filtrar-relatorio">
-            <i class="fa-solid fa-filter"></i> Gerar RelatÃ³rio
+            <i class="fa-solid fa-filter"></i> Gerar Relatório
           </button>
         </div>
 
@@ -513,7 +513,7 @@
               <tr>
                 <td colspan="7" align="center" style="padding: 40px; color: var(--text-secondary);">
                   <i class="fa-solid fa-arrow-up" style="font-size: 20px; margin-bottom: 10px;"></i><br>
-                  Selecione o perÃ­odo acima e clique em <strong>GERAR RELATÃ“RIO</strong>.
+                  Selecione o período acima e clique em <strong>GERAR RELAT�"RIO</strong>.
                 </td>
               </tr>
             </tbody>
@@ -528,8 +528,8 @@
       <div class="modal-icon" id="modal-icon-box">
         <i id="modal-icon" class="fa-solid fa-circle-check"></i>
       </div>
-      <h3 id="modal-title">TÃ­tulo</h3>
-      <p id="modal-desc">Mensagem de confirmaÃ§Ã£o.</p>
+      <h3 id="modal-title">Título</h3>
+      <p id="modal-desc">Mensagem de confirmação.</p>
 
       <div class="modal-buttons" id="modal-footer">
         <button id="modal-btn-confirm" class="btn-confirm">OK</button>
@@ -540,10 +540,11 @@
   <div id="loading-overlay" class="loading-overlay hidden">
     <div class="loading-content">
       <i class="fa-solid fa-circle-notch fa-spin"></i>
-      <p>Processando solicitaÃ§Ã£o...</p>
+      <p>Processando solicitação...</p>
     </div>
   </div>
   <script src="script.js"></script>
 </body>
 
 </html>
+
