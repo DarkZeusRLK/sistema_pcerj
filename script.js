@@ -50,6 +50,7 @@ const catMentionStore = {
   autorizou: new Map(),
   envolvidos: new Map(),
 };
+let catAnexoFile = null;
 
 // ==========================================
 // ðŸ•’ SISTEMA DE GATILHOS TEMPORAIS
@@ -663,7 +664,8 @@ window.registrarCAT = async function () {
   const printTransferencia = document
     .getElementById("cat-print-transferencia")
     ?.value.trim();
-  const anexo = document.getElementById("cat-anexo")?.files?.[0] || null;
+  const fileInput = document.getElementById("cat-anexo");
+  const anexo = catAnexoFile || fileInput?.files?.[0] || null;
   const itens = document.getElementById("cat-itens")?.value.trim();
   const obs = document.getElementById("cat-obs")?.value.trim();
 
@@ -752,7 +754,12 @@ window.registrarCAT = async function () {
     document.getElementById("cat-link-prisao").value = "";
     document.getElementById("cat-link-pericia").value = "";
     document.getElementById("cat-print-transferencia").value = "";
-    document.getElementById("cat-anexo").value = "";
+    if (fileInput) fileInput.value = "";
+    catAnexoFile = null;
+    const preview = document.getElementById("cat-anexo-preview");
+    if (preview) {
+      preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhum arquivo selecionado</span>`;
+    }
     document.getElementById("cat-itens").value = "";
     document.getElementById("cat-obs").value = "";
 
@@ -2096,4 +2103,55 @@ document.addEventListener("DOMContentLoaded", () => {
     tagsId: "cat-envolvidos-tags",
     storeKey: "envolvidos",
   });
+
+  const drop = document.getElementById("cat-anexo-drop");
+  const input = document.getElementById("cat-anexo");
+  const preview = document.getElementById("cat-anexo-preview");
+  const btn = document.getElementById("cat-anexo-btn");
+
+  if (btn && input) {
+    btn.addEventListener("click", () => input.click());
+  }
+
+  if (drop && input) {
+    drop.addEventListener("dblclick", () => input.click());
+
+    drop.addEventListener("click", () => {
+      drop.focus();
+    });
+
+    drop.addEventListener("paste", (event) => {
+      const items = event.clipboardData?.items || [];
+      const imageItem = Array.from(items).find((item) =>
+        item.type.startsWith("image/")
+      );
+      if (!imageItem) return;
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+      const file = new File([blob], "cat-print.png", { type: blob.type });
+      catAnexoFile = file;
+      if (preview) {
+        const url = URL.createObjectURL(file);
+        preview.innerHTML = `<img src="${url}" alt="Preview do anexo">`;
+      }
+    });
+  }
+
+  if (input) {
+    input.addEventListener("change", () => {
+      const file = input.files?.[0] || null;
+      catAnexoFile = file;
+      if (!preview) return;
+      if (!file) {
+        preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhum arquivo selecionado</span>`;
+        return;
+      }
+      if (file.type.startsWith("image/")) {
+        const url = URL.createObjectURL(file);
+        preview.innerHTML = `<img src="${url}" alt="Preview do anexo">`;
+      } else {
+        preview.innerHTML = `<i class="fa-solid fa-file-lines"></i><span>${file.name}</span>`;
+      }
+    });
+  }
 });

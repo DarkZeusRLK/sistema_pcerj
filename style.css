@@ -920,6 +920,78 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
+.cat-attachment {
+  border: 1px dashed rgba(212, 175, 55, 0.5);
+  border-radius: 12px;
+  padding: 16px;
+  background: rgba(12, 12, 14, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cat-attachment:focus-within {
+  border-color: var(--gold-accent);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.cat-attachment-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cat-attachment-title {
+  color: var(--gold-accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.cat-attachment-sub {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.cat-attachment-preview {
+  height: 140px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 10px;
+}
+
+.cat-attachment-preview img {
+  max-height: 100%;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.btn-attachment {
+  background: transparent;
+  border: 1px solid rgba(212, 175, 55, 0.6);
+  color: var(--gold-accent);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.btn-attachment:hover {
+  background: rgba(212, 175, 55, 0.12);
+}
+
 .mention-results.visible {
   display: block;
 }
