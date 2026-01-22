@@ -868,7 +868,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #sec-cat .input-group select[multiple] {
-  min-height: 120px;
+  min-height: 140px;
+  max-height: 180px;
 }
 
 #sec-cat .hint-text {

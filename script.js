@@ -562,6 +562,7 @@ function formatMemberLabel(member) {
 
 let catMembersCache = null;
 let catMembersLoading = false;
+let catMembersError = null;
 
 async function carregarMembrosDiscord() {
   if (catMembersCache) return catMembersCache;
@@ -569,7 +570,10 @@ async function carregarMembrosDiscord() {
   catMembersLoading = true;
   try {
     const response = await fetch("/api/listar-membros");
-    if (!response.ok) return [];
+    if (!response.ok) {
+      catMembersError = "Falha ao carregar membros.";
+      return [];
+    }
     const data = await response.json();
     catMembersCache = data || [];
     return catMembersCache;
@@ -583,6 +587,13 @@ function preencherSelect(selectId, members, placeholder) {
   if (!select) return;
   const isMultiple = select.hasAttribute("multiple");
   select.innerHTML = "";
+  if (catMembersError) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = catMembersError;
+    select.appendChild(opt);
+    return;
+  }
   if (!isMultiple) {
     const opt = document.createElement("option");
     opt.value = "";
@@ -599,11 +610,19 @@ function preencherSelect(selectId, members, placeholder) {
 }
 
 async function prepararSelectsCAT() {
+  if (!catMembersCache && !catMembersLoading) {
+    preencherSelect("cat-investigador-select", [], "Carregando membros...");
+    preencherSelect("cat-autorizou-select", [], "Carregando membros...");
+    preencherSelect("cat-envolvidos-select", [], null);
+  }
   const members = await carregarMembrosDiscord();
   if (!members || members.length === 0) return;
-  preencherSelect("cat-investigador-select", members, "Selecione um oficial");
-  preencherSelect("cat-autorizou-select", members, "Selecione um oficial");
-  preencherSelect("cat-envolvidos-select", members, null);
+  const ordenados = members
+    .slice()
+    .sort((a, b) => formatMemberLabel(a).localeCompare(formatMemberLabel(b)));
+  preencherSelect("cat-investigador-select", ordenados, "Selecione um oficial");
+  preencherSelect("cat-autorizou-select", ordenados, "Selecione um oficial");
+  preencherSelect("cat-envolvidos-select", ordenados, null);
 }
 
 function coletarSelecionados(selectId) {
@@ -2053,6 +2072,8 @@ document.addEventListener("DOMContentLoaded", () => {
     select.addEventListener("focus", prepararSelectsCAT);
     select.addEventListener("click", prepararSelectsCAT);
   });
+
+  prepararSelectsCAT();
 
   const drop = document.getElementById("cat-anexo-drop");
   const input = document.getElementById("cat-anexo");
