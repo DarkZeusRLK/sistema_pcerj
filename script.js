@@ -647,6 +647,14 @@ function coletarSelecionados(selectId) {
     .filter(Boolean);
 }
 
+function coletarEnvolvidosIds() {
+  const list = document.getElementById("cat-envolvidos-list");
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-id]")).map((el) =>
+    el.getAttribute("data-id")
+  );
+}
+
 function adicionarEnvolvido() {
   const picker = document.getElementById("cat-envolvidos-select");
   const list = document.getElementById("cat-envolvidos-list");
@@ -655,14 +663,18 @@ function adicionarEnvolvido() {
   const selected = picker.value;
   if (!selected) return;
 
-  const exists = Array.from(list.options).some((opt) => opt.value === selected);
+  const exists = Array.from(list.querySelectorAll("[data-id]")).some(
+    (el) => el.getAttribute("data-id") === selected
+  );
   if (exists) return;
 
   const label = picker.options[picker.selectedIndex]?.textContent || "Oficial";
-  const option = document.createElement("option");
-  option.value = selected;
-  option.textContent = label;
-  list.appendChild(option);
+  const row = document.createElement("div");
+  row.className = "envolvido-item";
+  row.setAttribute("data-id", selected);
+  row.innerHTML = `<span>${label}</span><button type="button" aria-label="Remover">×</button>`;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  list.appendChild(row);
 
   picker.selectedIndex = 0;
 }
@@ -681,7 +693,7 @@ window.registrarCAT = async function () {
 
   const investigadorIds = coletarSelecionados("cat-investigador-select");
   const autorizouIds = coletarSelecionados("cat-autorizou-select");
-  const envolvidosIds = coletarSelecionados("cat-envolvidos-list");
+  const envolvidosIds = coletarEnvolvidosIds();
   const investigador = investigadorIds.map((id) => `<@${id}>`).join(" ");
   const autorizou = autorizouIds.map((id) => `<@${id}>`).join(" ");
   const envolvidos = envolvidosIds.map((id) => `<@${id}>`).join(" ");
@@ -775,10 +787,10 @@ window.registrarCAT = async function () {
 
     const selectInvestigador = document.getElementById("cat-investigador-select");
     const selectAutorizou = document.getElementById("cat-autorizou-select");
-    const selectEnvolvidos = document.getElementById("cat-envolvidos-list");
+    const listEnvolvidosReset = document.getElementById("cat-envolvidos-list");
     if (selectInvestigador) selectInvestigador.selectedIndex = 0;
     if (selectAutorizou) selectAutorizou.selectedIndex = 0;
-    if (selectEnvolvidos) selectEnvolvidos.innerHTML = "";
+    if (listEnvolvidosReset) listEnvolvidosReset.innerHTML = "";
   } catch (err) {
     console.error(err);
     if (typeof mostrarAlerta === "function") {
@@ -2119,10 +2131,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (listEnvolvidos) {
-    listEnvolvidos.addEventListener("dblclick", () => {
-      const selected = Array.from(listEnvolvidos.selectedOptions);
-      selected.forEach((opt) => opt.remove());
-    });
+    listEnvolvidos.innerHTML = "";
   }
 
   if (searchEnvolvidos) {
