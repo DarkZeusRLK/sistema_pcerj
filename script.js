@@ -621,9 +621,6 @@ window.registrarCAT = async function () {
   const rg = document.getElementById("cat-rg")?.value.trim();
   const linkPrisao = document.getElementById("cat-link-prisao")?.value.trim();
   const linkPericia = document.getElementById("cat-link-pericia")?.value.trim();
-  const printTransferencia = document
-    .getElementById("cat-print-transferencia")
-    ?.value.trim();
   const fileInput = document.getElementById("cat-anexo");
   const anexo = catAnexoFile || fileInput?.files?.[0] || null;
   const itens = document.getElementById("cat-itens")?.value.trim();
@@ -646,7 +643,6 @@ window.registrarCAT = async function () {
     { label: "Itens apreendidos", value: itens },
     { label: "Link da prisao/fianca", value: linkPrisao },
     { label: "Link da pericia", value: linkPericia },
-    { label: "Print da transferencia + Apreensao realizada", value: printTransferencia },
     { label: "Policiais envolvidos", value: envolvidos },
     { label: "Obs", value: obs },
   ];
@@ -685,7 +681,6 @@ window.registrarCAT = async function () {
     `**Itens apreendidos:** ${itens}`,
     `**Link da prisão/fiança:** ${linkPrisao}`,
     `**Link da perícia:** ${linkPericia}`,
-    `**Print da transferência + Apreensão realizada:** ${printTransferencia}`,
     `**Policiais envolvidos:** ${envolvidos}`,
     `**Obs:** ${obs}`,
     `**Relatório emitido por:** <@${sessao.id}>`,
@@ -716,7 +711,6 @@ window.registrarCAT = async function () {
     document.getElementById("cat-rg").value = "";
     document.getElementById("cat-link-prisao").value = "";
     document.getElementById("cat-link-pericia").value = "";
-    document.getElementById("cat-print-transferencia").value = "";
     if (fileInput) fileInput.value = "";
     catAnexoFile = null;
     const preview = document.getElementById("cat-anexo-preview");
