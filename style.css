@@ -828,6 +828,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 18px;
 }
 
+.cat-attachment-group {
+  grid-column: 1 / -1;
+}
+
+.cat-attachment-group .cat-attachment {
+  max-width: 720px;
+}
+
 #sec-cat .input-group textarea,
 #sec-cat .input-group input {
   width: 100%;
