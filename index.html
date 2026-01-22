@@ -569,6 +569,7 @@
 
             <div class="input-group">
               <label>Investigador(a) responsável</label>
+              <input type="text" id="cat-investigador-search" placeholder="Digite para buscar um policial">
               <select id="cat-investigador-select">
                 <option value="">Selecione um oficial</option>
               </select>
@@ -576,6 +577,7 @@
 
             <div class="input-group">
               <label>Quem Autorizou</label>
+              <input type="text" id="cat-autorizou-search" placeholder="Digite para buscar um policial">
               <select id="cat-autorizou-select">
                 <option value="">Selecione um oficial</option>
               </select>
@@ -583,8 +585,16 @@
 
             <div class="input-group">
               <label>Policiais envolvidos</label>
-              <select id="cat-envolvidos-select" multiple size="6">
-              </select>
+              <input type="text" id="cat-envolvidos-search" placeholder="Digite para buscar um policial">
+              <div class="envolvidos-controls">
+                <select id="cat-envolvidos-select">
+                  <option value="">Selecione um oficial</option>
+                </select>
+                <button type="button" class="btn-add" id="cat-envolvidos-add">
+                  +
+                </button>
+              </div>
+              <select id="cat-envolvidos-list" multiple size="6"></select>
             </div>
 
             <div class="input-group">

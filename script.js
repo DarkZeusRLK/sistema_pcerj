@@ -609,11 +609,25 @@ function preencherSelect(selectId, members, placeholder) {
   });
 }
 
+function filtrarSelect(selectId, term) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const busca = term.trim().toLowerCase();
+  Array.from(select.options).forEach((opt) => {
+    if (!opt.value) return;
+    const match = opt.textContent.toLowerCase().includes(busca);
+    opt.hidden = busca.length > 0 && !match;
+  });
+  if (busca.length === 0) {
+    Array.from(select.options).forEach((opt) => (opt.hidden = false));
+  }
+}
+
 async function prepararSelectsCAT() {
   if (!catMembersCache && !catMembersLoading) {
     preencherSelect("cat-investigador-select", [], "Carregando membros...");
     preencherSelect("cat-autorizou-select", [], "Carregando membros...");
-    preencherSelect("cat-envolvidos-select", [], null);
+    preencherSelect("cat-envolvidos-select", [], "Carregando membros...");
   }
   const members = await carregarMembrosDiscord();
   if (!members || members.length === 0) return;
@@ -622,7 +636,7 @@ async function prepararSelectsCAT() {
     .sort((a, b) => formatMemberLabel(a).localeCompare(formatMemberLabel(b)));
   preencherSelect("cat-investigador-select", ordenados, "Selecione um oficial");
   preencherSelect("cat-autorizou-select", ordenados, "Selecione um oficial");
-  preencherSelect("cat-envolvidos-select", ordenados, null);
+  preencherSelect("cat-envolvidos-select", ordenados, "Selecione um oficial");
 }
 
 function coletarSelecionados(selectId) {
@@ -631,6 +645,26 @@ function coletarSelecionados(selectId) {
   return Array.from(select.selectedOptions)
     .map((opt) => opt.value)
     .filter(Boolean);
+}
+
+function adicionarEnvolvido() {
+  const picker = document.getElementById("cat-envolvidos-select");
+  const list = document.getElementById("cat-envolvidos-list");
+  if (!picker || !list) return;
+
+  const selected = picker.value;
+  if (!selected) return;
+
+  const exists = Array.from(list.options).some((opt) => opt.value === selected);
+  if (exists) return;
+
+  const label = picker.options[picker.selectedIndex]?.textContent || "Oficial";
+  const option = document.createElement("option");
+  option.value = selected;
+  option.textContent = label;
+  list.appendChild(option);
+
+  picker.selectedIndex = 0;
 }
 
 window.registrarCAT = async function () {
@@ -647,7 +681,7 @@ window.registrarCAT = async function () {
 
   const investigadorIds = coletarSelecionados("cat-investigador-select");
   const autorizouIds = coletarSelecionados("cat-autorizou-select");
-  const envolvidosIds = coletarSelecionados("cat-envolvidos-select");
+  const envolvidosIds = coletarSelecionados("cat-envolvidos-list");
   const investigador = investigadorIds.map((id) => `<@${id}>`).join(" ");
   const autorizou = autorizouIds.map((id) => `<@${id}>`).join(" ");
   const envolvidos = envolvidosIds.map((id) => `<@${id}>`).join(" ");
@@ -741,14 +775,10 @@ window.registrarCAT = async function () {
 
     const selectInvestigador = document.getElementById("cat-investigador-select");
     const selectAutorizou = document.getElementById("cat-autorizou-select");
-    const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
+    const selectEnvolvidos = document.getElementById("cat-envolvidos-list");
     if (selectInvestigador) selectInvestigador.selectedIndex = 0;
     if (selectAutorizou) selectAutorizou.selectedIndex = 0;
-    if (selectEnvolvidos) {
-      Array.from(selectEnvolvidos.options).forEach((opt) => {
-        opt.selected = false;
-      });
-    }
+    if (selectEnvolvidos) selectEnvolvidos.innerHTML = "";
   } catch (err) {
     console.error(err);
     if (typeof mostrarAlerta === "function") {
@@ -2066,6 +2096,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const selectInvestigador = document.getElementById("cat-investigador-select");
   const selectAutorizou = document.getElementById("cat-autorizou-select");
   const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
+  const listEnvolvidos = document.getElementById("cat-envolvidos-list");
+  const btnAddEnvolvido = document.getElementById("cat-envolvidos-add");
+  const searchEnvolvidos = document.getElementById("cat-envolvidos-search");
+  const searchInvestigador = document.getElementById("cat-investigador-search");
+  const searchAutorizou = document.getElementById("cat-autorizou-search");
 
   [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
     if (!select) return;
@@ -2074,6 +2109,39 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   prepararSelectsCAT();
+
+  if (btnAddEnvolvido) {
+    btnAddEnvolvido.addEventListener("click", adicionarEnvolvido);
+  }
+
+  if (selectEnvolvidos) {
+    selectEnvolvidos.addEventListener("dblclick", adicionarEnvolvido);
+  }
+
+  if (listEnvolvidos) {
+    listEnvolvidos.addEventListener("dblclick", () => {
+      const selected = Array.from(listEnvolvidos.selectedOptions);
+      selected.forEach((opt) => opt.remove());
+    });
+  }
+
+  if (searchEnvolvidos) {
+    searchEnvolvidos.addEventListener("input", () => {
+      filtrarSelect("cat-envolvidos-select", searchEnvolvidos.value);
+    });
+  }
+
+  if (searchInvestigador) {
+    searchInvestigador.addEventListener("input", () => {
+      filtrarSelect("cat-investigador-select", searchInvestigador.value);
+    });
+  }
+
+  if (searchAutorizou) {
+    searchAutorizou.addEventListener("input", () => {
+      filtrarSelect("cat-autorizou-select", searchAutorizou.value);
+    });
+  }
 
   const drop = document.getElementById("cat-anexo-drop");
   const input = document.getElementById("cat-anexo");
