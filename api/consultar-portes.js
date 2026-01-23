@@ -9,7 +9,9 @@ module.exports = async (req, res) => {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { idCidadao } = req.body;
+  const body =
+    typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const { idCidadao } = body;
   const { Discord_Bot_Token, CHANNEL_PORTE_ID } = process.env;
 
   if (!idCidadao) return res.status(400).json({ error: "ID obrigatorio" });
@@ -52,6 +54,14 @@ module.exports = async (req, res) => {
 
     const portesEncontrados = [];
     const idBuscado = String(idCidadao).trim();
+    const idRegex = new RegExp(`(^|\\D)${idBuscado}(\\D|$)`);
+
+    const normalizeText = (txt) =>
+      String(txt || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\*_`]/g, "")
+        .trim();
 
     for (const msg of mensagens) {
       if (!msg.embeds || msg.embeds.length === 0) continue;
@@ -67,13 +77,26 @@ module.exports = async (req, res) => {
         )
       );
 
-      if (!campoId || !campoId.value) continue;
+      let idEncontrado = "";
+      if (campoId && campoId.value) {
+        const rawId = campoId.value.replace(/[`*]/g, "").trim();
+        const matchId = rawId.match(/\d+/);
+        idEncontrado = matchId ? matchId[0] : rawId;
+      }
 
-      const rawId = campoId.value.replace(/[`*]/g, "").trim();
-      const matchId = rawId.match(/\d+/);
-      const idEncontrado = matchId ? matchId[0] : rawId;
-
-      if (idEncontrado !== idBuscado) continue;
+      if (idEncontrado !== idBuscado) {
+        const textoEmbed =
+          [
+            embed.title,
+            embed.description,
+            ...(fields.map((f) => f.name)),
+            ...(fields.map((f) => f.value)),
+            msg.content,
+          ]
+            .map(normalizeText)
+            .join(" ") || "";
+        if (!idRegex.test(textoEmbed)) continue;
+      }
 
       const campoArma = fields.find(
         (f) =>

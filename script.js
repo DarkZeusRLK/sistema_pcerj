@@ -1840,19 +1840,23 @@ window.verificarConformidadePortes = async function () {
 
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
 
-  // CORREÃ‡ÃƒO DO SELETOR: O ID jÃ¡ Ã© do TBODY no seu index.html
-  const corpoTabela =
-    document.getElementById("lista-ativos-para-revogar") ||
-    document.getElementById("corpo-revogacao");
-  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
+  // Usa a mesma regra de filtragem da tabela para auditar todos os ativos
+  const filtro = document.getElementById("input-busca")
+    ? document.getElementById("input-busca").value.toLowerCase()
+    : "";
+  const ativosFiltrados = dbPortes
+    .slice()
+    .reverse()
+    .filter((porte) => porte.status !== "Revogado")
+    .filter((porte) => {
+      if (!filtro) return true;
+      return (
+        porte.nome.toLowerCase().includes(filtro) ||
+        String(porte.id).includes(filtro)
+      );
+    });
 
-  // ValidaÃ§Ã£o: Verifica se existem linhas com dados (ignora mensagens de 'nenhum registro')
-  const temDadosReais = Array.from(linhas).some((linha) => {
-    const idCidadao = linha.cells[1]?.innerText.trim();
-    return idCidadao && !isNaN(idCidadao);
-  });
-
-  if (!temDadosReais) {
+  if (!ativosFiltrados.length) {
     console.warn(
       "âš ï¸ Auditoria: Nenhuma linha de porte encontrada para analisar."
     );
@@ -1867,13 +1871,24 @@ window.verificarConformidadePortes = async function () {
   let detectados = 0;
   let processados = 0;
 
-  for (const linha of linhas) {
-    const idCidadao = linha.cells[1]?.innerText.trim();
+  // Mapeia as linhas da pagina atual para marcar infratores visiveis
+  const corpoTabela =
+    document.getElementById("lista-ativos-para-revogar") ||
+    document.getElementById("corpo-revogacao");
+  const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
+  const linhasPorId = new Map();
+  linhas.forEach((linha) => {
+    const idLinha = linha.cells[1]?.innerText.trim();
+    if (idLinha && !isNaN(idLinha)) linhasPorId.set(String(idLinha), linha);
+  });
+
+  for (const porte of ativosFiltrados) {
+    const idCidadao = String(porte.id).trim();
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
     if (textoAuditoria)
-      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${linhas.length})...`;
+      textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${ativosFiltrados.length})...`;
 
     console.log(`â³ Verificando ficha do ID: ${idCidadao}...`);
 
@@ -1891,7 +1906,8 @@ window.verificarConformidadePortes = async function () {
         console.log(
           `ðŸš¨ INFRAÃ‡ÃƒO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
-        marcarLinhaComoInfrator(linha, data);
+        const linha = linhasPorId.get(String(idCidadao));
+        if (linha) marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
     } catch (e) {
