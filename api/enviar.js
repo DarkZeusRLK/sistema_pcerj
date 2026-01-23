@@ -60,7 +60,7 @@ module.exports = (req, res) => {
       );
 
       if (!channelId || !process.env.Discord_Bot_Token) {
-        console.error("❌ Erro: Configuração faltando.");
+        console.error("? Erro: Configuração faltando.");
         res
           .status(500)
           .json({ error: "Configuração de Canal ou Token faltando." });

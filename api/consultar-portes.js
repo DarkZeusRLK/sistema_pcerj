@@ -1,4 +1,4 @@
-﻿const fetch = (...args) =>
+ï»¿const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 module.exports = async (req, res) => {
@@ -54,6 +54,13 @@ module.exports = async (req, res) => {
 
     const portesEncontrados = [];
     const idBuscado = String(idCidadao).trim();
+
+    const normalizeText = (txt) =>
+      String(txt || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\*_`]/g, "")
+        .trim();
     for (const msg of mensagens) {
       if (!msg.embeds || msg.embeds.length === 0) continue;
 
@@ -73,6 +80,24 @@ module.exports = async (req, res) => {
         const rawId = campoId.value.replace(/[`*]/g, "").trim();
         const matchId = rawId.match(/\d+/);
         idEncontrado = matchId ? matchId[0] : rawId;
+      } else {
+        const textoEmbed =
+          [
+            embed.title,
+            embed.description,
+            ...(fields.map((f) => f.name)),
+            ...(fields.map((f) => f.value)),
+            msg.content,
+          ]
+            .map(normalizeText)
+            .join(" ") || "";
+
+        const matchPassaporte = textoEmbed.match(
+          /PASSAPORTE\s*[:#-]?\s*(\d+)/i
+        );
+        const matchIdLabel = textoEmbed.match(/\bID\b\s*[:#-]?\s*(\d+)/i);
+        const match = matchPassaporte || matchIdLabel;
+        idEncontrado = match ? match[1] : "";
       }
 
       if (!idEncontrado || idEncontrado !== idBuscado) continue;

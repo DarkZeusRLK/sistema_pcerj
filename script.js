@@ -1,14 +1,14 @@
-﻿// ==========================================
-// âš™ï¸ CONFIGURAÃ‡Ã•ES E DADOS GLOBAIS
+ï»¿// ==========================================
+// ⚙️ CONFIGURAÇÕES E DADOS GLOBAIS
 // ==========================================
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
-  // Link direto para o brasÃ£o (necessÃ¡rio para o Discord conseguir carregar no footer)
+  // Link direto para o brasão (necessário para o Discord conseguir carregar no footer)
   BRASAO_URL:
     "https://pt.wikipedia.org/wiki/Ficheiro:Bras%C3%A3o_da_Pol%C3%ADcia_Civil_do_Estado_do_Rio_de_Janeiro.png",
 };
 
-// ðŸ‘‡ RODAPÃ‰ PADRÃƒO PARA TODOS OS EMBEDS ðŸ‘‡
+// 👇 RODAPÉ PADRÃO PARA TODOS OS EMBEDS 👇
 const FOOTER_PADRAO = {
   text: "Sistema Policial",
   icon_url: CONFIG.BRASAO_URL,
@@ -33,7 +33,7 @@ const POSICOES_LIMPEZA = {
   fonte: "bold 30px 'Arial'",
 };
 
-// TABELA DE PREÃ‡OS
+// TABELA DE PREÇOS
 const PRECOS = {
   GLOCK: { arma: 1200000, laudo: 600000, municao: 150000 },
   MP5: { arma: 1600000, laudo: 600000, municao: 150000 },
@@ -53,29 +53,29 @@ let catAnexos = {
 };
 
 // ==========================================
-// ðŸ•’ SISTEMA DE GATILHOS TEMPORAIS
+// 🕒 SISTEMA DE GATILHOS TEMPORAIS
 // ==========================================
 
 /**
- * Calcula o tempo restante atÃ© a prÃ³xima meia-noite e agenda a auditoria.
+ * Calcula o tempo restante até a próxima meia-noite e agenda a auditoria.
  */
 function agendarAuditoriaMeiaNoite() {
   const agora = new Date();
   const proximaMeiaNoite = new Date();
 
-  // Define para o prÃ³ximo dia Ã s 00:00:00
+  // Define para o próximo dia às 00:00:00
   proximaMeiaNoite.setHours(24, 0, 0, 0);
 
   const tempoAteMeiaNoite = proximaMeiaNoite.getTime() - agora.getTime();
 
   console.log(
-    `ðŸ•’ Auditoria AutomÃ¡tica: Agendada para as 00:00 (em ${Math.floor(
+    `🕒 Auditoria Automática: Agendada para as 00:00 (em ${Math.floor(
       tempoAteMeiaNoite / 1000 / 60
     )} min).`
   );
 
   setTimeout(() => {
-    console.log("ðŸš€ Gatilho 00:00: Iniciando varredura de conformidade...");
+    console.log("🚀 Gatilho 00:00: Iniciando varredura de conformidade...");
     if (typeof window.verificarConformidadePortes === "function") {
       window.verificarConformidadePortes();
     }
@@ -85,10 +85,10 @@ function agendarAuditoriaMeiaNoite() {
 }
 
 // ==========================================
-// ðŸš€ INICIALIZAÃ‡ÃƒO
+// 🚀 INICIALIZAÇÃO
 // ==========================================
 document.addEventListener("DOMContentLoaded", async function () {
-  console.log("ðŸš€ Sistema Iniciado");
+  console.log("🚀 Sistema Iniciado");
 
   try {
     configurarBotoes();
@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     return;
   }
 
-  // 2. VerificaÃ§Ã£o de SessÃ£o
+  // 2. Verificação de Sessão
   if (sessao) {
     if (isLoginPage) {
       window.location.href = "index.html";
@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         // Inicia o agendamento da meia-noite
         agendarAuditoriaMeiaNoite();
       } catch (err) {
-        console.error("SessÃ£o invÃ¡lida:", err);
+        console.error("Sessão inválida:", err);
         localStorage.removeItem("pc_session");
         window.location.href = "login.html";
       }
@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   if (!isLoginPage) configurarDatasAutomaticas();
 });
 // ==========================================
-// ðŸ“… UTILITÃRIOS DE DATA
+// 📅 UTILITÁRIOS DE DATA
 // ==========================================
 function parseData(dataStr) {
   if (!dataStr) return new Date();
@@ -169,7 +169,7 @@ function calcularDiasCorridos(dataExpedicaoStr) {
 }
 
 // ==========================================
-// ðŸ’² CÃLCULO DE VALORES (EMISSÃƒO)
+// 💲 CÁLCULO DE VALORES (EMISSÃO)
 // ==========================================
 window.atualizarValoresPorte = function () {
   const selectArma = document.getElementById("porte-arma");
@@ -234,12 +234,12 @@ window.atualizarValoresPorte = function () {
 
   painel.dataset.total = totalFinal;
   painel.dataset.desconto = valorDesconto;
-  painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "NÃ£o";
-  painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "NÃ£o";
+  painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
+  painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
 };
 
 // ==========================================
-// ðŸ”˜ BOTÃ•ES E EVENTOS
+// 🔘 BOTÕES E EVENTOS
 // ==========================================
 function configurarBotoes() {
   const btnPreview = document.getElementById("btn-gerar-previa");
@@ -273,7 +273,7 @@ function ativarFormatacaoDinheiro() {
 }
 
 // ==========================================
-// ðŸ“¨ LÃ“GICA DE EMISSÃƒO
+// 📨 LÓGICA DE EMISSÃO
 // ==========================================
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
@@ -286,8 +286,8 @@ async function processarEmissao() {
   const painel = document.getElementById("painel-valores");
   const total = painel ? painel.dataset.total || "0" : "0";
   const desconto = painel ? painel.dataset.desconto || "0" : "0";
-  const temMunicao = painel ? painel.dataset.municaoIncluded || "NÃ£o" : "NÃ£o";
-  const ehPolicial = painel ? painel.dataset.ehPolicial || "NÃ£o" : "NÃ£o";
+  const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
+  const ehPolicial = painel ? painel.dataset.ehPolicial || "Não" : "Não";
 
   const regras = PRECOS[arma];
   const fmt = (v) =>
@@ -303,7 +303,7 @@ async function processarEmissao() {
     ? `<@${sessao.id}>`
     : `**${sessao.username || "Oficial"}**`;
 
-  const msg = `âœ… **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
+  const msg = `✅ **PORTE APROVADO**\nEmitido por ${mencaoOficial}.`;
 
   const canvas = document.getElementById("canvas-porte");
   canvas.toBlob(async (blob) => {
@@ -311,7 +311,7 @@ async function processarEmissao() {
 
     let textoValores = `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
       regras.laudo
-    )}\`\nMuniÃ§Ã£o: \`${
+    )}\`\nMunição: \`${
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
 
@@ -326,28 +326,28 @@ async function processarEmissao() {
     })}\`**`;
 
     const embedData = {
-      title: `ðŸ“„ EMISSÃƒO DE PORTE: ${arma}`,
+      title: `📄 EMISSÃO DE PORTE: ${arma}`,
       description: `Documento oficial registrado.`,
       color: 3447003,
       fields: [
         {
-          name: "ðŸ‘¤ CidadÃ£o",
+          name: "👤 Cidadão",
           value: `**${nome.toUpperCase()}**`,
           inline: true,
         },
-        { name: "ðŸ†” Passaporte", value: `\`${id}\``, inline: true },
-        { name: "ðŸªª RG", value: `\`${rg || "N/A"}\``, inline: true },
-        { name: "ðŸ‘® Oficial", value: mencaoOficial, inline: true },
-        { name: "ðŸ”« Armamento", value: arma, inline: true },
-        { name: "ðŸ“¦ MuniÃ§Ã£o", value: temMunicao, inline: true },
-        { name: "ðŸ“… Validade", value: `\`${validade}\``, inline: true },
-        { name: "ðŸ’° Valores", value: textoValores, inline: false },
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "🪪 RG", value: `\`${rg || "N/A"}\``, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true },
+        { name: "🔫 Armamento", value: arma, inline: true },
+        { name: "📦 Munição", value: temMunicao, inline: true },
+        { name: "📅 Validade", value: `\`${validade}\``, inline: true },
+        { name: "💰 Valores", value: textoValores, inline: false },
       ],
       image: { url: `attachment://${nomeArquivo}` },
       footer: FOOTER_PADRAO,
     };
 
-    // âœ¨ CORREÃ‡ÃƒO: Capturamos o retorno da API que contÃ©m o ID da mensagem
+    // ✨ CORREÇÃO: Capturamos o retorno da API que contém o ID da mensagem
     const resultado = await enviarParaAPI(
       blob,
       nomeArquivo,
@@ -357,7 +357,7 @@ async function processarEmissao() {
     );
 
     if (resultado) {
-      // âœ… Agora salvamos o message_id na hora da criaÃ§Ã£o!
+      // ✅ Agora salvamos o message_id na hora da criação!
       dbPortes.push({
         nome,
         id,
@@ -365,9 +365,9 @@ async function processarEmissao() {
         arma,
         validade,
         expedicao,
-        message_id: resultado.id, // ðŸ”‘ O ID que o Discord retornou
+        message_id: resultado.id, // 🔑 O ID que o Discord retornou
         oficial: sessao.username,
-        oficial_id: sessao.id, // ðŸ‘® ID para o relatÃ³rio
+        oficial_id: sessao.id, // 👮 ID para o relatório
         status: "Ativo",
       });
 
@@ -387,7 +387,7 @@ async function processarEmissao() {
   });
 }
 // ==========================================
-// ðŸ” CONSULTA CRIMINAL INTEGRADA (COM DIVISÃƒO DE VALORES)
+// 🔍 CONSULTA CRIMINAL INTEGRADA (COM DIVISÃO DE VALORES)
 // ==========================================
 window.consultarFicha = async function () {
   const id = document.getElementById("limpeza-id").value;
@@ -396,7 +396,7 @@ window.consultarFicha = async function () {
     return mostrarAlerta("Erro", "Digite o ID para consultar.", "warning");
   }
 
-  // Feedback visual no botÃ£o
+  // Feedback visual no botão
   const btn = document.querySelector(".btn-search");
   const originalText = btn.innerHTML;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
@@ -413,24 +413,24 @@ window.consultarFicha = async function () {
 
     const dados = await res.json();
 
-    // --- PROTEÃ‡ÃƒO DE ERRO ---
+    // --- PROTEÇÃO DE ERRO ---
     if (dados.error) {
       throw new Error(dados.error);
     }
     // ------------------------
 
-    // FunÃ§Ã£o de formataÃ§Ã£o local (mantendo seu padrÃ£o)
-    // style: 'decimal' garante que mostre casas decimais corretamente se necessÃ¡rio
+    // Função de formatação local (mantendo seu padrão)
+    // style: 'decimal' garante que mostre casas decimais corretamente se necessário
     const fmt = (v) =>
       (v || 0).toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
 
-    // 1. Preenche o input invisÃ­vel (usado no envio do relatÃ³rio)
+    // 1. Preenche o input invisível (usado no envio do relatório)
     const inputValor = document.getElementById("input-valor-limpeza");
     if (inputValor) {
-      // Aqui usamos o fmt para ficar bonito no input readonly tambÃ©m, ou raw value se preferir
+      // Aqui usamos o fmt para ficar bonito no input readonly também, ou raw value se preferir
       inputValor.value = `R$ ${fmt(dados.totalGeral)}`;
     }
 
@@ -452,7 +452,7 @@ window.consultarFicha = async function () {
     )}`;
 
     // ============================================================
-    // 2.1. CÃLCULO E EXIBIÃ‡ÃƒO DA DIVISÃƒO (60% / 40%)
+    // 2.1. CÁLCULO E EXIBIÇÃO DA DIVISÃO (60% / 40%)
     // ============================================================
     const valPainel = totalGeral * 0.6;
     const valOficial = totalGeral * 0.4;
@@ -464,27 +464,27 @@ window.consultarFicha = async function () {
     if (elOficial) elOficial.innerText = `R$ ${fmt(valOficial)}`;
     // ============================================================
 
-    // 3. Alerta de sucesso com resumo rÃ¡pido
+    // 3. Alerta de sucesso com resumo rápido
     mostrarAlerta(
-      "HistÃ³rico Recuperado",
-      `O cidadÃ£o possui ${dados.totalLimpezasAnteriores} limpezas prÃ©vias e ${dados.totalInafiancaveis} crimes graves no histÃ³rico atual.`,
+      "Histórico Recuperado",
+      `O cidadão possui ${dados.totalLimpezasAnteriores} limpezas prévias e ${dados.totalInafiancaveis} crimes graves no histórico atual.`,
       "success"
     );
   } catch (erro) {
     console.error(erro);
     mostrarAlerta(
-      "Erro de ConexÃ£o",
-      "NÃ£o foi possÃ­vel recuperar os dados. Verifique o ID ou tente novamente.",
+      "Erro de Conexão",
+      "Não foi possível recuperar os dados. Verifique o ID ou tente novamente.",
       "error"
     );
   } finally {
-    // Restaura o botÃ£o
+    // Restaura o botão
     btn.innerHTML = originalText;
     btn.disabled = false;
   }
 };
 // ==========================================
-// ðŸ§¼ LÃ“GICA DE LIMPEZA
+// 🧼 LÓGICA DE LIMPEZA
 // ==========================================
 window.processarLimpeza = async function () {
   const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
@@ -521,20 +521,20 @@ window.processarLimpeza = async function () {
     const mensagemExterna = ` **LIMPEZA DE FICHA REALIZADA**\nProcedimento realizado por ${mencaoOficial}.`;
 
     const embedLimpeza = {
-      title: `ðŸ“œ CERTIFICADO DE BONS ANTECEDENTES`, // Adicionado Ã­cone para facilitar busca
+      title: `📜 CERTIFICADO DE BONS ANTECEDENTES`, // Adicionado ícone para facilitar busca
       description: `O registro criminal foi limpo mediante pagamento de taxa.`,
       color: 65280,
       fields: [
         {
-          name: "ðŸ‘¤ CidadÃ£o",
+          name: "👤 Cidadão",
           value: `**${nome.toUpperCase()}**`,
           inline: true,
         },
-        { name: "ðŸ†” Passaporte", value: `\`${id}\``, inline: true },
-        { name: "ðŸ’° Valor Pago", value: `R$ ${valor}`, inline: true },
-        { name: "ðŸ‘® Oficial", value: mencaoOficial, inline: true }, // ðŸ‘ˆ OBRIGATÃ“RIO PARA O RELATÃ“RIO
+        { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
+        { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        { name: "👮 Oficial", value: mencaoOficial, inline: true }, // 👈 OBRIGATÓRIO PARA O RELATÓRIO
         {
-          name: "ðŸ“… Data",
+          name: "📅 Data",
           value: new Date().toLocaleDateString("pt-BR"),
           inline: true,
         },
@@ -1049,12 +1049,12 @@ function gerarBlobLimpeza(nome, id, rg) {
       canvas.toBlob((blob) => resolve(blob), "image/png");
     };
     img.onerror = () =>
-      reject(new Error("Imagem assets/bg_limpeza.png nÃ£o encontrada."));
+      reject(new Error("Imagem assets/bg_limpeza.png não encontrada."));
   });
 }
 
 // ==========================================
-// ðŸ‘ï¸ PREVIEW (VISUAL)
+// 👁️ PREVIEW (VISUAL)
 // ==========================================
 window.gerarPreviewPorte = function () {
   const container = document.getElementById("preview-porte-container");
@@ -1101,11 +1101,11 @@ window.gerarPreviewPorte = function () {
   };
 
   imgBase.onerror = () =>
-    mostrarAlerta("Erro", "Imagem do porte nÃ£o encontrada.", "error");
+    mostrarAlerta("Erro", "Imagem do porte não encontrada.", "error");
 };
 
 // ==========================================
-// â˜ï¸ DADOS E TABELAS
+// ☁️ DADOS E TABELAS
 // ==========================================
 async function carregarPortesDoDiscord() {
   try {
@@ -1267,7 +1267,7 @@ function renderRevogadosHistorico() {
 }
 
 // ==========================================
-// ðŸ”„ AÃ‡ÃƒO DE RENOVAR
+// 🔄 AÇÃO DE RENOVAR
 // ==========================================
 window.renovarPorte = async function (idPorte) {
   const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
@@ -1294,21 +1294,21 @@ window.renovarPorte = async function (idPorte) {
   const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
 
   const embedData = {
-    title: `ðŸ”„ RENOVAÃ‡ÃƒO DE PORTE`,
-    description: `O porte foi renovado com sucesso dentro do prazo de graÃ§a.`,
+    title: `🔄 RENOVAÇÃO DE PORTE`,
+    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
     color: 16776960, // Amarelo
     fields: [
-      { name: "ðŸ‘¤ CidadÃ£o", value: `**${porte.nome}**`, inline: true },
-      { name: "ðŸ†” Passaporte", value: `\`${porte.id}\``, inline: true },
-      { name: "ðŸ‘® Renovado por", value: mencaoOficial, inline: true },
-      { name: "ðŸ”« Arma", value: porte.arma, inline: true },
+      { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
+      { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
+      { name: "👮 Renovado por", value: mencaoOficial, inline: true },
+      { name: "🔫 Arma", value: porte.arma, inline: true },
       {
-        name: "ðŸ“… Nova Validade",
+        name: "📅 Nova Validade",
         value: `\`${novaValidadeStr}\``,
         inline: true,
       },
     ],
-    footer: FOOTER_PADRAO, // <-- RODAPÃ‰ PADRÃƒO DO SISTEMA
+    footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
   const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
@@ -1318,7 +1318,7 @@ window.renovarPorte = async function (idPorte) {
     "renovacao_log.txt",
     "revogacao",
     embedData,
-    `ðŸ”„ **PORTE RENOVADO:** ${porte.id}`
+    `🔄 **PORTE RENOVADO:** ${porte.id}`
   );
 
   if (sucesso) {
@@ -1327,25 +1327,25 @@ window.renovarPorte = async function (idPorte) {
     renderTables();
     mostrarAlerta("Sucesso", "Porte renovado!", "success");
   } else {
-    mostrarAlerta("Erro", "Falha ao registrar renovaÃ§Ã£o.", "error");
+    mostrarAlerta("Erro", "Falha ao registrar renovação.", "error");
   }
 };
 
 // ==========================================
-// ðŸš« AÃ‡ÃƒO DE REVOGAR (CORRIGIDA)
+// 🚫 AÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
 window.revogar = async function (idPassaporte) {
   const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
-  if (!p) return mostrarAlerta("Erro", "Registro nÃ£o encontrado.", "error");
+  if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
-  // IMPORTANTE: Se nÃ£o tiver message_id, o sistema nÃ£o vai conseguir apagar do Discord
+  // IMPORTANTE: Se não tiver message_id, o sistema não vai conseguir apagar do Discord
   if (!p.message_id) {
-    console.error("Erro: message_id nÃ£o encontrado no objeto", p);
+    console.error("Erro: message_id não encontrado no objeto", p);
   }
 
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
-    `Deseja revogar o porte de ${p.nome}? Isso apagarÃ¡ o registro original e enviarÃ¡ o log de revogaÃ§Ã£o.`,
+    `Deseja revogar o porte de ${p.nome}? Isso apagará o registro original e enviará o log de revogação.`,
     "danger"
   );
 
@@ -1357,7 +1357,7 @@ window.revogar = async function (idPassaporte) {
   const modalFooter = document.getElementById("modal-footer");
   const modalIcon = document.getElementById("modal-icon");
 
-  if (modalTitle) modalTitle.innerText = "Processando RevogaÃ§Ã£o...";
+  if (modalTitle) modalTitle.innerText = "Processando Revogação...";
   if (modalDesc)
     modalDesc.innerText = "Apagando registro original e gerando log...";
   if (modalIcon) modalIcon.className = "fa-solid fa-spinner fa-spin";
@@ -1370,7 +1370,7 @@ window.revogar = async function (idPassaporte) {
       ? `<@${sessao.id}>`
       : `**${sessao.username}**`;
 
-    // Tentamos pegar a menÃ§Ã£o real do emissor original (p.oficial_id deve vir do listar.js)
+    // Tentamos pegar a menção real do emissor original (p.oficial_id deve vir do listar.js)
     const mencaoEmissorOriginal = p.oficial_id
       ? `<@${p.oficial_id}>`
       : p.oficial;
@@ -1379,15 +1379,15 @@ window.revogar = async function (idPassaporte) {
     const nomeArquivo = `revogacao_${idPassaporte}.png`;
 
     const embed = {
-      title: `ðŸš« PORTE REVOGADO`,
+      title: `🚫 PORTE REVOGADO`,
       color: 15548997,
       fields: [
-        { name: "ðŸ‘¤ CidadÃ£o", value: p.nome, inline: true },
-        { name: "ðŸ†” ID", value: p.id, inline: true },
-        { name: "ðŸ‘® Revogado por", value: mencaoRevogador, inline: true },
-        // A menÃ§Ã£o abaixo Ã© vital para o relatorio.js continuar contando a meta
+        { name: "👤 Cidadão", value: p.nome, inline: true },
+        { name: "🆔 ID", value: p.id, inline: true },
+        { name: "👮 Revogado por", value: mencaoRevogador, inline: true },
+        // A menção abaixo é vital para o relatorio.js continuar contando a meta
         {
-          name: "ðŸ“œ Emissor Original",
+          name: "📜 Emissor Original",
           value: mencaoEmissorOriginal,
           inline: true,
         },
@@ -1397,9 +1397,9 @@ window.revogar = async function (idPassaporte) {
       timestamp: new Date().toISOString(),
     };
 
-    const logTexto = `ðŸš¨ **PORTE REVOGADO** | CidadÃ£o: ${p.nome} | Emissor Original: ${mencaoEmissorOriginal}`;
+    const logTexto = `🚨 **PORTE REVOGADO** | Cidadão: ${p.nome} | Emissor Original: ${mencaoEmissorOriginal}`;
 
-    // 1. Envia o Log para o canal de revogaÃ§Ã£o
+    // 1. Envia o Log para o canal de revogação
     const sucessoLog = await enviarParaAPI(
       blob,
       nomeArquivo,
@@ -1441,7 +1441,7 @@ window.revogar = async function (idPassaporte) {
   } catch (e) {
     console.error(e);
     if (modalFooter) modalFooter.style.display = "flex";
-    mostrarAlerta("Erro", "Falha ao processar revogaÃ§Ã£o.", "error");
+    mostrarAlerta("Erro", "Falha ao processar revogação.", "error");
   }
 };
 function gerarBlobRevogacao(p) {
@@ -1480,7 +1480,7 @@ function gerarBlobRevogacao(p) {
 }
 
 // ==========================================
-// ðŸ”Œ COMUNICAÃ‡ÃƒO API
+// 🔌 COMUNICAÇÃO API
 // ==========================================
 async function enviarParaAPI(blob, filename, tipo, embed, content) {
   const form = new FormData();
@@ -1495,12 +1495,12 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
 
     if (!res.ok) throw new Error(await res.text());
 
-    // âœ¨ MUDANÃ‡A AQUI: Retornamos os dados da resposta em vez de apenas 'true'
+    // ✨ MUDANÇA AQUI: Retornamos os dados da resposta em vez de apenas 'true'
     const data = await res.json();
     return data;
   } catch (e) {
     console.error(e);
-    mostrarAlerta("Erro", "Falha API (Verifique permissÃµes do Bot)", "error");
+    mostrarAlerta("Erro", "Falha API (Verifique permissões do Bot)", "error");
     return null; // Retorna null em caso de erro
   }
 }
@@ -1519,7 +1519,7 @@ async function validarLoginNaAPI(token) {
 }
 
 // ==========================================
-// ðŸ› ï¸ FUNÃ‡Ã•ES DE SISTEMA & MODAL (VISUAL ATUALIZADO)
+// 🛠️ FUNÇÕES DE SISTEMA & MODAL (VISUAL ATUALIZADO)
 // ==========================================
 function atualizarStats() {
   const elA = document.getElementById("counter-ativos");
@@ -1548,7 +1548,7 @@ function iniciarSistema(user) {
     const avatar = user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
       : "assets/logo_pc.png";
-    div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>â— Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
+    div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
   }
 }
 
@@ -1576,15 +1576,15 @@ window.navegar = (tela) => {
   const menu = document.getElementById(`menu-${tela}`);
   if (menu) menu.classList.add("active");
 
-  // Recarrega datas se for emissÃ£o, etc.
+  // Recarrega datas se for emissão, etc.
   if (tela === "emissao") configurarDatasAutomaticas();
 };
 
-// ðŸ‘‡ MODAL PERSONALIZADO (NÃƒO USA ALERT/CONFIRM NATIVO) ðŸ‘‡
+// 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
 window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
-    // Se nÃ£o achar o modal no HTML, usa o nativo por seguranÃ§a
+    // Se não achar o modal no HTML, usa o nativo por segurança
     if (!modal) return resolve(confirm(`${titulo}\n${mensagem}`));
 
     const elTitulo = document.getElementById("modal-title");
@@ -1610,7 +1610,7 @@ window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
     modal.classList.remove("hidden");
     btnCancel.classList.remove("hidden");
 
-    // Clona botÃµes para limpar eventos antigos
+    // Clona botões para limpar eventos antigos
     const novoConfirm = btnConfirm.cloneNode(true);
     const novoCancel = btnCancel.cloneNode(true);
     btnConfirm.parentNode.replaceChild(novoConfirm, btnConfirm);
@@ -1629,7 +1629,7 @@ window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
   });
 };
 
-// Alerta Simples (SÃ³ OK)
+// Alerta Simples (Só OK)
 window.mostrarAlerta = (titulo, mensagem, type) => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
@@ -1672,7 +1672,7 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
 async function verificarPermissaoRelatorio() {
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
-  // Se nÃ£o tiver roles, nÃ£o faz nada (continua hidden)
+  // Se não tiver roles, não faz nada (continua hidden)
   if (!sessao.roles) return;
 
   try {
@@ -1688,18 +1688,18 @@ async function verificarPermissaoRelatorio() {
       const btnRelatorio = document.getElementById("menu-relatorios");
       if (btnRelatorio) {
         // Apenas removemos a classe que esconde.
-        // O estilo visual virÃ¡ do seu style.css padrÃ£o.
+        // O estilo visual virá do seu style.css padrão.
         btnRelatorio.classList.remove("hidden");
-        console.log("ðŸ”“ Aba RelatÃ³rios liberada.");
+        console.log("🔓 Aba Relatórios liberada.");
       }
     }
   } catch (erro) {
-    console.error("Erro permissÃ£o:", erro);
+    console.error("Erro permissão:", erro);
   }
 }
 
 // ===============================================
-// ðŸ“Š LÃ“GICA DE RELATÃ“RIOS (Atualizada e Ordenada)
+// 📊 LÓGICA DE RELATÓRIOS (Atualizada e Ordenada)
 // ===============================================
 
 window.gerarRelatorio = async function () {
@@ -1708,7 +1708,7 @@ window.gerarRelatorio = async function () {
   const fimInput = document.getElementById("rel-fim");
 
   if (!inicioInput.value || !fimInput.value) {
-    // Certifique-se de que a funÃ§Ã£o mostrarAlerta existe ou use alert()
+    // Certifique-se de que a função mostrarAlerta existe ou use alert()
     if (typeof mostrarAlerta === "function") {
       return mostrarAlerta(
         "Atenção",
@@ -1731,7 +1731,7 @@ window.gerarRelatorio = async function () {
       body: JSON.stringify({
         dataInicio: inicioInput.value,
         dataFim: fimInput.value,
-        roles: user.roles, // Enviado caso precise filtrar permissÃµes no backend
+        roles: user.roles, // Enviado caso precise filtrar permissões no backend
       }),
     });
 
@@ -1743,7 +1743,7 @@ window.gerarRelatorio = async function () {
       return;
     }
 
-    // --- NOVA LÃ“GICA DE ORDENAÃ‡ÃƒO ---
+    // --- NOVA LÓGICA DE ORDENAÇÃO ---
     // 1. Converte o objeto { "Nome": {stats} } em um Array para poder ordenar
     const listaOrdenada = Object.entries(dados).map(([nome, stats]) => {
       const total =
@@ -1802,7 +1802,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
 
   if (btnFiltrar) {
-    // Remove listeners antigos (cloneNode Ã© um hack eficiente para isso)
+    // Remove listeners antigos (cloneNode é um hack eficiente para isso)
     const novoBtn = btnFiltrar.cloneNode(true);
     btnFiltrar.parentNode.replaceChild(novoBtn, btnFiltrar);
 
@@ -1811,21 +1811,21 @@ document.addEventListener("DOMContentLoaded", () => {
       window.gerarRelatorio();
     });
 
-    console.log("BotÃ£o de RelatÃ³rio ativado.");
+    console.log("Botão de Relatório ativado.");
   }
 });
 // ==========================================
-// ðŸ›¡ï¸ SISTEMA DE PERMISSÃƒO (RELATÃ“RIOS)
+// 🛡️ SISTEMA DE PERMISSÃO (RELATÓRIOS)
 // ==========================================
 async function verificarPermissaoRelatorio() {
-  // 1. Pega a sessÃ£o salva
+  // 1. Pega a sessão salva
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
-  // Se nÃ£o tiver roles salvos, nem tenta
+  // Se não tiver roles salvos, nem tenta
   if (!sessao.roles || sessao.roles.length === 0) return;
 
   try {
-    // 2. Pergunta para a API se esses cargos podem ver o relatÃ³rio
+    // 2. Pergunta para a API se esses cargos podem ver o relatório
     const res = await fetch("/api/verificar-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1834,26 +1834,26 @@ async function verificarPermissaoRelatorio() {
 
     const data = await res.json();
 
-    // 3. Se a API disser "true", mostra o botÃ£o
+    // 3. Se a API disser "true", mostra o botão
     if (data.isAdmin) {
       const btnRelatorio = document.getElementById("menu-relatorios");
       if (btnRelatorio) {
         btnRelatorio.classList.add("visible"); // Usa a classe do CSS novo
-        console.log("ðŸ”“ Acesso a RelatÃ³rios LIBERADO.");
+        console.log("🔓 Acesso a Relatórios LIBERADO.");
       }
     }
   } catch (erro) {
-    console.error("Erro ao verificar permissÃ£o:", erro);
+    console.error("Erro ao verificar permissão:", erro);
   }
 }
 
 // protecao contra cliques aqui
 // =========================================================
-// ðŸ”Ž SISTEMA DE VARREDURA AUTOMÃTICA DE INFRAÃ‡Ã•ES (CORRIGIDO)
+// 🔎 SISTEMA DE VARREDURA AUTOMÁTICA DE INFRAÇÕES (CORRIGIDO)
 // =========================================================
 
 window.verificarConformidadePortes = async function () {
-  console.log("ðŸ” Auditoria: Iniciando varredura...");
+  console.log("🔍 Auditoria: Iniciando varredura...");
 
   const statusAuditoria = document.getElementById("status-auditoria");
   const textoAuditoria = document.getElementById("texto-auditoria");
@@ -1878,12 +1878,12 @@ window.verificarConformidadePortes = async function () {
 
   if (!ativosFiltrados.length) {
     console.warn(
-      "âš ï¸ Auditoria: Nenhuma linha de porte encontrada para analisar."
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
     );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
-      "NÃ£o hÃ¡ portes ativos na tabela para auditar.",
+      "Não há portes ativos na tabela para auditar.",
       "warning"
     );
   }
@@ -1910,7 +1910,7 @@ window.verificarConformidadePortes = async function () {
     if (textoAuditoria)
       textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${ativosFiltrados.length})...`;
 
-    console.log(`â³ Verificando ficha do ID: ${idCidadao}...`);
+    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
 
     try {
       const res = await fetch("/api/consultar-ficha", {
@@ -1921,17 +1921,17 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Registros criminais encontrados apÃ³s a Ãºltima limpeza (ou apÃ³s 10/12)
+      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
-          `ðŸš¨ INFRAÃ‡ÃƒO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
+          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
         );
         const linha = linhasPorId.get(String(idCidadao));
         if (linha) marcarLinhaComoInfrator(linha, data);
         detectados++;
       }
     } catch (e) {
-      console.error(`âŒ Erro ao consultar ID ${idCidadao}:`, e);
+      console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
     }
   }
 
@@ -1939,13 +1939,13 @@ window.verificarConformidadePortes = async function () {
 
   if (detectados > 0) {
     mostrarAlerta(
-      "Auditoria ConcluÃ­da",
-      `${detectados} infratores identificados com crimes cometidos apÃ³s a emissÃ£o/limpeza!`,
+      "Auditoria Concluída",
+      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
       "error"
     );
   } else {
     mostrarAlerta(
-      "Auditoria ConcluÃ­da",
+      "Auditoria Concluída",
       `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
       "success"
     );
@@ -1958,12 +1958,12 @@ function marcarLinhaComoInfrator(linha, data) {
   linha.style.borderLeft = "5px solid #ff4d4d";
 
   // Atualiza a coluna de Status/Alerta (Coluna 4 no seu index.html)
-  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: AÃ§Ã£o
+  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: Ação
   const celulaAlerta = linha.cells[3];
   if (celulaAlerta) {
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">âš ï¸ FICHA SUJA</span>
+         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
          <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
       </div>
     `;
@@ -1973,10 +1973,10 @@ function marcarLinhaComoInfrator(linha, data) {
   linha.parentNode.prepend(linha);
 }
 // ==========================================
-// ðŸ› ï¸ SISTEMA DE RECOMPRA (COMPLETO)
+// 🛠️ SISTEMA DE RECOMPRA (COMPLETO)
 // ==========================================
 
-// 1. Tabela de PreÃ§os
+// 1. Tabela de Preços
 const PRECOS_RECOMPRA = {
   MUNICAO: 150000,
   ARMAS: {
@@ -1986,10 +1986,10 @@ const PRECOS_RECOMPRA = {
   },
 };
 
-// VariÃ¡vel global para armazenar qual porte estÃ¡ sendo editado
+// Variável global para armazenar qual porte está sendo editado
 let porteSelecionadoParaRecompra = null;
 
-// 2. FunÃ§Ã£o de Busca
+// 2. Função de Busca
 async function buscarPortesParaRecompra() {
   const idInput = document.getElementById("busca-recompra-id").value.trim();
   if (!idInput) return mostrarAlerta("Erro", "Digite um ID.", "error");
@@ -2049,13 +2049,13 @@ async function buscarPortesParaRecompra() {
   } catch (err) {
     console.error(err);
     container.innerHTML =
-      '<p style="color:red; grid-column: 1/-1; text-align:center;">Erro de conexÃ£o com a API.</p>';
+      '<p style="color:red; grid-column: 1/-1; text-align:center;">Erro de conexão com a API.</p>';
   }
 }
 
-// 3. FunÃ§Ã£o de SeleÃ§Ã£o
+// 3. Função de Seleção
 function selecionarPorteRecompra(porte, elementoCard) {
-  // Remove seleÃ§Ã£o visual anterior
+  // Remove seleção visual anterior
   document
     .querySelectorAll(".card-porte-item")
     .forEach((c) => c.classList.remove("selected"));
@@ -2066,7 +2066,7 @@ function selecionarPorteRecompra(porte, elementoCard) {
   const nomeArma = porte.arma.toUpperCase();
   const isTaser = nomeArma.includes("TASER");
 
-  // LÃ³gica visual do Taser (Esconde opÃ§Ã£o de muniÃ§Ã£o)
+  // Lógica visual do Taser (Esconde opção de munição)
   const divMunicaoLabel = document.getElementById("lbl-municao");
   if (isTaser) {
     divMunicaoLabel.style.display = "none";
@@ -2075,13 +2075,13 @@ function selecionarPorteRecompra(porte, elementoCard) {
     divMunicaoLabel.style.display = "flex";
   }
 
-  // Define PreÃ§o Base
+  // Define Preço Base
   let precoArma = 0;
   if (nomeArma.includes("GLOCK")) precoArma = PRECOS_RECOMPRA.ARMAS.GLOCK;
   else if (nomeArma.includes("MP5")) precoArma = PRECOS_RECOMPRA.ARMAS.MP5;
   else if (nomeArma.includes("TASER")) precoArma = PRECOS_RECOMPRA.ARMAS.TASER;
 
-  // Salva no objeto para usar no cÃ¡lculo
+  // Salva no objeto para usar no cálculo
   porteSelecionadoParaRecompra.precoBaseArma = precoArma;
 
   // Atualiza HTML
@@ -2095,15 +2095,15 @@ function selecionarPorteRecompra(porte, elementoCard) {
   document.getElementById("chk-arma").checked = false;
   document.getElementById("chk-municao").checked = false;
 
-  // CHAMA A FUNÃ‡ÃƒO QUE ESTAVA FALTANDO
+  // CHAMA A FUNÇÃO QUE ESTAVA FALTANDO
   calcularTotalRecompra();
 
-  // Mostra o formulÃ¡rio
+  // Mostra o formulário
   form.classList.remove("hidden");
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// 4. FunÃ§Ã£o de CÃ¡lculo (A QUE ESTAVA FALTANDO)
+// 4. Função de Cálculo (A QUE ESTAVA FALTANDO)
 function calcularTotalRecompra() {
   if (!porteSelecionadoParaRecompra) return;
 
@@ -2112,14 +2112,14 @@ function calcularTotalRecompra() {
 
   let total = 0;
 
-  // Soma MuniÃ§Ã£o
+  // Soma Munição
   if (querMunicao) {
     total += PRECOS_RECOMPRA.MUNICAO;
   }
 
   // Soma Arma
   if (querArma) {
-    // Usa o preÃ§o que salvamos na funÃ§Ã£o de seleÃ§Ã£o
+    // Usa o preço que salvamos na função de seleção
     total += porteSelecionadoParaRecompra.precoBaseArma || 0;
   }
 
@@ -2129,12 +2129,12 @@ function calcularTotalRecompra() {
   ).innerText = `R$ ${total.toLocaleString("pt-BR")}`;
 }
 
-// 5. FunÃ§Ã£o de EmissÃ£o
+// 5. Função de Emissão
 // ==========================================
-// 5. FunÃ§Ã£o de EmissÃ£o (Embed Padronizado)
+// 5. Função de Emissão (Embed Padronizado)
 // ==========================================
 // ==========================================
-// 5. FunÃ§Ã£o de EmissÃ£o (Embed com MenÃ§Ã£o Correta)
+// 5. Função de Emissão (Embed com Menção Correta)
 // ==========================================
 async function emitirRecompra() {
   if (!porteSelecionadoParaRecompra) return;
@@ -2145,17 +2145,17 @@ async function emitirRecompra() {
 
   if (!chkMunicao && !chkArma) {
     return mostrarAlerta(
-      "AtenÃ§Ã£o",
-      "Selecione o que serÃ¡ comprado (MuniÃ§Ã£o ou Arma).",
+      "Atenção",
+      "Selecione o que será comprado (Munição ou Arma).",
       "warning"
     );
   }
 
-  // --- CORREÃ‡ÃƒO DA IDENTIFICAÃ‡ÃƒO DO OFICIAL ---
+  // --- CORREÇÃO DA IDENTIFICAÇÃO DO OFICIAL ---
   const sessionData = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
   // 1. Tenta pegar o ID (Para mencionar no Discord)
-  // Verifica se o ID estÃ¡ na raiz ou dentro de um objeto 'user'
+  // Verifica se o ID está na raiz ou dentro de um objeto 'user'
   const idOficial = sessionData.id || (sessionData.user && sessionData.user.id);
 
   // 2. Tenta pegar o Nome (Para escrever na imagem)
@@ -2165,7 +2165,7 @@ async function emitirRecompra() {
     (sessionData.user && sessionData.user.username) ||
     "Oficial";
 
-  // 3. Cria a string de menÃ§Ã£o: Se tiver ID, usa <@ID>, senÃ£o usa o nome texto
+  // 3. Cria a string de menção: Se tiver ID, usa <@ID>, senão usa o nome texto
   const mencaoOficial = idOficial ? `<@${idOficial}>` : `\`${nomeVisual}\``;
   // ---------------------------------------------
 
@@ -2177,7 +2177,7 @@ async function emitirRecompra() {
   // Monta texto dos itens
   let itens = [];
   if (chkArma) itens.push(`Armamento (${porteSelecionadoParaRecompra.arma})`);
-  if (chkMunicao) itens.push("Recarga de MuniÃ§Ã£o");
+  if (chkMunicao) itens.push("Recarga de Munição");
   const resumoItens = itens.join("\n+ ");
 
   // Ativa loading
@@ -2197,13 +2197,13 @@ async function emitirRecompra() {
   ctx.fillStyle = "#D4AF37";
   ctx.fillRect(0, 0, 1080, 180);
 
-  // TÃ­tulo Recibo
+  // Título Recibo
   ctx.fillStyle = "#000";
   ctx.font = "bold 70px Roboto, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("RECIBO DE RECOMPRA", 540, 115);
 
-  // ConteÃºdo do Recibo
+  // Conteúdo do Recibo
   ctx.fillStyle = "#FFF";
   ctx.textAlign = "left";
   ctx.font = "45px Roboto, sans-serif";
@@ -2211,13 +2211,13 @@ async function emitirRecompra() {
   let y = 350;
   ctx.fillStyle = "#D4AF37";
   ctx.fillText("Oficial:", 100, y);
-  // Na imagem escrevemos o NOME VISUAL (Texto), pois imagem nÃ£o aceita menÃ§Ã£o
+  // Na imagem escrevemos o NOME VISUAL (Texto), pois imagem não aceita menção
   ctx.fillStyle = "#FFF";
   ctx.fillText(nomeVisual, 400, y);
 
   y += 100;
   ctx.fillStyle = "#D4AF37";
-  ctx.fillText("CidadÃ£o:", 100, y);
+  ctx.fillText("Cidadão:", 100, y);
   ctx.fillStyle = "#FFF";
   ctx.fillText(idCidadao, 400, y);
 
@@ -2240,7 +2240,7 @@ async function emitirRecompra() {
   ctx.font = "bold 100px Roboto, sans-serif";
   ctx.fillText(`R$ ${total.toLocaleString("pt-BR")}`, 540, y);
 
-  // Data RodapÃ©
+  // Data Rodapé
   ctx.fillStyle = "#666";
   ctx.font = "30px Roboto, sans-serif";
   ctx.fillText(`Emitido em: ${new Date().toLocaleString("pt-BR")}`, 540, 1020);
@@ -2254,41 +2254,41 @@ async function emitirRecompra() {
     const payload = {
       embeds: [
         {
-          title: "ðŸ“¦ REGISTRO DE RECOMPRA",
-          description: `ReposiÃ§Ã£o de equipamento autorizada para porte ativo.`,
+          title: "📦 REGISTRO DE RECOMPRA",
+          description: `Reposição de equipamento autorizada para porte ativo.`,
           color: 5034295, // Verde
           author: {
-            name: "PolÃ­cia Civil do Estado do Rio de Janeiro",
+            name: "Polícia Civil do Estado do Rio de Janeiro",
             icon_url: CONFIG.BRASAO_URL,
           },
           thumbnail: {
             url: CONFIG.BRASAO_URL,
           },
           fields: [
-            // AQUI usamos a variÃ¡vel mencaoOficial que contÃ©m o <@ID>
+            // AQUI usamos a variável mencaoOficial que contém o <@ID>
             {
-              name: "ðŸ‘® Oficial ResponsÃ¡vel",
+              name: "👮 Oficial Responsável",
               value: mencaoOficial,
               inline: true,
             },
             {
-              name: "ðŸ‘¤ CidadÃ£o (ID)",
+              name: "👤 Cidadão (ID)",
               value: `\`${idCidadao}\``,
               inline: true,
             },
-            { name: "â €", value: "â €", inline: false },
+            { name: "⠀", value: "⠀", inline: false },
             {
-              name: "ðŸ”« Armamento Base",
+              name: "🔫 Armamento Base",
               value: `**${porteSelecionadoParaRecompra.arma}**`,
               inline: true,
             },
             {
-              name: "ðŸ“¦ Itens Adquiridos",
+              name: "📦 Itens Adquiridos",
               value: `\`${resumoItens}\``,
               inline: true,
             },
             {
-              name: "ðŸ’° Valor Total",
+              name: "💰 Valor Total",
               value: `\`R$ ${total.toLocaleString("pt-BR")}\``,
               inline: false,
             },
@@ -2316,7 +2316,7 @@ async function emitirRecompra() {
           "Recompra registrada e enviada ao Discord!",
           "success"
         );
-        // Limpa formulÃ¡rio
+        // Limpa formulário
         document.getElementById("lista-portes-recompra").innerHTML = "";
         document
           .getElementById("form-recompra-detalhes")
@@ -2327,20 +2327,20 @@ async function emitirRecompra() {
       }
     } catch (e) {
       console.error(e);
-      mostrarAlerta("Erro", "Erro de conexÃ£o.", "error");
+      mostrarAlerta("Erro", "Erro de conexão.", "error");
     } finally {
       if (typeof mostrarCarregando === "function") mostrarCarregando(false);
     }
   });
 }
 // ==========================================
-// ðŸ”„ FUNÃ‡ÃƒO DE LOADING (GLOBAL)
+// 🔄 FUNÇÃO DE LOADING (GLOBAL)
 // ==========================================
 window.mostrarCarregando = (ativar) => {
   const overlay = document.getElementById("loading-overlay");
 
   if (!overlay) {
-    console.warn("Elemento de loading nÃ£o encontrado no HTML.");
+    console.warn("Elemento de loading não encontrado no HTML.");
     return;
   }
 

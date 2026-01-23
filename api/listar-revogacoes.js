@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
   const channelId = process.env.CHANNEL_REVOGACAO_ID;
 
   if (!token || !channelId)
-    return res.status(500).json({ error: "Configuracao faltando" });
+    return res.status(500).json({ error: "Configuração faltando" });
 
   try {
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

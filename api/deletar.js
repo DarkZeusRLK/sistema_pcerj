@@ -47,7 +47,7 @@ module.exports = async (req, res) => {
       console.log("✅ Mensagem apagada com sucesso!");
       return res.status(200).json({ success: true });
     } else if (response.status === 404) {
-      console.log("⚠️ Mensagem já não existia.");
+      console.log("?? Mensagem já não existia.");
       return res
         .status(200)
         .json({ success: true, note: "Já estava apagada." });
