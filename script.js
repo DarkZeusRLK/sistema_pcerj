@@ -1,4 +1,4 @@
-ï»¿// ==========================================
+﻿// ==========================================
 // ⚙️ CONFIGURAÇÕES E DADOS GLOBAIS
 // ==========================================
 const CONFIG = {
@@ -70,8 +70,8 @@ function agendarAuditoriaMeiaNoite() {
 
   console.log(
     `🕒 Auditoria Automática: Agendada para as 00:00 (em ${Math.floor(
-      tempoAteMeiaNoite / 1000 / 60
-    )} min).`
+      tempoAteMeiaNoite / 1000 / 60,
+    )} min).`,
   );
 
   setTimeout(() => {
@@ -310,14 +310,14 @@ async function processarEmissao() {
     const nomeArquivo = `porte_${id}.png`;
 
     let textoValores = `Arma: \`${fmt(regras.arma)}\`\nLaudo: \`${fmt(
-      regras.laudo
+      regras.laudo,
     )}\`\nMunição: \`${
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
 
     if (ehPolicial === "Sim") {
       textoValores += `\nDesconto Policial (15%): \`-${fmt(
-        parseFloat(desconto)
+        parseFloat(desconto),
       )}\``;
     }
     textoValores += `\n**TOTAL: \`${parseInt(total).toLocaleString("pt-BR", {
@@ -353,7 +353,7 @@ async function processarEmissao() {
       nomeArquivo,
       "porte",
       embedData,
-      msg
+      msg,
     );
 
     if (resultado) {
@@ -436,19 +436,19 @@ window.consultarFicha = async function () {
 
     // 2. ATUALIZA O RECIBO VISUAL (EXTRATO)
     document.getElementById("resumo-taxa-base").innerText = `R$ ${fmt(
-      dados.taxaBase
+      dados.taxaBase,
     )}`;
     document.getElementById("resumo-multas").innerText = `R$ ${fmt(
-      dados.somaMultas
+      dados.somaMultas,
     )}`;
     document.getElementById("resumo-inafiancaveis").innerText = `R$ ${fmt(
-      dados.custoInafiancaveis
+      dados.custoInafiancaveis,
     )}`;
 
     // Total Geral Grande
     const totalGeral = dados.totalGeral || 0;
     document.getElementById("total-geral-exibicao").innerText = `R$ ${fmt(
-      totalGeral
+      totalGeral,
     )}`;
 
     // ============================================================
@@ -468,14 +468,14 @@ window.consultarFicha = async function () {
     mostrarAlerta(
       "Histórico Recuperado",
       `O cidadão possui ${dados.totalLimpezasAnteriores} limpezas prévias e ${dados.totalInafiancaveis} crimes graves no histórico atual.`,
-      "success"
+      "success",
     );
   } catch (erro) {
     console.error(erro);
     mostrarAlerta(
       "Erro de Conexão",
       "Não foi possível recuperar os dados. Verifique o ID ou tente novamente.",
-      "error"
+      "error",
     );
   } finally {
     // Restaura o botão
@@ -498,12 +498,12 @@ window.processarLimpeza = async function () {
     return mostrarAlerta(
       "Dados Incompletos",
       "Preencha NOME e PASSAPORTE.",
-      "warning"
+      "warning",
     );
 
   const confirmou = await confirmarAcao(
     "Limpar Ficha?",
-    `Confirmar limpeza para ${nome} (R$ ${valor})?`
+    `Confirmar limpeza para ${nome} (R$ ${valor})?`,
   );
   if (!confirmou) return;
 
@@ -549,7 +549,7 @@ window.processarLimpeza = async function () {
       nomeArquivo,
       "limpeza",
       embedLimpeza,
-      mensagemExterna
+      mensagemExterna,
     );
 
     if (sucesso) {
@@ -703,14 +703,12 @@ function configurarCatAnexo({
   }
 
   const atualizarPreview = () => {
-    const arquivos = multiple
-      ? catAnexos[key] || []
-      : catAnexos[key] || null;
+    const arquivos = multiple ? catAnexos[key] || [] : catAnexos[key] || null;
     renderCatAnexoPreview(
       preview,
       arquivos,
       emptyLabel || "Nenhuma imagem selecionada",
-      multiple
+      multiple,
     );
   };
 
@@ -722,7 +720,7 @@ function configurarCatAnexo({
           mostrarAlerta(
             "Atenção",
             "Você pode enviar no máximo 2 prints do WhatsApp.",
-            "warning"
+            "warning",
           );
         } else {
           alert("Você pode enviar no máximo 2 prints do WhatsApp.");
@@ -741,7 +739,7 @@ function configurarCatAnexo({
     drop.addEventListener("paste", (event) => {
       const items = event.clipboardData?.items || [];
       const imageItem = Array.from(items).find((item) =>
-        item.type.startsWith("image/")
+        item.type.startsWith("image/"),
       );
       if (!imageItem) return;
       const blob = imageItem.getAsFile();
@@ -755,7 +753,7 @@ function configurarCatAnexo({
             return mostrarAlerta(
               "Atenção",
               "Você pode enviar no máximo 2 prints do WhatsApp.",
-              "warning"
+              "warning",
             );
           }
           return alert("Você pode enviar no máximo 2 prints do WhatsApp.");
@@ -803,7 +801,7 @@ function coletarListaIds(listId) {
   const list = document.getElementById(listId);
   if (!list) return [];
   return Array.from(list.querySelectorAll("[data-id]")).map((el) =>
-    el.getAttribute("data-id")
+    el.getAttribute("data-id"),
   );
 }
 
@@ -813,14 +811,14 @@ function adicionarNaLista(selectId, listId) {
   if (!picker || !list) return;
 
   const selectedOptions = Array.from(picker.selectedOptions).filter(
-    (option) => option.value
+    (option) => option.value,
   );
   if (selectedOptions.length === 0) return;
 
   selectedOptions.forEach((option) => {
     const selected = option.value;
     const exists = Array.from(list.querySelectorAll("[data-id]")).some(
-      (el) => el.getAttribute("data-id") === selected
+      (el) => el.getAttribute("data-id") === selected,
     );
     if (exists) return;
 
@@ -859,7 +857,7 @@ window.registrarCAT = async function () {
       return mostrarAlerta(
         "Atenção",
         "Você pode enviar no máximo 2 prints do WhatsApp.",
-        "warning"
+        "warning",
       );
     }
     return alert("Você pode enviar no máximo 2 prints do WhatsApp.");
@@ -897,7 +895,7 @@ window.registrarCAT = async function () {
       return mostrarAlerta(
         "Atenção",
         `Preencha o campo: ${faltando.label}.`,
-        "warning"
+        "warning",
       );
     }
     return alert(`Preencha o campo: ${faltando.label}.`);
@@ -908,7 +906,7 @@ window.registrarCAT = async function () {
       return mostrarAlerta(
         "Atenção",
         "Envie pelo menos 2 imagens nos anexos do C.A.T.",
-        "warning"
+        "warning",
       );
     }
     return alert("Envie pelo menos 2 imagens nos anexos do C.A.T.");
@@ -920,7 +918,7 @@ window.registrarCAT = async function () {
       return mostrarAlerta(
         "Erro",
         "Sessao invalida. Faça login novamente.",
-        "error"
+        "error",
       );
     }
     return alert("Sessao invalida. Faça login novamente.");
@@ -975,34 +973,40 @@ window.registrarCAT = async function () {
       document.getElementById("cat-anexo-transferencia-preview"),
       null,
       "Nenhuma imagem selecionada",
-      false
+      false,
     );
     renderCatAnexoPreview(
       document.getElementById("cat-anexo-olx-preview"),
       null,
       "Nenhuma imagem selecionada",
-      false
+      false,
     );
     renderCatAnexoPreview(
       document.getElementById("cat-anexo-whatsapp-preview"),
       [],
       "Nenhuma imagem selecionada",
-      true
+      true,
     );
     document.getElementById("cat-itens").value = "";
 
-    const selectInvestigador = document.getElementById("cat-investigador-select");
+    const selectInvestigador = document.getElementById(
+      "cat-investigador-select",
+    );
     const selectAutorizou = document.getElementById("cat-autorizou-select");
-    const listInvestigadorReset = document.getElementById("cat-investigador-list");
+    const listInvestigadorReset = document.getElementById(
+      "cat-investigador-list",
+    );
     const listAutorizouReset = document.getElementById("cat-autorizou-list");
     const listEnvolvidosReset = document.getElementById("cat-envolvidos-list");
     const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
-    [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
-      if (!select) return;
-      Array.from(select.options).forEach((option) => {
-        option.selected = false;
-      });
-    });
+    [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach(
+      (select) => {
+        if (!select) return;
+        Array.from(select.options).forEach((option) => {
+          option.selected = false;
+        });
+      },
+    );
     if (listInvestigadorReset) listInvestigadorReset.innerHTML = "";
     if (listAutorizouReset) listAutorizouReset.innerHTML = "";
     if (listEnvolvidosReset) listEnvolvidosReset.innerHTML = "";
@@ -1036,14 +1040,14 @@ function gerarBlobLimpeza(nome, id, rg) {
       ctx.fillText(
         nome.toUpperCase(),
         POSICOES_LIMPEZA.nome.x,
-        POSICOES_LIMPEZA.nome.y
+        POSICOES_LIMPEZA.nome.y,
       );
       ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
       ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
       ctx.fillText(
         new Date().toLocaleDateString("pt-BR"),
         POSICOES_LIMPEZA.data.x,
-        POSICOES_LIMPEZA.data.y
+        POSICOES_LIMPEZA.data.y,
       );
 
       canvas.toBlob((blob) => resolve(blob), "image/png");
@@ -1187,17 +1191,14 @@ window.renderTables = function () {
   const totalRegistros = ativosFiltrados.length;
   totalPaginasRevogacao = Math.max(
     1,
-    Math.ceil(totalRegistros / limiteRevogacao)
+    Math.ceil(totalRegistros / limiteRevogacao),
   );
   if (paginaRevogacao > totalPaginasRevogacao) {
     paginaRevogacao = totalPaginasRevogacao;
   }
 
   const inicio = (paginaRevogacao - 1) * limiteRevogacao;
-  const paginaAtual = ativosFiltrados.slice(
-    inicio,
-    inicio + limiteRevogacao
-  );
+  const paginaAtual = ativosFiltrados.slice(inicio, inicio + limiteRevogacao);
 
   if (tbodyRevogacao) {
     paginaAtual.forEach((porte) => {
@@ -1246,7 +1247,7 @@ function atualizarPaginacaoRevogacao(totalRegistros) {
 window.mudarPaginaRevogacao = function (delta) {
   paginaRevogacao = Math.min(
     totalPaginasRevogacao,
-    Math.max(1, paginaRevogacao + delta)
+    Math.max(1, paginaRevogacao + delta),
   );
   renderTables();
 };
@@ -1276,7 +1277,7 @@ window.renovarPorte = async function (idPorte) {
   if (
     !(await confirmarAcao(
       "Renovar?",
-      `Renovar porte de ${porte.nome} por +30 dias?`
+      `Renovar porte de ${porte.nome} por +30 dias?`,
     ))
   )
     return;
@@ -1318,7 +1319,7 @@ window.renovarPorte = async function (idPorte) {
     "renovacao_log.txt",
     "revogacao",
     embedData,
-    `🔄 **PORTE RENOVADO:** ${porte.id}`
+    `🔄 **PORTE RENOVADO:** ${porte.id}`,
   );
 
   if (sucesso) {
@@ -1346,7 +1347,7 @@ window.revogar = async function (idPassaporte) {
   const confirmou = await confirmarAcao(
     "REVOGAR PORTE?",
     `Deseja revogar o porte de ${p.nome}? Isso apagará o registro original e enviará o log de revogação.`,
-    "danger"
+    "danger",
   );
 
   if (!confirmou) return;
@@ -1405,7 +1406,7 @@ window.revogar = async function (idPassaporte) {
       nomeArquivo,
       "revogacao",
       embed,
-      logTexto
+      logTexto,
     );
 
     if (sucessoLog) {
@@ -1420,7 +1421,7 @@ window.revogar = async function (idPassaporte) {
 
       // Atualiza a interface local
       dbPortes = dbPortes.filter(
-        (item) => String(item.id) !== String(idPassaporte)
+        (item) => String(item.id) !== String(idPassaporte),
       );
       dbRevogados.unshift({
         nome: p.nome,
@@ -1435,7 +1436,7 @@ window.revogar = async function (idPassaporte) {
       mostrarAlerta(
         "Sucesso",
         "Porte revogado e removido do sistema!",
-        "success"
+        "success",
       );
     }
   } catch (e) {
@@ -1713,7 +1714,7 @@ window.gerarRelatorio = async function () {
       return mostrarAlerta(
         "Atenção",
         "Selecione o período inicial e final.",
-        "warning"
+        "warning",
       );
     } else {
       return alert("Selecione o período inicial e final.");
@@ -1878,13 +1879,13 @@ window.verificarConformidadePortes = async function () {
 
   if (!ativosFiltrados.length) {
     console.warn(
-      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar."
+      "⚠️ Auditoria: Nenhuma linha de porte encontrada para analisar.",
     );
     if (statusAuditoria) statusAuditoria.classList.add("hidden");
     return mostrarAlerta(
       "Aviso",
       "Não há portes ativos na tabela para auditar.",
-      "warning"
+      "warning",
     );
   }
 
@@ -1924,7 +1925,7 @@ window.verificarConformidadePortes = async function () {
       // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
       if (data.registrosEncontrados > 0) {
         console.log(
-          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`
+          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`,
         );
         const linha = linhasPorId.get(String(idCidadao));
         if (linha) marcarLinhaComoInfrator(linha, data);
@@ -1941,13 +1942,13 @@ window.verificarConformidadePortes = async function () {
     mostrarAlerta(
       "Auditoria Concluída",
       `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
-      "error"
+      "error",
     );
   } else {
     mostrarAlerta(
       "Auditoria Concluída",
       `Nenhuma irregularidade encontrada nos ${processados} registros analisados.`,
-      "success"
+      "success",
     );
   }
 };
@@ -2087,9 +2088,8 @@ function selecionarPorteRecompra(porte, elementoCard) {
   // Atualiza HTML
   const form = document.getElementById("form-recompra-detalhes");
   document.getElementById("recompra-arma-display").innerText = porte.arma;
-  document.getElementById(
-    "recompra-preco-base"
-  ).innerText = `Custo Base da Arma: R$ ${precoArma.toLocaleString("pt-BR")}`;
+  document.getElementById("recompra-preco-base").innerText =
+    `Custo Base da Arma: R$ ${precoArma.toLocaleString("pt-BR")}`;
 
   // Reseta checkboxes
   document.getElementById("chk-arma").checked = false;
@@ -2124,9 +2124,8 @@ function calcularTotalRecompra() {
   }
 
   // Atualiza o texto na tela
-  document.getElementById(
-    "recompra-valor-total"
-  ).innerText = `R$ ${total.toLocaleString("pt-BR")}`;
+  document.getElementById("recompra-valor-total").innerText =
+    `R$ ${total.toLocaleString("pt-BR")}`;
 }
 
 // 5. Função de Emissão
@@ -2147,7 +2146,7 @@ async function emitirRecompra() {
     return mostrarAlerta(
       "Atenção",
       "Selecione o que será comprado (Munição ou Arma).",
-      "warning"
+      "warning",
     );
   }
 
@@ -2314,7 +2313,7 @@ async function emitirRecompra() {
         mostrarAlerta(
           "Sucesso",
           "Recompra registrada e enviada ao Discord!",
-          "success"
+          "success",
         );
         // Limpa formulário
         document.getElementById("lista-portes-recompra").innerHTML = "";
@@ -2375,19 +2374,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnAddInvestigador) {
     btnAddInvestigador.addEventListener("click", () =>
-      adicionarNaLista("cat-investigador-select", "cat-investigador-list")
+      adicionarNaLista("cat-investigador-select", "cat-investigador-list"),
     );
   }
 
   if (btnAddAutorizou) {
     btnAddAutorizou.addEventListener("click", () =>
-      adicionarNaLista("cat-autorizou-select", "cat-autorizou-list")
+      adicionarNaLista("cat-autorizou-select", "cat-autorizou-list"),
     );
   }
 
   if (btnAddEnvolvido) {
     btnAddEnvolvido.addEventListener("click", () =>
-      adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list")
+      adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list"),
     );
   }
 
