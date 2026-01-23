@@ -41,6 +41,7 @@ const PRECOS = {
 };
 
 let dbPortes = [];
+let dbRevogados = [];
 let paginaRevogacao = 1;
 const limiteRevogacao = 20;
 let totalPaginasRevogacao = 1;
@@ -123,7 +124,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         verificarPermissaoRelatorio();
 
         // Carrega os dados do Discord
-        await carregarPortesDoDiscord();
+        await Promise.all([
+          carregarPortesDoDiscord(),
+          carregarRevogacoesDoDiscord(),
+        ]);
 
         // Inicia o agendamento da meia-noite
         agendarAuditoriaMeiaNoite();
@@ -1116,6 +1120,19 @@ async function carregarPortesDoDiscord() {
   }
 }
 
+async function carregarRevogacoesDoDiscord() {
+  try {
+    const res = await fetch("/api/listar-revogacoes");
+    if (!res.ok) throw new Error(`Erro API: ${res.status}`);
+    const dados = await res.json();
+    dbRevogados = Array.isArray(dados) ? dados : [];
+    renderRevogadosHistorico();
+    atualizarStats();
+  } catch (erro) {
+    console.error("Erro ao listar revogacoes:", erro);
+  }
+}
+
 window.renderTables = function () {
   const tbodyRevogacao = document.getElementById("lista-ativos-para-revogar");
   const tbodyRenovacao = document.getElementById("lista-renovacao");
@@ -1238,17 +1255,15 @@ function renderRevogadosHistorico() {
   if (!tbodyJaRevogados) return;
   tbodyJaRevogados.innerHTML = "";
 
-  dbPortes
-    .filter((p) => p.status === "Revogado")
-    .forEach((p) => {
-      tbodyJaRevogados.innerHTML += `
-            <tr style="opacity:0.7">
-                <td>${p.nome}</td>
-                <td>${p.id}</td>
-                <td>${p.expedicao || "N/A"}</td>
-                <td><span class="badge revogado">REVOGADO</span></td>
-            </tr>`;
-    });
+  dbRevogados.forEach((p) => {
+    tbodyJaRevogados.innerHTML += `
+          <tr style="opacity:0.7">
+              <td>${p.nome}</td>
+              <td>${p.id}</td>
+              <td>${p.dataRevogacao || "N/A"}</td>
+              <td><span class="badge revogado">REVOGADO</span></td>
+          </tr>`;
+  });
 }
 
 // ==========================================
@@ -1407,6 +1422,12 @@ window.revogar = async function (idPassaporte) {
       dbPortes = dbPortes.filter(
         (item) => String(item.id) !== String(idPassaporte)
       );
+      dbRevogados.unshift({
+        nome: p.nome,
+        id: p.id,
+        dataRevogacao: new Date().toLocaleDateString("pt-BR"),
+        status: "Revogado",
+      });
       renderTables();
       atualizarStats();
 
@@ -1504,8 +1525,7 @@ function atualizarStats() {
   const elA = document.getElementById("counter-ativos");
   const elR = document.getElementById("counter-revogados");
   if (elA) elA.innerText = dbPortes.filter((p) => p.status === "Ativo").length;
-  if (elR)
-    elR.innerText = dbPortes.filter((p) => p.status === "Revogado").length;
+  if (elR) elR.innerText = dbRevogados.length;
 }
 
 function configurarDatasAutomaticas() {

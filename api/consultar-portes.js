@@ -54,15 +54,6 @@ module.exports = async (req, res) => {
 
     const portesEncontrados = [];
     const idBuscado = String(idCidadao).trim();
-    const idRegex = new RegExp(`(^|\\D)${idBuscado}(\\D|$)`);
-
-    const normalizeText = (txt) =>
-      String(txt || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[\*_`]/g, "")
-        .trim();
-
     for (const msg of mensagens) {
       if (!msg.embeds || msg.embeds.length === 0) continue;
 
@@ -84,19 +75,7 @@ module.exports = async (req, res) => {
         idEncontrado = matchId ? matchId[0] : rawId;
       }
 
-      if (idEncontrado !== idBuscado) {
-        const textoEmbed =
-          [
-            embed.title,
-            embed.description,
-            ...(fields.map((f) => f.name)),
-            ...(fields.map((f) => f.value)),
-            msg.content,
-          ]
-            .map(normalizeText)
-            .join(" ") || "";
-        if (!idRegex.test(textoEmbed)) continue;
-      }
+      if (!idEncontrado || idEncontrado !== idBuscado) continue;
 
       const campoArma = fields.find(
         (f) =>
