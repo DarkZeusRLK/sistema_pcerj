@@ -1,4 +1,4 @@
-ï»¿// api/relatorio.js
+»¿// api/relatorio.js
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 

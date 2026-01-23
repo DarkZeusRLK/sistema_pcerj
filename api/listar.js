@@ -1,4 +1,4 @@
-ï»¿// api/listar.js
+»¿// api/listar.js
 const fetch = require("node-fetch");
 
 module.exports = async (req, res) => {
