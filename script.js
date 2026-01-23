@@ -615,7 +615,8 @@ function preencherSelect(selectId, members, placeholder) {
 }
 
 async function prepararSelectsCAT() {
-  if (!catMembersCache && !catMembersLoading) {
+  if (catMembersCache) return;
+  if (!catMembersLoading) {
     preencherSelect("cat-investigador-select", [], "Carregando membros...");
     preencherSelect("cat-autorizou-select", [], "Carregando membros...");
     preencherSelect("cat-envolvidos-select", [], "Carregando membros...");
