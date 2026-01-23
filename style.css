@@ -888,7 +888,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .envolvidos-controls {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .envolvidos-controls select {
@@ -896,8 +896,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .btn-add {
+  flex: 0 0 38px;
   width: 38px;
   height: 38px;
+  padding: 0;
   border-radius: 8px;
   border: 1px solid rgba(212, 175, 55, 0.6);
   background: rgba(212, 175, 55, 0.1);
@@ -905,8 +907,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
-  align-self: flex-start;
-  margin-top: 4px;
+  align-self: center;
+  margin-top: 0;
 }
 
 .btn-add:hover {
@@ -934,6 +936,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .envolvido-item button {
+  flex: 0 0 auto;
+  padding: 0;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -1066,6 +1072,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .btn-attachment {
+  flex: 0 0 auto;
   background: transparent;
   border: 1px solid rgba(212, 175, 55, 0.6);
   color: var(--gold-accent);
