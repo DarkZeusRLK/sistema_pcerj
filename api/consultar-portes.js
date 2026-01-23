@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
 
     const portesEncontrados = [];
     const idBuscado = String(idCidadao).trim();
+    const idRegex = new RegExp(`(^|\\D)${idBuscado}(\\D|$)`);
 
     const normalizeText = (txt) =>
       String(txt || "")
@@ -100,7 +101,22 @@ module.exports = async (req, res) => {
         idEncontrado = match ? match[1] : "";
       }
 
-      if (!idEncontrado || idEncontrado !== idBuscado) continue;
+      const textoEmbed =
+        [
+          embed.title,
+          embed.description,
+          ...(fields.map((f) => f.name)),
+          ...(fields.map((f) => f.value)),
+          msg.content,
+        ]
+          .map(normalizeText)
+          .join(" ") || "";
+
+      if (idEncontrado) {
+        if (idEncontrado !== idBuscado && !idRegex.test(textoEmbed)) continue;
+      } else {
+        if (!idRegex.test(textoEmbed)) continue;
+      }
 
       const campoArma = fields.find(
         (f) =>
