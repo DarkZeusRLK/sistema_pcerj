@@ -531,102 +531,100 @@
         </div>
 
         <div class="cat-form">
-          <div class="form-grid">
-            <div class="input-group">
+          <div class="form-grid cat-grid">
+            <div class="input-group cat-span-12">
               <label>Nome da Operação</label>
               <input type="text" id="cat-operacao" placeholder="Informe o nome da operação">
             </div>
 
-            <div class="input-group">
+            <div class="input-group cat-span-6">
+              <label>Investigador(a) responsável</label>
+              <div class="envolvidos-controls">
+                <select id="cat-investigador-select" multiple size="6">
+                  <option value="">Carregando membros...</option>
+                </select>
+                <button type="button" class="btn-add" id="cat-investigador-add" aria-label="Adicionar investigador">
+                  +
+                </button>
+              </div>
+              <span class="hint-text">Marque um ou mais nomes e clique no + para confirmar.</span>
+              <div class="envolvidos-list" id="cat-investigador-list"></div>
+            </div>
+
+            <div class="input-group cat-span-6">
+              <label>Quem Autorizou</label>
+              <div class="envolvidos-controls">
+                <select id="cat-autorizou-select" multiple size="6">
+                  <option value="">Carregando membros...</option>
+                </select>
+                <button type="button" class="btn-add" id="cat-autorizou-add" aria-label="Adicionar autorizadores">
+                  +
+                </button>
+              </div>
+              <span class="hint-text">Marque um ou mais nomes e clique no + para confirmar.</span>
+              <div class="envolvidos-list" id="cat-autorizou-list"></div>
+            </div>
+
+            <div class="input-group cat-span-12">
+              <label>Participantes envolvidos</label>
+              <div class="envolvidos-controls">
+                <select id="cat-envolvidos-select" multiple size="6">
+                  <option value="">Carregando membros...</option>
+                </select>
+                <button type="button" class="btn-add" id="cat-envolvidos-add" aria-label="Adicionar participantes">
+                  +
+                </button>
+              </div>
+              <span class="hint-text">Marque um ou mais nomes e clique no + para confirmar.</span>
+              <div class="envolvidos-list" id="cat-envolvidos-list"></div>
+            </div>
+
+            <div class="input-group cat-span-4">
               <label>Organização</label>
               <input type="text" id="cat-organizacao" placeholder="Informe a organização">
             </div>
 
-            <div class="input-group">
+            <div class="input-group cat-span-4">
               <label>Suspeito</label>
               <input type="text" id="cat-suspeito" placeholder="Nome do suspeito">
             </div>
 
-            <div class="input-group">
+            <div class="input-group cat-span-4">
               <label>RG</label>
               <input type="text" id="cat-rg" placeholder="RG do suspeito">
             </div>
 
-            <div class="input-group">
-              <label>Link da prisão/fiança</label>
-              <input type="text" id="cat-link-prisao" placeholder="Cole o link">
-            </div>
-
-            <div class="input-group">
-              <label>Link da perícia</label>
-              <input type="text" id="cat-link-pericia" placeholder="Cole o link">
-            </div>
-
-            <div class="input-group">
+            <div class="input-group cat-span-12">
               <label>Itens apreendidos</label>
               <textarea id="cat-itens" rows="3" placeholder="Descreva os itens apreendidos"></textarea>
             </div>
 
-            <div class="input-group">
-              <label>Investigador(a) responsável</label>
-              <div class="envolvidos-controls">
-                <select id="cat-investigador-select">
-                  <option value="">Selecione um oficial</option>
-                </select>
-                <button type="button" class="btn-add" id="cat-investigador-add">
-                  +
-                </button>
-              </div>
-              <div class="envolvidos-list" id="cat-investigador-list"></div>
+            <div class="input-group cat-span-6">
+              <label>Link da prisão/fiança</label>
+              <input type="text" id="cat-link-prisao" placeholder="Cole o link">
             </div>
 
-            <div class="input-group">
-              <label>Quem Autorizou</label>
-              <div class="envolvidos-controls">
-                <select id="cat-autorizou-select">
-                  <option value="">Selecione um oficial</option>
-                </select>
-                <button type="button" class="btn-add" id="cat-autorizou-add">
-                  +
-                </button>
-              </div>
-              <div class="envolvidos-list" id="cat-autorizou-list"></div>
+            <div class="input-group cat-span-6">
+              <label>Link da perícia</label>
+              <input type="text" id="cat-link-pericia" placeholder="Cole o link">
             </div>
 
-            <div class="input-group">
-              <label>Policiais envolvidos</label>
-              <div class="envolvidos-controls">
-                <select id="cat-envolvidos-select">
-                  <option value="">Selecione um oficial</option>
-                </select>
-                <button type="button" class="btn-add" id="cat-envolvidos-add">
-                  +
-                </button>
-              </div>
-              <div class="envolvidos-list" id="cat-envolvidos-list"></div>
-            </div>
-
-            <div class="input-group">
-              <label>Observações Adicionais:</label>
-              <textarea id="cat-obs" rows="3" placeholder="Observações adicionais"></textarea>
-            </div>
-
-            <div class="input-group cat-attachment-group">
-              <label>Arquivo/Print (anexo)</label>
+            <div class="input-group cat-attachment-group cat-span-12">
+              <label>Print da transferência + Apreensão realizada</label>
               <div class="cat-attachment" id="cat-anexo-drop" tabindex="0">
                 <div class="cat-attachment-header">
-                  <span class="cat-attachment-title">Clique e Ctrl+V ou duplo clique</span>
-                  <span class="cat-attachment-sub">Opcional: print ou PDF da operação.</span>
+                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
+                  <span class="cat-attachment-sub">Aceita apenas imagens.</span>
                 </div>
                 <div class="cat-attachment-preview" id="cat-anexo-preview">
                   <i class="fa-solid fa-image"></i>
-                  <span>Nenhum arquivo selecionado</span>
+                  <span>Nenhuma imagem selecionada</span>
                 </div>
                 <button type="button" class="btn-attachment" id="cat-anexo-btn">
-                  Escolher arquivo
+                  Escolher imagem
                 </button>
               </div>
-              <input type="file" id="cat-anexo" accept="image/*,application/pdf" hidden>
+              <input type="file" id="cat-anexo" accept="image/*" hidden>
             </div>
           </div>
 

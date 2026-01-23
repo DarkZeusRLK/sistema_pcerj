@@ -594,7 +594,12 @@ function preencherSelect(selectId, members, placeholder) {
     select.appendChild(opt);
     return;
   }
-  if (!isMultiple) {
+  if (isMultiple && members.length === 0 && placeholder) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder;
+    select.appendChild(opt);
+  } else if (!isMultiple) {
     const opt = document.createElement("option");
     opt.value = "";
     opt.textContent = placeholder || "Selecione um oficial";
@@ -646,23 +651,30 @@ function adicionarNaLista(selectId, listId) {
   const list = document.getElementById(listId);
   if (!picker || !list) return;
 
-  const selected = picker.value;
-  if (!selected) return;
-
-  const exists = Array.from(list.querySelectorAll("[data-id]")).some(
-    (el) => el.getAttribute("data-id") === selected
+  const selectedOptions = Array.from(picker.selectedOptions).filter(
+    (option) => option.value
   );
-  if (exists) return;
+  if (selectedOptions.length === 0) return;
 
-  const label = picker.options[picker.selectedIndex]?.textContent || "Oficial";
-  const row = document.createElement("div");
-  row.className = "envolvido-item";
-  row.setAttribute("data-id", selected);
-  row.innerHTML = `<span>${label}</span><button type="button" aria-label="Remover">×</button>`;
-  row.querySelector("button").addEventListener("click", () => row.remove());
-  list.appendChild(row);
+  selectedOptions.forEach((option) => {
+    const selected = option.value;
+    const exists = Array.from(list.querySelectorAll("[data-id]")).some(
+      (el) => el.getAttribute("data-id") === selected
+    );
+    if (exists) return;
 
-  picker.selectedIndex = 0;
+    const label = option.textContent || "Oficial";
+    const row = document.createElement("div");
+    row.className = "envolvido-item";
+    row.setAttribute("data-id", selected);
+    row.innerHTML = `<span>${label}</span><button type="button" aria-label="Remover">×</button>`;
+    row.querySelector("button").addEventListener("click", () => row.remove());
+    list.appendChild(row);
+  });
+
+  Array.from(picker.options).forEach((option) => {
+    option.selected = false;
+  });
 }
 
 window.registrarCAT = async function () {
@@ -675,7 +687,6 @@ window.registrarCAT = async function () {
   const fileInput = document.getElementById("cat-anexo");
   const anexo = catAnexoFile || fileInput?.files?.[0] || null;
   const itens = document.getElementById("cat-itens")?.value.trim();
-  const obs = document.getElementById("cat-obs")?.value.trim();
 
   const investigadorIds = coletarListaIds("cat-investigador-list");
   const autorizouIds = coletarListaIds("cat-autorizou-list");
@@ -685,17 +696,16 @@ window.registrarCAT = async function () {
   const envolvidos = envolvidosIds.map((id) => `<@${id}>`).join(" ");
 
   const camposObrigatorios = [
-    { label: "Nome da Operacao", value: operacao },
-    { label: "Investigador(a) responsavel", value: investigador },
+    { label: "Nome da Operação", value: operacao },
+    { label: "Investigador(a) responsável", value: investigador },
     { label: "Quem Autorizou", value: autorizou },
-    { label: "Organizacao", value: organizacao },
+    { label: "Participantes envolvidos", value: envolvidos },
+    { label: "Organização", value: organizacao },
     { label: "Suspeito", value: suspeito },
     { label: "RG", value: rg },
     { label: "Itens apreendidos", value: itens },
-    { label: "Link da prisao/fianca", value: linkPrisao },
-    { label: "Link da pericia", value: linkPericia },
-    { label: "Policiais envolvidos", value: envolvidos },
-    { label: "Obs", value: obs },
+    { label: "Link da prisão/fiança", value: linkPrisao },
+    { label: "Link da perícia", value: linkPericia },
   ];
 
   const faltando = camposObrigatorios.find((c) => !c.value);
@@ -726,14 +736,13 @@ window.registrarCAT = async function () {
     `**Nome da Operação:** ${operacao}`,
     `**Investigador(a) responsável:** ${investigador}`,
     `**Quem Autorizou:** ${autorizou}`,
+    `**Participantes envolvidos:** ${envolvidos}`,
     `**Organização:** ${organizacao}`,
     `**Suspeito:** ${suspeito}`,
     `**RG:** ${rg}`,
     `**Itens apreendidos:** ${itens}`,
     `**Link da prisão/fiança:** ${linkPrisao}`,
     `**Link da perícia:** ${linkPericia}`,
-    `**Policiais envolvidos:** ${envolvidos}`,
-    `**Obs:** ${obs}`,
     `**Relatório emitido por:** <@${sessao.id}>`,
   ].join("\n");
 
@@ -766,18 +775,22 @@ window.registrarCAT = async function () {
     catAnexoFile = null;
     const preview = document.getElementById("cat-anexo-preview");
     if (preview) {
-      preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhum arquivo selecionado</span>`;
+      preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhuma imagem selecionada</span>`;
     }
     document.getElementById("cat-itens").value = "";
-    document.getElementById("cat-obs").value = "";
 
     const selectInvestigador = document.getElementById("cat-investigador-select");
     const selectAutorizou = document.getElementById("cat-autorizou-select");
     const listInvestigadorReset = document.getElementById("cat-investigador-list");
     const listAutorizouReset = document.getElementById("cat-autorizou-list");
     const listEnvolvidosReset = document.getElementById("cat-envolvidos-list");
-    if (selectInvestigador) selectInvestigador.selectedIndex = 0;
-    if (selectAutorizou) selectAutorizou.selectedIndex = 0;
+    const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
+    [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
+      if (!select) return;
+      Array.from(select.options).forEach((option) => {
+        option.selected = false;
+      });
+    });
     if (listInvestigadorReset) listInvestigadorReset.innerHTML = "";
     if (listAutorizouReset) listAutorizouReset.innerHTML = "";
     if (listEnvolvidosReset) listEnvolvidosReset.innerHTML = "";
@@ -2187,7 +2200,7 @@ document.addEventListener("DOMContentLoaded", () => {
       catAnexoFile = file;
       if (!preview) return;
       if (!file) {
-        preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhum arquivo selecionado</span>`;
+        preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhuma imagem selecionada</span>`;
         return;
       }
       if (file.type.startsWith("image/")) {
