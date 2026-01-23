@@ -45,7 +45,11 @@ let paginaRevogacao = 1;
 const limiteRevogacao = 20;
 let totalPaginasRevogacao = 1;
 let ultimoFiltroRevogacao = "";
-let catAnexoFile = null;
+let catAnexos = {
+  transferencia: null,
+  olx: null,
+  whatsapp: [],
+};
 
 // ==========================================
 // ðŸ•’ SISTEMA DE GATILHOS TEMPORAIS
@@ -614,6 +618,160 @@ function preencherSelect(selectId, members, placeholder) {
   });
 }
 
+function habilitarBuscaSelect(select) {
+  if (!select) return;
+  let buffer = "";
+  let bufferTimeout = null;
+
+  select.addEventListener("keydown", (event) => {
+    if (event.key === "Backspace") {
+      buffer = buffer.slice(0, -1);
+      return;
+    }
+    if (event.key.length !== 1) return;
+    buffer += event.key;
+    clearTimeout(bufferTimeout);
+    bufferTimeout = setTimeout(() => {
+      buffer = "";
+    }, 700);
+
+    const termo = buffer.toLowerCase();
+    const options = Array.from(select.options).filter((opt) => opt.value);
+    const encontrado = options.find((opt) => {
+      const texto = (opt.textContent || "").toLowerCase();
+      const valor = (opt.value || "").toLowerCase();
+      return texto.includes(termo) || valor.includes(termo);
+    });
+    if (encontrado) {
+      select.value = encontrado.value;
+    }
+  });
+}
+
+function renderCatAnexoPreview(preview, files, emptyLabel, multiple) {
+  if (!preview) return;
+  const lista = Array.isArray(files) ? files : files ? [files] : [];
+  if (lista.length === 0) {
+    preview.classList.remove("multi");
+    preview.innerHTML = `<i class="fa-solid fa-image"></i><span>${emptyLabel}</span>`;
+    return;
+  }
+
+  if (!multiple && lista.length === 1) {
+    const file = lista[0];
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      preview.classList.remove("multi");
+      preview.innerHTML = `<img src="${url}" alt="Preview do anexo">`;
+    } else {
+      preview.classList.remove("multi");
+      preview.innerHTML = `<i class="fa-solid fa-file-lines"></i><span>${file.name}</span>`;
+    }
+    return;
+  }
+
+  preview.classList.add("multi");
+  preview.innerHTML = lista
+    .map((file) => {
+      const url = URL.createObjectURL(file);
+      return `<img src="${url}" alt="Preview do anexo">`;
+    })
+    .join("");
+}
+
+function configurarCatAnexo({
+  key,
+  dropId,
+  inputId,
+  previewId,
+  buttonId,
+  multiple,
+  emptyLabel,
+}) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(previewId);
+  const btn = document.getElementById(buttonId);
+
+  if (!input || !preview) return;
+
+  if (btn) {
+    btn.addEventListener("click", () => input.click());
+  }
+
+  const atualizarPreview = () => {
+    const arquivos = multiple
+      ? catAnexos[key] || []
+      : catAnexos[key] || null;
+    renderCatAnexoPreview(
+      preview,
+      arquivos,
+      emptyLabel || "Nenhuma imagem selecionada",
+      multiple
+    );
+  };
+
+  const aplicarArquivos = (files) => {
+    if (multiple) {
+      const lista = Array.from(files || []).slice(0, 2);
+      if (Array.from(files || []).length > 2) {
+        if (typeof mostrarAlerta === "function") {
+          mostrarAlerta(
+            "Atenção",
+            "Você pode enviar no máximo 2 prints do WhatsApp.",
+            "warning"
+          );
+        } else {
+          alert("Você pode enviar no máximo 2 prints do WhatsApp.");
+        }
+      }
+      catAnexos[key] = lista;
+    } else {
+      catAnexos[key] = files?.[0] || null;
+    }
+    atualizarPreview();
+  };
+
+  if (drop) {
+    drop.addEventListener("dblclick", () => input.click());
+    drop.addEventListener("click", () => drop.focus());
+    drop.addEventListener("paste", (event) => {
+      const items = event.clipboardData?.items || [];
+      const imageItem = Array.from(items).find((item) =>
+        item.type.startsWith("image/")
+      );
+      if (!imageItem) return;
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+      const file = new File([blob], `${key}-print.png`, { type: blob.type });
+
+      if (multiple) {
+        const atual = Array.isArray(catAnexos[key]) ? catAnexos[key] : [];
+        if (atual.length >= 2) {
+          if (typeof mostrarAlerta === "function") {
+            return mostrarAlerta(
+              "Atenção",
+              "Você pode enviar no máximo 2 prints do WhatsApp.",
+              "warning"
+            );
+          }
+          return alert("Você pode enviar no máximo 2 prints do WhatsApp.");
+        }
+        catAnexos[key] = [...atual, file];
+      } else {
+        catAnexos[key] = file;
+      }
+      atualizarPreview();
+    });
+  }
+
+  input.addEventListener("change", () => {
+    aplicarArquivos(input.files);
+  });
+
+  atualizarPreview();
+}
+
 async function prepararSelectsCAT() {
   if (catMembersCache) return;
   if (!catMembersLoading) {
@@ -685,8 +843,30 @@ window.registrarCAT = async function () {
   const rg = document.getElementById("cat-rg")?.value.trim();
   const linkPrisao = document.getElementById("cat-link-prisao")?.value.trim();
   const linkPericia = document.getElementById("cat-link-pericia")?.value.trim();
-  const fileInput = document.getElementById("cat-anexo");
-  const anexo = catAnexoFile || fileInput?.files?.[0] || null;
+  const transferenciaInput = document.getElementById("cat-anexo-transferencia");
+  const olxInput = document.getElementById("cat-anexo-olx");
+  const whatsappInput = document.getElementById("cat-anexo-whatsapp");
+  const transferencia =
+    catAnexos.transferencia || transferenciaInput?.files?.[0] || null;
+  const olx = catAnexos.olx || olxInput?.files?.[0] || null;
+  let whatsapp = catAnexos.whatsapp.length
+    ? catAnexos.whatsapp
+    : Array.from(whatsappInput?.files || []);
+  if (whatsapp.length > 2) {
+    if (typeof mostrarAlerta === "function") {
+      return mostrarAlerta(
+        "Atenção",
+        "Você pode enviar no máximo 2 prints do WhatsApp.",
+        "warning"
+      );
+    }
+    return alert("Você pode enviar no máximo 2 prints do WhatsApp.");
+  }
+  whatsapp = whatsapp.slice(0, 2);
+  const anexos = [];
+  if (transferencia) anexos.push(transferencia);
+  if (olx) anexos.push(olx);
+  whatsapp.forEach((file) => anexos.push(file));
   const itens = document.getElementById("cat-itens")?.value.trim();
 
   const investigadorIds = coletarListaIds("cat-investigador-list");
@@ -721,6 +901,17 @@ window.registrarCAT = async function () {
     return alert(`Preencha o campo: ${faltando.label}.`);
   }
 
+  if (anexos.length < 2) {
+    if (typeof mostrarAlerta === "function") {
+      return mostrarAlerta(
+        "Atenção",
+        "Envie pelo menos 2 imagens nos anexos do C.A.T.",
+        "warning"
+      );
+    }
+    return alert("Envie pelo menos 2 imagens nos anexos do C.A.T.");
+  }
+
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
   if (!sessao.id) {
     if (typeof mostrarAlerta === "function") {
@@ -751,7 +942,9 @@ window.registrarCAT = async function () {
     if (typeof mostrarCarregando === "function") mostrarCarregando(true);
     const formData = new FormData();
     formData.append("content", mensagem);
-    if (anexo) formData.append("file", anexo, anexo.name);
+    anexos.forEach((file) => {
+      formData.append("file", file, file.name);
+    });
     const response = await fetch("/api/enviar-cat", {
       method: "POST",
       body: formData,
@@ -772,12 +965,28 @@ window.registrarCAT = async function () {
     document.getElementById("cat-rg").value = "";
     document.getElementById("cat-link-prisao").value = "";
     document.getElementById("cat-link-pericia").value = "";
-    if (fileInput) fileInput.value = "";
-    catAnexoFile = null;
-    const preview = document.getElementById("cat-anexo-preview");
-    if (preview) {
-      preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhuma imagem selecionada</span>`;
-    }
+    if (transferenciaInput) transferenciaInput.value = "";
+    if (olxInput) olxInput.value = "";
+    if (whatsappInput) whatsappInput.value = "";
+    catAnexos = { transferencia: null, olx: null, whatsapp: [] };
+    renderCatAnexoPreview(
+      document.getElementById("cat-anexo-transferencia-preview"),
+      null,
+      "Nenhuma imagem selecionada",
+      false
+    );
+    renderCatAnexoPreview(
+      document.getElementById("cat-anexo-olx-preview"),
+      null,
+      "Nenhuma imagem selecionada",
+      false
+    );
+    renderCatAnexoPreview(
+      document.getElementById("cat-anexo-whatsapp-preview"),
+      [],
+      "Nenhuma imagem selecionada",
+      true
+    );
     document.getElementById("cat-itens").value = "";
 
     const selectInvestigador = document.getElementById("cat-investigador-select");
@@ -2162,54 +2371,37 @@ document.addEventListener("DOMContentLoaded", () => {
   if (listAutorizou) listAutorizou.innerHTML = "";
   if (listEnvolvidos) listEnvolvidos.innerHTML = "";
 
-  const drop = document.getElementById("cat-anexo-drop");
-  const input = document.getElementById("cat-anexo");
-  const preview = document.getElementById("cat-anexo-preview");
-  const btn = document.getElementById("cat-anexo-btn");
+  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
+    habilitarBuscaSelect(select);
+  });
 
-  if (btn && input) {
-    btn.addEventListener("click", () => input.click());
-  }
+  configurarCatAnexo({
+    key: "transferencia",
+    dropId: "cat-anexo-transferencia-drop",
+    inputId: "cat-anexo-transferencia",
+    previewId: "cat-anexo-transferencia-preview",
+    buttonId: "cat-anexo-transferencia-btn",
+    multiple: false,
+    emptyLabel: "Nenhuma imagem selecionada",
+  });
 
-  if (drop && input) {
-    drop.addEventListener("dblclick", () => input.click());
+  configurarCatAnexo({
+    key: "olx",
+    dropId: "cat-anexo-olx-drop",
+    inputId: "cat-anexo-olx",
+    previewId: "cat-anexo-olx-preview",
+    buttonId: "cat-anexo-olx-btn",
+    multiple: false,
+    emptyLabel: "Nenhuma imagem selecionada",
+  });
 
-    drop.addEventListener("click", () => {
-      drop.focus();
-    });
-
-    drop.addEventListener("paste", (event) => {
-      const items = event.clipboardData?.items || [];
-      const imageItem = Array.from(items).find((item) =>
-        item.type.startsWith("image/")
-      );
-      if (!imageItem) return;
-      const blob = imageItem.getAsFile();
-      if (!blob) return;
-      const file = new File([blob], "cat-print.png", { type: blob.type });
-      catAnexoFile = file;
-      if (preview) {
-        const url = URL.createObjectURL(file);
-        preview.innerHTML = `<img src="${url}" alt="Preview do anexo">`;
-      }
-    });
-  }
-
-  if (input) {
-    input.addEventListener("change", () => {
-      const file = input.files?.[0] || null;
-      catAnexoFile = file;
-      if (!preview) return;
-      if (!file) {
-        preview.innerHTML = `<i class="fa-solid fa-image"></i><span>Nenhuma imagem selecionada</span>`;
-        return;
-      }
-      if (file.type.startsWith("image/")) {
-        const url = URL.createObjectURL(file);
-        preview.innerHTML = `<img src="${url}" alt="Preview do anexo">`;
-      } else {
-        preview.innerHTML = `<i class="fa-solid fa-file-lines"></i><span>${file.name}</span>`;
-      }
-    });
-  }
+  configurarCatAnexo({
+    key: "whatsapp",
+    dropId: "cat-anexo-whatsapp-drop",
+    inputId: "cat-anexo-whatsapp",
+    previewId: "cat-anexo-whatsapp-preview",
+    buttonId: "cat-anexo-whatsapp-btn",
+    multiple: true,
+    emptyLabel: "Nenhuma imagem selecionada",
+  });
 });

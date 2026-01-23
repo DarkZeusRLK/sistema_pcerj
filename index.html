@@ -611,20 +611,56 @@
 
             <div class="input-group cat-attachment-group cat-span-12">
               <label>Print da transferência + Apreensão realizada</label>
-              <div class="cat-attachment" id="cat-anexo-drop" tabindex="0">
+              <div class="cat-attachment" id="cat-anexo-transferencia-drop" tabindex="0">
                 <div class="cat-attachment-header">
                   <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
-                  <span class="cat-attachment-sub">Aceita apenas imagens.</span>
+                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
                 </div>
-                <div class="cat-attachment-preview" id="cat-anexo-preview">
+                <div class="cat-attachment-preview" id="cat-anexo-transferencia-preview">
                   <i class="fa-solid fa-image"></i>
                   <span>Nenhuma imagem selecionada</span>
                 </div>
-                <button type="button" class="btn-attachment" id="cat-anexo-btn">
+                <button type="button" class="btn-attachment" id="cat-anexo-transferencia-btn">
                   Escolher imagem
                 </button>
               </div>
-              <input type="file" id="cat-anexo" accept="image/*" hidden>
+              <input type="file" id="cat-anexo-transferencia" accept="image/*" hidden>
+            </div>
+
+            <div class="input-group cat-attachment-group cat-span-12">
+              <label>Print do anúncio OLX</label>
+              <div class="cat-attachment" id="cat-anexo-olx-drop" tabindex="0">
+                <div class="cat-attachment-header">
+                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
+                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
+                </div>
+                <div class="cat-attachment-preview" id="cat-anexo-olx-preview">
+                  <i class="fa-solid fa-image"></i>
+                  <span>Nenhuma imagem selecionada</span>
+                </div>
+                <button type="button" class="btn-attachment" id="cat-anexo-olx-btn">
+                  Escolher imagem
+                </button>
+              </div>
+              <input type="file" id="cat-anexo-olx" accept="image/*" hidden>
+            </div>
+
+            <div class="input-group cat-attachment-group cat-span-12">
+              <label>Prints do WhatsApp (até 2)</label>
+              <div class="cat-attachment" id="cat-anexo-whatsapp-drop" tabindex="0">
+                <div class="cat-attachment-header">
+                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
+                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
+                </div>
+                <div class="cat-attachment-preview" id="cat-anexo-whatsapp-preview">
+                  <i class="fa-solid fa-image"></i>
+                  <span>Nenhuma imagem selecionada</span>
+                </div>
+                <button type="button" class="btn-attachment" id="cat-anexo-whatsapp-btn">
+                  Escolher imagens
+                </button>
+              </div>
+              <input type="file" id="cat-anexo-whatsapp" accept="image/*" multiple hidden>
             </div>
           </div>
 

@@ -1071,6 +1071,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-radius: 8px;
 }
 
+.cat-attachment-preview.multi {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.cat-attachment-preview.multi img {
+  max-width: 48%;
+  max-height: 70px;
+  object-fit: cover;
+}
+
 .btn-attachment {
   flex: 0 0 auto;
   background: transparent;
