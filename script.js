@@ -567,6 +567,7 @@ function formatMemberLabel(member) {
 let catMembersCache = null;
 let catMembersLoading = false;
 let catMembersError = null;
+let catMembersSorted = null;
 
 async function carregarMembrosDiscord() {
   if (catMembersCache) return catMembersCache;
@@ -618,34 +619,32 @@ function preencherSelect(selectId, members, placeholder) {
   });
 }
 
-function habilitarBuscaSelect(select) {
-  if (!select) return;
-  let buffer = "";
-  let bufferTimeout = null;
+function obterMembrosOrdenados() {
+  if (catMembersSorted) return catMembersSorted;
+  if (!catMembersCache || catMembersCache.length === 0) return [];
+  catMembersSorted = catMembersCache
+    .slice()
+    .sort((a, b) => formatMemberLabel(a).localeCompare(formatMemberLabel(b)));
+  return catMembersSorted;
+}
 
-  select.addEventListener("keydown", (event) => {
-    if (event.key === "Backspace") {
-      buffer = buffer.slice(0, -1);
-      return;
-    }
-    if (event.key.length !== 1) return;
-    buffer += event.key;
-    clearTimeout(bufferTimeout);
-    bufferTimeout = setTimeout(() => {
-      buffer = "";
-    }, 700);
+function filtrarSelectPorTexto(selectId, texto) {
+  const termo = (texto || "").trim().toLowerCase();
+  const membros = obterMembrosOrdenados();
+  const filtrados = termo
+    ? membros.filter((member) => {
+        const label = formatMemberLabel(member).toLowerCase();
+        const id = String(member.id || "").toLowerCase();
+        return label.includes(termo) || id.includes(termo);
+      })
+    : membros;
 
-    const termo = buffer.toLowerCase();
-    const options = Array.from(select.options).filter((opt) => opt.value);
-    const encontrado = options.find((opt) => {
-      const texto = (opt.textContent || "").toLowerCase();
-      const valor = (opt.value || "").toLowerCase();
-      return texto.includes(termo) || valor.includes(termo);
-    });
-    if (encontrado) {
-      select.value = encontrado.value;
-    }
-  });
+  preencherSelect(selectId, filtrados, "Selecione um oficial");
+
+  if (termo && filtrados.length > 0) {
+    const select = document.getElementById(selectId);
+    if (select) select.value = filtrados[0].id;
+  }
 }
 
 function renderCatAnexoPreview(preview, files, emptyLabel, multiple) {
@@ -781,9 +780,8 @@ async function prepararSelectsCAT() {
   }
   const members = await carregarMembrosDiscord();
   if (!members || members.length === 0) return;
-  const ordenados = members
-    .slice()
-    .sort((a, b) => formatMemberLabel(a).localeCompare(formatMemberLabel(b)));
+  catMembersSorted = null;
+  const ordenados = obterMembrosOrdenados();
   preencherSelect("cat-investigador-select", ordenados, "Selecione um oficial");
   preencherSelect("cat-autorizou-select", ordenados, "Selecione um oficial");
   preencherSelect("cat-envolvidos-select", ordenados, "Selecione um oficial");
@@ -2327,6 +2325,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnAddInvestigador = document.getElementById("cat-investigador-add");
   const btnAddAutorizou = document.getElementById("cat-autorizou-add");
   const btnAddEnvolvido = document.getElementById("cat-envolvidos-add");
+  const searchInvestigador = document.getElementById("cat-investigador-search");
+  const searchAutorizou = document.getElementById("cat-autorizou-search");
+  const searchEnvolvidos = document.getElementById("cat-envolvidos-search");
 
   [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
     if (!select) return;
@@ -2371,9 +2372,28 @@ document.addEventListener("DOMContentLoaded", () => {
   if (listAutorizou) listAutorizou.innerHTML = "";
   if (listEnvolvidos) listEnvolvidos.innerHTML = "";
 
-  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
-    habilitarBuscaSelect(select);
-  });
+  const vincularPesquisa = (input, selectId) => {
+    if (!input) return;
+    input.addEventListener("input", async () => {
+      if (!catMembersCache) {
+        await prepararSelectsCAT();
+      }
+      filtrarSelectPorTexto(selectId, input.value);
+    });
+
+    input.addEventListener("blur", async () => {
+      if (!input.value.trim()) {
+        if (!catMembersCache) {
+          await prepararSelectsCAT();
+        }
+        filtrarSelectPorTexto(selectId, "");
+      }
+    });
+  };
+
+  vincularPesquisa(searchInvestigador, "cat-investigador-select");
+  vincularPesquisa(searchAutorizou, "cat-autorizou-select");
+  vincularPesquisa(searchEnvolvidos, "cat-envolvidos-select");
 
   configurarCatAnexo({
     key: "transferencia",

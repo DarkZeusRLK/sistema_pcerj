@@ -887,11 +887,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .envolvidos-controls {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.envolvidos-row {
+  display: flex;
   gap: 12px;
   align-items: center;
 }
 
-.envolvidos-controls select {
+.envolvidos-row select {
   flex: 1;
 }
 
