@@ -355,6 +355,7 @@ async function processarEmissao() {
         { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🔫 Armamento", value: arma, inline: true },
         { name: "📦 Munição", value: temMunicao, inline: true },
+        { name: "📅 Expedição", value: `\`${expedicao}\``, inline: true },
         { name: "📅 Validade", value: `\`${validade}\``, inline: true },
         { name: "💰 Valores", value: textoValores, inline: false },
       ],
