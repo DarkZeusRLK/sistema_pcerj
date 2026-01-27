@@ -1298,8 +1298,10 @@ window.renovarPorte = async function (idPorte) {
 
   if (
     !(await confirmarAcao(
-      "Renovar?",
-      `Renovar porte de ${porte.nome} por +30 dias?`,
+      "Renovar porte?",
+      `Tem certeza que deseja renovar o porte do cidadão ${porte.nome}?`,
+      "danger",
+      "Sim, Renovar",
     ))
   )
     return;
@@ -1604,7 +1606,12 @@ window.navegar = (tela) => {
 };
 
 // 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
-window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
+window.confirmarAcao = (
+  titulo,
+  mensagem,
+  tipo = "padrao",
+  confirmLabel = "",
+) => {
   return new Promise((resolve) => {
     const modal = document.getElementById("custom-modal");
     // Se não achar o modal no HTML, usa o nativo por segurança
@@ -1622,12 +1629,12 @@ window.confirmarAcao = (titulo, mensagem, tipo = "padrao") => {
     if (tipo === "danger") {
       elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
       btnConfirm.className = "btn-danger-modal";
-      btnConfirm.innerText = "Sim, Revogar";
+      btnConfirm.innerText = confirmLabel || "Sim, Revogar";
     } else {
       elIcon.className = "fa-solid fa-circle-question modal-icon";
       elIcon.style.color = "#fff";
       btnConfirm.className = "btn-primary";
-      btnConfirm.innerText = "Confirmar";
+      btnConfirm.innerText = confirmLabel || "Confirmar";
     }
 
     modal.classList.remove("hidden");
