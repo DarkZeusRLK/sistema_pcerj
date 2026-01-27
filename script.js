@@ -1155,7 +1155,7 @@ window.renderTables = function () {
   const ativosFiltrados = dbPortes
     .slice()
     .reverse()
-    .filter((porte) => porte.status !== "Revogado")
+    .filter((porte) => porte.status === "Ativo")
     .filter((porte) => {
       if (!filtro) return true;
       return (
@@ -1164,7 +1164,7 @@ window.renderTables = function () {
       );
     });
 
-  // 1. RENOVACAO (30 a 33 dias)
+  // 1. RENOVACAO (30 a 33 dias de uso)
   ativosFiltrados.forEach((porte) => {
     const diasCorridos = calcularDiasCorridos(porte.expedicao);
 
@@ -1296,7 +1296,7 @@ window.renovarPorte = async function (idPorte) {
 
   const embedData = {
     title: `🔄 RENOVAÇÃO DE PORTE`,
-    description: `O porte foi renovado com sucesso dentro do prazo de graça.`,
+    description: `Renovação de Documentação.`,
     color: 16776960, // Amarelo
     fields: [
       { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
@@ -1317,7 +1317,7 @@ window.renovarPorte = async function (idPorte) {
   const sucesso = await enviarParaAPI(
     blob,
     "renovacao_log.txt",
-    "revogacao",
+    "porte",
     embedData,
     `🔄 **PORTE RENOVADO:** ${porte.id}`,
   );
