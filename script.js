@@ -151,16 +151,31 @@ document.addEventListener("DOMContentLoaded", async function () {
 // 📅 UTILITÁRIOS DE DATA
 // ==========================================
 function parseData(dataStr) {
-  if (!dataStr) return new Date();
-  const partes = dataStr.split("/");
-  return new Date(partes[2], partes[1] - 1, partes[0]);
+  if (!dataStr) return null;
+  const match = String(dataStr).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+  const dia = Number(match[1]);
+  const mes = Number(match[2]) - 1;
+  const ano = Number(match[3]);
+  const data = new Date(ano, mes, dia);
+  if (Number.isNaN(data.getTime())) return null;
+  return data;
 }
 
-function calcularDiasCorridos(dataExpedicaoStr) {
+function calcularDiasCorridos(dataExpedicaoStr, dataValidadeStr) {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  const expedicao = parseData(dataExpedicaoStr);
+  let expedicao = parseData(dataExpedicaoStr);
+  if (!expedicao && dataValidadeStr) {
+    const validade = parseData(dataValidadeStr);
+    if (validade) {
+      expedicao = new Date(validade);
+      expedicao.setDate(expedicao.getDate() - 30);
+    }
+  }
+  if (!expedicao) return null;
+
   expedicao.setHours(0, 0, 0, 0);
 
   const diffTime = Math.abs(hoje - expedicao);
@@ -1166,9 +1181,12 @@ window.renderTables = function () {
 
   // 1. RENOVACAO (30 a 33 dias de uso)
   ativosFiltrados.forEach((porte) => {
-    const diasCorridos = calcularDiasCorridos(porte.expedicao);
+    const diasCorridos = calcularDiasCorridos(
+      porte.expedicao,
+      porte.validade,
+    );
 
-    if (diasCorridos >= 30 && diasCorridos <= 33) {
+    if (diasCorridos !== null && diasCorridos >= 30 && diasCorridos <= 33) {
       if (tbodyRenovacao) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
@@ -1202,13 +1220,16 @@ window.renderTables = function () {
 
   if (tbodyRevogacao) {
     paginaAtual.forEach((porte) => {
-      const diasCorridos = calcularDiasCorridos(porte.expedicao);
+      const diasCorridos = calcularDiasCorridos(
+        porte.expedicao,
+        porte.validade,
+      );
       const trRev = document.createElement("tr");
       let validadeHTML = porte.validade || "N/A";
 
-      if (diasCorridos > 33) {
+      if (diasCorridos !== null && diasCorridos > 33) {
         validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
-      } else if (diasCorridos >= 30) {
+      } else if (diasCorridos !== null && diasCorridos >= 30) {
         validadeHTML = `<span class="badge-warning" style="color:orange">Periodo de Graca</span>`;
       }
 
