@@ -1296,11 +1296,17 @@ window.renovarPorte = async function (idPorte) {
   const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
   if (!porte) return;
 
+  const hoje = new Date();
+  const novaValidade = new Date();
+  novaValidade.setDate(hoje.getDate() + 30);
+  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
+  const validadeAtual = porte.validade || "N/A";
+
   if (
     !(await confirmarAcao(
       "Renovar porte?",
-      `Tem certeza que deseja renovar o porte do cidadão ${porte.nome}?`,
-      "danger",
+      `Tem certeza que deseja renovar o porte do cidadão ${porte.nome}?\n\nValidade atual: ${validadeAtual}\nNova validade: ${novaValidadeStr}`,
+      "renovacao",
       "Sim, Renovar",
     ))
   )
@@ -1312,11 +1318,6 @@ window.renovarPorte = async function (idPorte) {
   const mencaoOficial = sessao.id
     ? `<@${sessao.id}>`
     : `**${sessao.username}**`;
-
-  const hoje = new Date();
-  const novaValidade = new Date();
-  novaValidade.setDate(hoje.getDate() + 30);
-  const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
 
   const embedData = {
     title: `🔄 RENOVAÇÃO DE PORTE`,
@@ -1630,6 +1631,10 @@ window.confirmarAcao = (
       elIcon.className = "fa-solid fa-triangle-exclamation modal-icon danger";
       btnConfirm.className = "btn-danger-modal";
       btnConfirm.innerText = confirmLabel || "Sim, Revogar";
+    } else if (tipo === "renovacao") {
+      elIcon.className = "fa-solid fa-arrows-rotate modal-icon renovacao";
+      btnConfirm.className = "btn-warning-modal";
+      btnConfirm.innerText = confirmLabel || "Sim, Renovar";
     } else {
       elIcon.className = "fa-solid fa-circle-question modal-icon";
       elIcon.style.color = "#fff";
