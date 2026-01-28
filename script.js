@@ -1201,9 +1201,11 @@ window.renderTables = function () {
     if (diasCorridos !== null && diasCorridos >= 30 && diasCorridos <= 33) {
       if (tbodyRenovacao) {
         const tr = document.createElement("tr");
+        const telefone = porte.telefone || porte.rg || "N/A";
         tr.innerHTML = `
               <td>${porte.nome}</td>
               <td>${porte.id}</td>
+              <td>${telefone}</td>
               <td>${porte.expedicao}</td>
               <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
               <td>
@@ -1254,10 +1256,12 @@ window.renderTables = function () {
         validadeHTML = `<span class="badge-warning" style="color:orange">Periodo de Graca</span>`;
       }
 
+      const telefone = porte.telefone || porte.rg || "N/A";
       trRev.innerHTML = `
           <td>${porte.nome}</td>
           <td>${porte.id}</td>
           <td>${porte.arma}</td>
+          <td>${telefone}</td>
           <td>${validadeHTML}</td>
           <td>
               <button class="btn-danger" onclick="revogar('${porte.id}')">
