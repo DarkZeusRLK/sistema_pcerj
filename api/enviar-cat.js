@@ -31,14 +31,21 @@ module.exports = (req, res) => {
     }
 
     const busboy = Busboy({ headers: req.headers });
-    let fileBuffer = [];
-    let fileName = "";
+    const files = [];
     let content = "";
 
     busboy.on("file", (name, file, info) => {
-      fileName = info.filename || "anexo";
+      const chunks = [];
       file.on("data", (data) => {
-        fileBuffer.push(data);
+        chunks.push(data);
+      });
+      file.on("end", () => {
+        if (chunks.length === 0) return;
+        files.push({
+          buffer: Buffer.concat(chunks),
+          filename: info.filename || "anexo",
+          mimeType: info.mimeType,
+        });
       });
     });
 
@@ -54,13 +61,21 @@ module.exports = (req, res) => {
 
       try {
         const discordForm = new FormData();
-        const payload = { content };
+        const payload = {
+          content,
+          attachments: files.map((file, index) => ({
+            id: index,
+            filename: file.filename,
+          })),
+        };
         discordForm.append("payload_json", JSON.stringify(payload));
 
-        if (fileBuffer.length > 0) {
-          const finalBuffer = Buffer.concat(fileBuffer);
-          discordForm.append("file", finalBuffer, fileName);
-        }
+        files.forEach((file, index) => {
+          discordForm.append(`files[${index}]`, file.buffer, {
+            filename: file.filename,
+            contentType: file.mimeType || "application/octet-stream",
+          });
+        });
 
         const response = await fetch(
           `https://discord.com/api/v10/channels/${CAT_CHANNEL_ID}/messages`,
