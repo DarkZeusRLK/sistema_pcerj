@@ -67,6 +67,8 @@ module.exports = async (req, res) => {
 
         const nome = find("Cidadao") || find("Nome");
         const id = find("Passaporte") || find("ID");
+        const telefone = find("Telefone");
+        const rg = find("RG");
 
         if (nome && id) {
           return {
@@ -77,7 +79,8 @@ module.exports = async (req, res) => {
               find("Oficial") || find("Responsavel") || "Oficial Desconhecido",
             expedicao: find("Expedicao") || find("Data") || "N/A",
             validade: find("Validade") || find("Vencimento") || "N/A",
-            rg: find("RG") || "N/A",
+            telefone: telefone || rg || "N/A",
+            rg: rg || telefone || "N/A",
             arma: find("Armamento") || find("Arma") || "N/A",
             status: "Ativo",
           };

@@ -293,7 +293,7 @@ function ativarFormatacaoDinheiro() {
 async function processarEmissao() {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
-  const rg = document.getElementById("porte-rg").value;
+  const telefone = document.getElementById("porte-telefone").value;
   const arma = document.getElementById("porte-arma").value;
   const validade = document.getElementById("porte-validade").value;
   const expedicao = document.getElementById("porte-expedicao").value;
@@ -351,7 +351,7 @@ async function processarEmissao() {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "🪪 RG", value: `\`${rg || "N/A"}\``, inline: true },
+        { name: "📞 Telefone", value: `\`${telefone || "N/A"}\``, inline: true },
         { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🔫 Armamento", value: arma, inline: true },
         { name: "📦 Munição", value: temMunicao, inline: true },
@@ -377,7 +377,8 @@ async function processarEmissao() {
       dbPortes.push({
         nome,
         id,
-        rg,
+        telefone,
+        rg: telefone,
         arma,
         validade,
         expedicao,
@@ -396,7 +397,7 @@ async function processarEmissao() {
       document.getElementById("preview-porte-container").style.display = "none";
       document.getElementById("porte-nome").value = "";
       document.getElementById("porte-id").value = "";
-      document.getElementById("porte-rg").value = "";
+      document.getElementById("porte-telefone").value = "";
       document.getElementById("check-desconto").checked = false;
       atualizarValoresPorte();
     }
@@ -505,7 +506,9 @@ window.consultarFicha = async function () {
 window.processarLimpeza = async function () {
   const nome = (document.getElementById("limpeza-nome")?.value || "").trim();
   const id = (document.getElementById("limpeza-id")?.value || "").trim();
-  const rg = (document.getElementById("limpeza-rg")?.value || "").trim();
+  const telefone = (
+    document.getElementById("limpeza-telefone")?.value || ""
+  ).trim();
   const valor = (
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
@@ -526,7 +529,7 @@ window.processarLimpeza = async function () {
   mostrarAlerta("Processando", "Gerando comprovante...", "warning");
 
   try {
-    const blobLimpeza = await gerarBlobLimpeza(nome, id, rg);
+    const blobLimpeza = await gerarBlobLimpeza(nome, id, telefone);
     const nomeArquivo = `limpeza_${id}.png`;
 
     const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -548,6 +551,7 @@ window.processarLimpeza = async function () {
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
         { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
+        { name: "📞 Telefone", value: `\`${telefone || "N/A"}\``, inline: true },
         { name: "👮 Oficial", value: mencaoOficial, inline: true }, // 👈 OBRIGATÓRIO PARA O RELATÓRIO
         {
           name: "📅 Data",
@@ -572,6 +576,8 @@ window.processarLimpeza = async function () {
       mostrarAlerta("Sucesso", "Procedimento realizado!", "success");
       document.getElementById("limpeza-nome").value = "";
       document.getElementById("limpeza-id").value = "";
+      const telefoneInput = document.getElementById("limpeza-telefone");
+      if (telefoneInput) telefoneInput.value = "";
       document.getElementById("input-valor-limpeza").value = "";
     }
   } catch (erro) {
@@ -1038,7 +1044,7 @@ window.registrarCAT = async function () {
   }
 };
 
-function gerarBlobLimpeza(nome, id, rg) {
+function gerarBlobLimpeza(nome, id, telefone) {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -1059,7 +1065,11 @@ function gerarBlobLimpeza(nome, id, rg) {
         POSICOES_LIMPEZA.nome.y,
       );
       ctx.fillText(id, POSICOES_LIMPEZA.id.x, POSICOES_LIMPEZA.id.y);
-      ctx.fillText(rg || "N/A", POSICOES_LIMPEZA.rg.x, POSICOES_LIMPEZA.rg.y);
+      ctx.fillText(
+        telefone || "N/A",
+        POSICOES_LIMPEZA.rg.x,
+        POSICOES_LIMPEZA.rg.y,
+      );
       ctx.fillText(
         new Date().toLocaleDateString("pt-BR"),
         POSICOES_LIMPEZA.data.x,
@@ -1084,7 +1094,7 @@ window.gerarPreviewPorte = function () {
   const nome = document.getElementById("porte-nome").value;
   const id = document.getElementById("porte-id").value;
   const arma = document.getElementById("porte-arma").value;
-  const rg = document.getElementById("porte-rg").value;
+  const telefone = document.getElementById("porte-telefone").value;
   const expedicao = document.getElementById("porte-expedicao").value;
   const validade = document.getElementById("porte-validade").value;
 
@@ -1107,7 +1117,7 @@ window.gerarPreviewPorte = function () {
 
     ctx.fillText(nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
     ctx.fillText(id, POSICOES.id.x, POSICOES.id.y);
-    ctx.fillText(rg, POSICOES.rg.x, POSICOES.rg.y);
+    ctx.fillText(telefone, POSICOES.rg.x, POSICOES.rg.y);
     ctx.fillText(expedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
     ctx.fillText(validade, POSICOES.validade.x, POSICOES.validade.y);
 
@@ -1180,13 +1190,14 @@ window.renderTables = function () {
       );
     });
 
-  // 1. RENOVACAO (30 a 33 dias de uso)
-  ativosFiltrados.forEach((porte) => {
-    const diasCorridos = calcularDiasCorridos(
-      porte.expedicao,
-      porte.validade,
-    );
+  const ativosComDias = ativosFiltrados.map((porte, index) => ({
+    porte,
+    index,
+    diasCorridos: calcularDiasCorridos(porte.expedicao, porte.validade),
+  }));
 
+  // 1. RENOVACAO (30 a 33 dias de uso)
+  ativosComDias.forEach(({ porte, diasCorridos }) => {
     if (diasCorridos !== null && diasCorridos >= 30 && diasCorridos <= 33) {
       if (tbodyRenovacao) {
         const tr = document.createElement("tr");
@@ -1207,7 +1218,16 @@ window.renderTables = function () {
   });
 
   // 2. REVOGACAO (Todos ativos) com paginacao
-  const totalRegistros = ativosFiltrados.length;
+  const ativosOrdenadosRevogacao = ativosComDias
+    .slice()
+    .sort((a, b) => {
+      const aExpirado = a.diasCorridos !== null && a.diasCorridos > 33;
+      const bExpirado = b.diasCorridos !== null && b.diasCorridos > 33;
+      if (aExpirado !== bExpirado) return aExpirado ? -1 : 1;
+      return a.index - b.index;
+    });
+
+  const totalRegistros = ativosOrdenadosRevogacao.length;
   totalPaginasRevogacao = Math.max(
     1,
     Math.ceil(totalRegistros / limiteRevogacao),
@@ -1217,19 +1237,19 @@ window.renderTables = function () {
   }
 
   const inicio = (paginaRevogacao - 1) * limiteRevogacao;
-  const paginaAtual = ativosFiltrados.slice(inicio, inicio + limiteRevogacao);
+  const paginaAtual = ativosOrdenadosRevogacao.slice(
+    inicio,
+    inicio + limiteRevogacao,
+  );
 
   if (tbodyRevogacao) {
-    paginaAtual.forEach((porte) => {
-      const diasCorridos = calcularDiasCorridos(
-        porte.expedicao,
-        porte.validade,
-      );
+    paginaAtual.forEach(({ porte, diasCorridos }) => {
       const trRev = document.createElement("tr");
       let validadeHTML = porte.validade || "N/A";
 
       if (diasCorridos !== null && diasCorridos > 33) {
-        validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO (+3 dias)</span>`;
+        trRev.classList.add("linha-expirada");
+        validadeHTML = `<span class="badge-priority"><i class="fa-solid fa-triangle-exclamation"></i> EXPIRADO - REVOGAR</span>`;
       } else if (diasCorridos !== null && diasCorridos >= 30) {
         validadeHTML = `<span class="badge-warning" style="color:orange">Periodo de Graca</span>`;
       }
@@ -1488,8 +1508,12 @@ function gerarBlobRevogacao(p) {
       ctx.fillStyle = POSICOES.corTexto;
       ctx.fillText(p.nome.toUpperCase(), POSICOES.nome.x, POSICOES.nome.y);
       ctx.fillText(p.id, POSICOES.id.x, POSICOES.id.y);
-      // RG Corrigido na imagem
-      ctx.fillText(p.rg || "N/A", POSICOES.rg.x, POSICOES.rg.y);
+      // Telefone corrigido na imagem
+      ctx.fillText(
+        (p.telefone || p.rg || "N/A").toString(),
+        POSICOES.rg.x,
+        POSICOES.rg.y,
+      );
 
       const dataHoje = new Date().toLocaleDateString("pt-BR");
       const dataExp =

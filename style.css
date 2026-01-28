@@ -523,6 +523,12 @@ th {
   gap: 5px;
 }
 
+/* Linha expirada (Revogacao) */
+.linha-expirada {
+  background: rgba(229, 46, 77, 0.12);
+  border-left: 4px solid #e52e4d;
+}
+
 /* Badge de Atenção (Renovação) */
 .badge-warning {
   background: rgba(251, 169, 76, 0.15);
@@ -1180,7 +1186,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .mention-item:hover {
   background: rgba(255, 255, 255, 0.06);
 }
-#limpeza-rg {
+#limpeza-telefone {
   width: 100%;
 }
 /* Revogacao - paginacao */
