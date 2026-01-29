@@ -356,7 +356,11 @@ async function processarEmissao() {
           inline: true,
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
-        { name: "📞 Telefone", value: `\`${telefone || "N/A"}\``, inline: true },
+        {
+          name: "📞 Telefone",
+          value: `\`${telefone || "N/A"}\``,
+          inline: true,
+        },
         { name: "👮 Oficial", value: mencaoOficial, inline: true },
         { name: "🔫 Armamento", value: arma, inline: true },
         { name: "📦 Munição", value: temMunicao, inline: true },
@@ -557,7 +561,11 @@ window.processarLimpeza = async function () {
         },
         { name: "🆔 Passaporte", value: `\`${id}\``, inline: true },
         { name: "💰 Valor Pago", value: `R$ ${valor}`, inline: true },
-        { name: "📞 Telefone", value: `\`${telefone || "N/A"}\``, inline: true },
+        {
+          name: "📞 Telefone",
+          value: `\`${telefone || "N/A"}\``,
+          inline: true,
+        },
         { name: "👮 Oficial", value: mencaoOficial, inline: true }, // 👈 OBRIGATÓRIO PARA O RELATÓRIO
         {
           name: "📅 Data",
@@ -1226,14 +1234,12 @@ window.renderTables = function () {
   });
 
   // 2. REVOGACAO (Todos ativos) com paginacao
-  const ativosOrdenadosRevogacao = ativosComDias
-    .slice()
-    .sort((a, b) => {
-      const aExpirado = a.diasCorridos !== null && a.diasCorridos > 33;
-      const bExpirado = b.diasCorridos !== null && b.diasCorridos > 33;
-      if (aExpirado !== bExpirado) return aExpirado ? -1 : 1;
-      return a.index - b.index;
-    });
+  const ativosOrdenadosRevogacao = ativosComDias.slice().sort((a, b) => {
+    const aExpirado = a.diasCorridos !== null && a.diasCorridos > 33;
+    const bExpirado = b.diasCorridos !== null && b.diasCorridos > 33;
+    if (aExpirado !== bExpirado) return aExpirado ? -1 : 1;
+    return a.index - b.index;
+  });
 
   const totalRegistros = ativosOrdenadosRevogacao.length;
   totalPaginasRevogacao = Math.max(
@@ -1607,7 +1613,7 @@ function iniciarSistema(user) {
   if (div) {
     const avatar = user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-      : "assets/logo_pc.png";
+      : "assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png";
     div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
   }
 }
