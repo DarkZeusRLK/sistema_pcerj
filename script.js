@@ -308,8 +308,13 @@ async function processarEmissao() {
   const fmt = (v) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  if (!nome || !id)
-    return mostrarAlerta("Erro", "Preencha Nome e Passaporte.", "warning");
+  if (!nome || !id || !telefone) {
+    return mostrarAlerta(
+      "Erro",
+      "Preencha Nome, Passaporte e Telefone.",
+      "warning",
+    );
+  }
 
   mostrarAlerta("Aguarde", "Gerando documento...", "warning");
 
@@ -513,12 +518,13 @@ window.processarLimpeza = async function () {
     document.getElementById("input-valor-limpeza")?.value || "0"
   ).trim();
 
-  if (!nome || !id)
+  if (!nome || !id || !telefone) {
     return mostrarAlerta(
       "Dados Incompletos",
-      "Preencha NOME e PASSAPORTE.",
+      "Preencha NOME, PASSAPORTE e TELEFONE.",
       "warning",
     );
+  }
 
   const confirmou = await confirmarAcao(
     "Limpar Ficha?",
