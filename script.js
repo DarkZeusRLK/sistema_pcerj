@@ -37,7 +37,7 @@ function resolverUrlAbsoluta(path) {
   if (!path) return "";
   if (path.startsWith("http")) return path;
   const base = window.location.origin || "";
-  return `${base}/${path.replace(/^\\//, "")}`;
+  return `${base}/${path.replace(/^\//, "")}`;
 }
 
 function definirOrgao(orgKey) {
