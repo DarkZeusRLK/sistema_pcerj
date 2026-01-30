@@ -18,7 +18,8 @@ const CONFIG = {
       name: "Polícia Federal",
       fullName: "Polícia Federal",
       logoPath: "assets/brasao_pf.png",
-      brasaoUrl: "https://www.gov.br/pf/pt-br/principios-fundamentais/simbolos-da-policia-federal-2/emblema.png/@@images/image",
+      brasaoUrl:
+        "https://www.gov.br/pf/pt-br/principios-fundamentais/simbolos-da-policia-federal-2/emblema.png/@@images/image",
       themeClass: "theme-pf",
     },
   },
@@ -46,8 +47,7 @@ function definirOrgao(orgKey) {
 
   CURRENT_ORG_KEY = key;
   CURRENT_ORG = org;
-  CURRENT_BRASAO_URL =
-    org.brasaoUrl || resolverUrlAbsoluta(org.logoPath || "");
+  CURRENT_BRASAO_URL = org.brasaoUrl || resolverUrlAbsoluta(org.logoPath || "");
   FOOTER_PADRAO = {
     text: "Sistema Policial",
     icon_url: CURRENT_BRASAO_URL,
@@ -144,7 +144,7 @@ const POSICOES_LIMPEZA = {
 const PRECOS = {
   GLOCK: { arma: 1200000, laudo: 600000, municao: 150000 },
   MP5: { arma: 1600000, laudo: 600000, municao: 150000 },
-  TASER: { arma: 1400000, laudo: 600000, municao: 0 },
+  TASER: { arma: 3600000, laudo: 1400000, municao: 0 },
 };
 
 let dbPortes = [];
@@ -327,8 +327,10 @@ window.atualizarValoresPorte = function () {
   const subtotal = valorArma + valorLaudo + valorMunicao;
 
   let valorDesconto = 0;
+  let descontoPercent = 0;
   if (checkDesconto && checkDesconto.checked) {
-    valorDesconto = subtotal * 0.15;
+    descontoPercent = armaSelecionada === "TASER" ? 50 : 15;
+    valorDesconto = subtotal * (descontoPercent / 100);
   }
 
   const totalFinal = subtotal - valorDesconto;
@@ -363,6 +365,7 @@ window.atualizarValoresPorte = function () {
 
   painel.dataset.total = totalFinal;
   painel.dataset.desconto = valorDesconto;
+  painel.dataset.descontoPercent = descontoPercent;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
   painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
 };
@@ -415,6 +418,7 @@ async function processarEmissao() {
   const painel = document.getElementById("painel-valores");
   const total = painel ? painel.dataset.total || "0" : "0";
   const desconto = painel ? painel.dataset.desconto || "0" : "0";
+  const descontoPercent = painel ? painel.dataset.descontoPercent || "0" : "0";
   const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
   const ehPolicial = painel ? painel.dataset.ehPolicial || "Não" : "Não";
 
@@ -449,8 +453,8 @@ async function processarEmissao() {
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
 
-    if (ehPolicial === "Sim") {
-      textoValores += `\nDesconto Policial (15%): \`-${fmt(
+    if (ehPolicial === "Sim" && parseFloat(desconto) > 0) {
+      textoValores += `\nDesconto Policial (${descontoPercent}%): \`-${fmt(
         parseFloat(desconto),
       )}\``;
     }
