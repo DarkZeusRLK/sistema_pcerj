@@ -211,8 +211,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   if (hash.includes("access_token")) {
     const fragment = new URLSearchParams(hash.slice(1));
     const accessToken = fragment.get("access_token");
-    const tokenType = fragment.get("token_type");
+    const tokenType = fragment.get("token_type") || "Bearer";
     window.history.replaceState({}, document.title, window.location.pathname);
+    if (!accessToken) {
+      window.location.href = "login.html?error=missing_token";
+      return;
+    }
     await validarLoginNaAPI(`${tokenType} ${accessToken}`);
     return;
   }
@@ -1680,14 +1684,22 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
 
 async function validarLoginNaAPI(token) {
   try {
+    if (!token) {
+      window.location.href = "login.html?error=missing_token";
+      return;
+    }
     const res = await fetch("/api/auth", { headers: { Authorization: token } });
     const data = await res.json();
     if (res.ok && data.authorized) {
       localStorage.setItem("pc_session", JSON.stringify({ ...data, token }));
       window.location.href = "index.html";
-    } else window.location.href = "login.html?error=unauthorized";
+    } else {
+      console.warn("Login negado:", data?.error || "Sem detalhes");
+      window.location.href = "login.html?error=unauthorized";
+    }
   } catch (e) {
     console.error(e);
+    window.location.href = "login.html?error=auth_failed";
   }
 }
 
