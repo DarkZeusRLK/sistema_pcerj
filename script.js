@@ -97,12 +97,15 @@ function aplicarRestricoesPorOrgao() {
   const isPF = CURRENT_ORG_KEY === "PF";
   MENUS_PF_RESTRITOS.forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.classList.toggle("hidden", isPF);
+    if (!el) return;
+    if (isPF) el.classList.add("hidden");
+    else el.classList.remove("hidden");
   });
 
   SECOES_PF_RESTRITAS.forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.classList.toggle("hidden", isPF);
+    if (!el) return;
+    if (isPF) el.classList.add("hidden");
   });
 
   if (isPF) {
