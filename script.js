@@ -3,15 +3,120 @@
 // ==========================================
 const CONFIG = {
   CLIENT_ID: "1451342682487259319",
-  // Link direto para o brasão (necessário para o Discord conseguir carregar no footer)
-  BRASAO_URL: "https://www.policiacivil.rj.gov.br/simbolo2.png",
+  ORG_CONFIGS: {
+    PCERJ: {
+      key: "PCERJ",
+      name: "Polícia Civil",
+      fullName: "Polícia Civil do Estado do Rio de Janeiro",
+      logoPath:
+        "assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png",
+      brasaoUrl: "https://www.policiacivil.rj.gov.br/simbolo2.png",
+      themeClass: "theme-pcerj",
+    },
+    PF: {
+      key: "PF",
+      name: "Polícia Federal",
+      fullName: "Polícia Federal",
+      logoPath: "assets/brasao_pf.png",
+      brasaoUrl: "https://www.gov.br/pf/pt-br/principios-fundamentais/simbolos-da-policia-federal-2/emblema.png/@@images/image",
+      themeClass: "theme-pf",
+    },
+  },
 };
 
-// 👇 RODAPÉ PADRÃO PARA TODOS OS EMBEDS 👇
-const FOOTER_PADRAO = {
+let CURRENT_ORG_KEY = "PCERJ";
+let CURRENT_ORG = CONFIG.ORG_CONFIGS.PCERJ;
+let CURRENT_BRASAO_URL = CONFIG.ORG_CONFIGS.PCERJ.brasaoUrl;
+
+let FOOTER_PADRAO = {
   text: "Sistema Policial",
-  icon_url: CONFIG.BRASAO_URL,
+  icon_url: CURRENT_BRASAO_URL,
 };
+
+function resolverUrlAbsoluta(path) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  const base = window.location.origin || "";
+  return `${base}/${path.replace(/^\\//, "")}`;
+}
+
+function definirOrgao(orgKey) {
+  const key = orgKey === "PF" ? "PF" : "PCERJ";
+  const org = CONFIG.ORG_CONFIGS[key] || CONFIG.ORG_CONFIGS.PCERJ;
+
+  CURRENT_ORG_KEY = key;
+  CURRENT_ORG = org;
+  CURRENT_BRASAO_URL =
+    org.brasaoUrl || resolverUrlAbsoluta(org.logoPath || "");
+  FOOTER_PADRAO = {
+    text: "Sistema Policial",
+    icon_url: CURRENT_BRASAO_URL,
+  };
+
+  const body = document.body;
+  if (body) {
+    body.classList.remove("theme-pcerj", "theme-pf");
+    if (org.themeClass) body.classList.add(org.themeClass);
+  }
+
+  const logo = document.getElementById("org-logo");
+  if (logo) {
+    logo.src = org.logoPath;
+    logo.alt = `Logo ${org.name}`;
+  }
+
+  const title = document.getElementById("org-title");
+  if (title) title.textContent = org.name;
+
+  const favicon = document.getElementById("org-favicon");
+  if (favicon) favicon.setAttribute("href", org.logoPath);
+
+  if (document?.title) {
+    document.title = `Sistema de Emissão - ${org.name}`;
+  }
+}
+
+const TELAS_PERMITIDAS_PF = new Set(["dashboard", "limpeza", "cat"]);
+const MENUS_PF_RESTRITOS = [
+  "menu-emissao",
+  "menu-renovacao",
+  "menu-revogacao",
+  "menu-recompra",
+  "menu-relatorios",
+  "menu-admin",
+];
+const SECOES_PF_RESTRITAS = [
+  "sec-emissao",
+  "sec-renovacao",
+  "sec-revogacao",
+  "sec-recompra",
+  "sec-relatorios",
+];
+
+function aplicarRestricoesPorOrgao() {
+  const isPF = CURRENT_ORG_KEY === "PF";
+  MENUS_PF_RESTRITOS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", isPF);
+  });
+
+  SECOES_PF_RESTRITAS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", isPF);
+  });
+
+  if (isPF) {
+    const ativo = document.querySelector(".screen:not(.hidden)");
+    if (ativo && !TELAS_PERMITIDAS_PF.has(ativo.id.replace("sec-", ""))) {
+      window.navegar("dashboard");
+    }
+  }
+}
+
+function podeAcessarTela(tela) {
+  if (CURRENT_ORG_KEY !== "PF") return true;
+  return TELAS_PERMITIDAS_PF.has(tela);
+}
 
 const POSICOES = {
   nome: { x: 370, y: 250, max: 400 },
@@ -100,6 +205,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   const hash = window.location.hash;
   const isLoginPage = window.location.pathname.includes("login.html");
   const sessao = localStorage.getItem("pc_session");
+  definirOrgao("PCERJ");
 
   // 1. Retorno do Discord (Callback)
   if (hash.includes("access_token")) {
@@ -119,6 +225,8 @@ document.addEventListener("DOMContentLoaded", async function () {
       document.body.style.display = "block";
       try {
         const user = JSON.parse(sessao);
+        definirOrgao(user.org);
+        aplicarRestricoesPorOrgao();
         iniciarSistema(user);
         verificarPermissaoRelatorio();
 
@@ -1612,7 +1720,7 @@ function iniciarSistema(user) {
   if (div) {
     const avatar = user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-      : "assets/Brasão_da_Polícia_Civil_do_Estado_do_Rio_de_Janeiro.png";
+      : CURRENT_ORG.logoPath;
     div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
   }
 }
@@ -1623,6 +1731,11 @@ window.logout = () => {
 };
 
 window.navegar = (tela) => {
+  if (!podeAcessarTela(tela)) {
+    console.warn(`🚫 Acesso negado à tela ${tela} para ${CURRENT_ORG_KEY}.`);
+    tela = "dashboard";
+  }
+
   // 1. Esconde todas as telas
   document
     .querySelectorAll(".screen")
@@ -1744,6 +1857,7 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
   });
 };
 async function verificarPermissaoRelatorio() {
+  if (CURRENT_ORG_KEY === "PF") return;
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
   // Se não tiver roles, não faz nada (continua hidden)
@@ -1892,6 +2006,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // 🛡️ SISTEMA DE PERMISSÃO (RELATÓRIOS)
 // ==========================================
 async function verificarPermissaoRelatorio() {
+  if (CURRENT_ORG_KEY === "PF") return;
   // 1. Pega a sessão salva
   const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
@@ -2330,11 +2445,11 @@ async function emitirRecompra() {
           description: `Reposição de equipamento autorizada para porte ativo.`,
           color: 5034295, // Verde
           author: {
-            name: "Polícia Civil do Estado do Rio de Janeiro",
-            icon_url: CONFIG.BRASAO_URL,
+            name: CURRENT_ORG.fullName,
+            icon_url: CURRENT_BRASAO_URL,
           },
           thumbnail: {
-            url: CONFIG.BRASAO_URL,
+            url: CURRENT_BRASAO_URL,
           },
           fields: [
             // AQUI usamos a variável mencaoOficial que contém o <@ID>

@@ -12,15 +12,28 @@ export default async function handler(req, res) {
   // Variáveis da Vercel
   const botToken = process.env.Discord_Bot_Token;
   const guildId = process.env.Discord_Guild_ID;
-  const roleIdEnv = process.env.Discord_Role_ID; // Pega a string crua do .env
+  const roleIdEnv = process.env.Discord_Role_ID; // PCERJ
+  const pfRolesEnv = process.env.PF_ROLES_IDS; // PF
 
   // 1. CHECAGEM DE VARIÁVEIS
   if (!botToken)
     return res.status(500).json({ error: "DEBUG: Faltando Discord_Bot_Token" });
   if (!guildId)
     return res.status(500).json({ error: "DEBUG: Faltando Discord_Guild_ID" });
-  if (!roleIdEnv)
-    return res.status(500).json({ error: "DEBUG: Faltando Discord_Role_ID" });
+  const parseRoles = (value) =>
+    (value || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+  const cargosPermitidosPC = parseRoles(roleIdEnv);
+  const cargosPermitidosPF = parseRoles(pfRolesEnv);
+
+  if (cargosPermitidosPC.length === 0 && cargosPermitidosPF.length === 0) {
+    return res.status(500).json({
+      error: "DEBUG: Faltando Discord_Role_ID e/ou PF_ROLES_IDS",
+    });
+  }
 
   if (!userToken)
     return res.status(401).json({ error: "Token do usuário não chegou." });
@@ -63,13 +76,13 @@ export default async function handler(req, res) {
     // 4. A HORA DA VERDADE (ADAPTADO PARA MÚLTIPLOS CARGOS)
     // -----------------------------------------------------------
 
-    // Transforma a string "123, 456" em array ["123", "456"]
-    const cargosPermitidos = roleIdEnv.split(",").map((id) => id.trim());
-
-    // Verifica se o usuário tem PELO MENOS UM dos cargos permitidos
-    const temAcesso = userRoles.some((roleDoUsuario) =>
-      cargosPermitidos.includes(roleDoUsuario)
+    const temAcessoPC = userRoles.some((roleDoUsuario) =>
+      cargosPermitidosPC.includes(roleDoUsuario)
     );
+    const temAcessoPF = userRoles.some((roleDoUsuario) =>
+      cargosPermitidosPF.includes(roleDoUsuario)
+    );
+    const temAcesso = temAcessoPC || temAcessoPF;
 
     if (temAcesso) {
       // SUCESSO
@@ -79,11 +92,14 @@ export default async function handler(req, res) {
         avatar: userData.avatar,
         id: userData.id,
         roles: userRoles, // Envia lista de cargos para o frontend (Importante para o relatório)
+        org: temAcessoPF ? "PF" : "PCERJ",
       });
     } else {
       // FALHA
       return res.status(403).json({
-        error: `DEBUG (Acesso Negado): O usuário não possui nenhum dos cargos permitidos. \nCargos Permitidos: [${cargosPermitidos.join(
+        error: `DEBUG (Acesso Negado): O usuário não possui nenhum dos cargos permitidos. \nCargos Permitidos (PCERJ): [${cargosPermitidosPC.join(
+          ", "
+        )}] \nCargos Permitidos (PF): [${cargosPermitidosPF.join(
           ", "
         )}] \nCargos do Usuário: [${userRoles.join(", ")}]`,
       });

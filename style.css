@@ -10,6 +10,17 @@
   --border-light: rgba(255, 255, 255, 0.08);
 }
 
+body.theme-pcerj {
+  --gold-accent: #d4af37;
+  --blue-accent: #66b2ff;
+}
+
+body.theme-pf {
+  --gold-accent: #f2c037;
+  --blue-accent: #2f7cff;
+  --red-accent: #e64b4b;
+}
+
 * {
   margin: 0;
   padding: 0;
