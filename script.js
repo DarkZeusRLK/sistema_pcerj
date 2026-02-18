@@ -160,6 +160,19 @@ let catAnexos = {
 };
 let alertasPortesPendentesRevogacao = new Map();
 
+function normalizarIdNumerico(valor) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+function obterIdsRevogadosSet() {
+  const ids = new Set();
+  dbRevogados.forEach((item) => {
+    const id = normalizarIdNumerico(item?.id);
+    if (id) ids.add(id);
+  });
+  return ids;
+}
+
 // ==========================================
 // 🕒 SISTEMA DE GATILHOS TEMPORAIS
 // ==========================================
@@ -1289,6 +1302,7 @@ async function carregarRevogacoesDoDiscord() {
     if (!res.ok) throw new Error(`Erro API: ${res.status}`);
     const dados = await res.json();
     dbRevogados = Array.isArray(dados) ? dados : [];
+    renderTables();
     renderRevogadosHistorico();
     atualizarStats();
   } catch (erro) {
@@ -1311,10 +1325,12 @@ window.renderTables = function () {
   if (tbodyRevogacao) tbodyRevogacao.innerHTML = "";
   if (tbodyRenovacao) tbodyRenovacao.innerHTML = "";
 
+  const idsRevogados = obterIdsRevogadosSet();
   const ativosFiltrados = dbPortes
     .slice()
     .reverse()
     .filter((porte) => porte.status === "Ativo")
+    .filter((porte) => !idsRevogados.has(normalizarIdNumerico(porte.id)))
     .filter((porte) => {
       if (!filtro) return true;
       return (
@@ -1402,7 +1418,7 @@ window.renderTables = function () {
       `;
       tbodyRevogacao.appendChild(trRev);
       const alertaPersistido = alertasPortesPendentesRevogacao.get(
-        String(porte.id),
+        normalizarIdNumerico(porte.id),
       );
       if (alertaPersistido) marcarLinhaComoInfrator(trRev, alertaPersistido);
     });
@@ -1518,7 +1534,10 @@ window.renovarPorte = async function (idPorte) {
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
 window.revogar = async function (idPassaporte) {
-  const p = dbPortes.find((x) => String(x.id) === String(idPassaporte));
+  const idNormalizado = normalizarIdNumerico(idPassaporte);
+  const p = dbPortes.find(
+    (x) => normalizarIdNumerico(x.id) === idNormalizado,
+  );
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
 
   // IMPORTANTE: Se não tiver message_id, o sistema não vai conseguir apagar do Discord
@@ -1603,8 +1622,9 @@ window.revogar = async function (idPassaporte) {
 
       // Atualiza a interface local
       dbPortes = dbPortes.filter(
-        (item) => String(item.id) !== String(idPassaporte),
+        (item) => normalizarIdNumerico(item.id) !== idNormalizado,
       );
+      alertasPortesPendentesRevogacao.delete(idNormalizado);
       dbRevogados.unshift({
         nome: p.nome,
         id: p.id,
@@ -2072,15 +2092,18 @@ window.verificarConformidadePortes = async function () {
   const textoAuditoria = document.getElementById("texto-auditoria");
 
   if (statusAuditoria) statusAuditoria.classList.remove("hidden");
+  await carregarRevogacoesDoDiscord();
 
   // Usa a mesma regra de filtragem da tabela para auditar todos os ativos
   const filtro = document.getElementById("input-busca")
     ? document.getElementById("input-busca").value.toLowerCase()
     : "";
+  const idsRevogados = obterIdsRevogadosSet();
   const ativosFiltrados = dbPortes
     .slice()
     .reverse()
     .filter((porte) => porte.status !== "Revogado")
+    .filter((porte) => !idsRevogados.has(normalizarIdNumerico(porte.id)))
     .filter((porte) => {
       if (!filtro) return true;
       return (
@@ -2112,12 +2135,12 @@ window.verificarConformidadePortes = async function () {
   const linhas = corpoTabela ? corpoTabela.querySelectorAll("tr") : [];
   const linhasPorId = new Map();
   linhas.forEach((linha) => {
-    const idLinha = linha.cells[1]?.innerText.trim();
-    if (idLinha && !isNaN(idLinha)) linhasPorId.set(String(idLinha), linha);
+    const idLinha = normalizarIdNumerico(linha.cells[1]?.innerText.trim());
+    if (idLinha) linhasPorId.set(idLinha, linha);
   });
 
   for (const porte of ativosFiltrados) {
-    const idCidadao = String(porte.id).trim();
+    const idCidadao = normalizarIdNumerico(porte.id);
     if (!idCidadao || isNaN(idCidadao)) continue;
 
     processados++;
@@ -2137,7 +2160,7 @@ window.verificarConformidadePortes = async function () {
 
       // REGRA: Achou na ficha criminal ou no canal de banco de dados => revogação recomendada
       if (data.registrosEncontrados > 0) {
-        alertasPortesPendentesRevogacao.set(String(idCidadao), data);
+        alertasPortesPendentesRevogacao.set(idCidadao, data);
         const registrosCriminais = Number(
           data.registrosCriminaisEncontrados || 0,
         );
@@ -2147,11 +2170,11 @@ window.verificarConformidadePortes = async function () {
         console.log(
           `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} registro(s). Crimes: ${registrosCriminais} | Banco: ${registrosBancoDados}`,
         );
-        const linha = linhasPorId.get(String(idCidadao));
+        const linha = linhasPorId.get(idCidadao);
         if (linha) marcarLinhaComoInfrator(linha, data);
         detectados++;
       } else {
-        alertasPortesPendentesRevogacao.delete(String(idCidadao));
+        alertasPortesPendentesRevogacao.delete(idCidadao);
       }
     } catch (e) {
       console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
