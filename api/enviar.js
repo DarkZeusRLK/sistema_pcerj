@@ -69,11 +69,13 @@ module.exports = (req, res) => {
 
       try {
         // Reconstrói o arquivo final
-        const finalBuffer = Buffer.concat(fileBuffer);
         const discordForm = new FormData();
 
-        // Anexa o arquivo e o JSON
-        discordForm.append("file", finalBuffer, fileName);
+        // Anexa arquivo apenas quando existir
+        if (fileBuffer.length > 0 && fileName) {
+          const finalBuffer = Buffer.concat(fileBuffer);
+          discordForm.append("file", finalBuffer, fileName);
+        }
         if (payloadJson) discordForm.append("payload_json", payloadJson);
 
         // Dispara pro Discord

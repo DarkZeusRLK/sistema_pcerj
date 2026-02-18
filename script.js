@@ -158,6 +158,7 @@ let catAnexos = {
   olx: null,
   whatsapp: [],
 };
+let alertasPortesPendentesRevogacao = new Map();
 
 // ==========================================
 // 🕒 SISTEMA DE GATILHOS TEMPORAIS
@@ -1400,6 +1401,10 @@ window.renderTables = function () {
           </td>
       `;
       tbodyRevogacao.appendChild(trRev);
+      const alertaPersistido = alertasPortesPendentesRevogacao.get(
+        String(porte.id),
+      );
+      if (alertaPersistido) marcarLinhaComoInfrator(trRev, alertaPersistido);
     });
   }
 
@@ -1491,11 +1496,9 @@ window.renovarPorte = async function (idPorte) {
     footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
-  const blob = new Blob(["RENOVACAO"], { type: "text/plain" });
-
   const sucesso = await enviarParaAPI(
-    blob,
-    "renovacao_log.txt",
+    null,
+    null,
     "porte",
     embedData,
     `🔄 **PORTE RENOVADO:** ${porte.id}`,
@@ -1668,7 +1671,9 @@ function gerarBlobRevogacao(p) {
 // ==========================================
 async function enviarParaAPI(blob, filename, tipo, embed, content) {
   const form = new FormData();
-  form.append("file", blob, filename);
+  if (blob && filename) {
+    form.append("file", blob, filename);
+  }
   form.append("payload_json", JSON.stringify({ content, embeds: [embed] }));
 
   try {
@@ -2098,6 +2103,7 @@ window.verificarConformidadePortes = async function () {
 
   let detectados = 0;
   let processados = 0;
+  alertasPortesPendentesRevogacao.clear();
 
   // Mapeia as linhas da pagina atual para marcar infratores visiveis
   const corpoTabela =
@@ -2118,7 +2124,7 @@ window.verificarConformidadePortes = async function () {
     if (textoAuditoria)
       textoAuditoria.innerText = `Auditando ID: ${idCidadao} (${processados}/${ativosFiltrados.length})...`;
 
-    console.log(`⏳ Verificando ficha do ID: ${idCidadao}...`);
+    console.log(`⏳ Verificando ficha e banco de dados do ID: ${idCidadao}...`);
 
     try {
       const res = await fetch("/api/consultar-ficha", {
@@ -2129,14 +2135,23 @@ window.verificarConformidadePortes = async function () {
 
       const data = await res.json();
 
-      // REGRA: Registros criminais encontrados após a última limpeza (ou após 10/12)
+      // REGRA: Achou na ficha criminal ou no canal de banco de dados => revogação recomendada
       if (data.registrosEncontrados > 0) {
+        alertasPortesPendentesRevogacao.set(String(idCidadao), data);
+        const registrosCriminais = Number(
+          data.registrosCriminaisEncontrados || 0,
+        );
+        const registrosBancoDados = Number(
+          data.registrosBancoDadosEncontrados || 0,
+        );
         console.log(
-          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} crimes.`,
+          `🚨 INFRAÇÃO: ID ${idCidadao} possui ${data.registrosEncontrados} registro(s). Crimes: ${registrosCriminais} | Banco: ${registrosBancoDados}`,
         );
         const linha = linhasPorId.get(String(idCidadao));
         if (linha) marcarLinhaComoInfrator(linha, data);
         detectados++;
+      } else {
+        alertasPortesPendentesRevogacao.delete(String(idCidadao));
       }
     } catch (e) {
       console.error(`❌ Erro ao consultar ID ${idCidadao}:`, e);
@@ -2144,11 +2159,12 @@ window.verificarConformidadePortes = async function () {
   }
 
   if (statusAuditoria) statusAuditoria.classList.add("hidden");
+  renderTables();
 
   if (detectados > 0) {
     mostrarAlerta(
       "Auditoria Concluída",
-      `${detectados} infratores identificados com crimes cometidos após a emissão/limpeza!`,
+      `${detectados} porte(s) com alerta encontrados na ficha criminal e/ou no banco de dados. Revogação recomendada.`,
       "error",
     );
   } else {
@@ -2161,24 +2177,42 @@ window.verificarConformidadePortes = async function () {
 };
 
 function marcarLinhaComoInfrator(linha, data) {
+  const registrosCriminais = Number(data.registrosCriminaisEncontrados || 0);
+  const registrosBancoDados = Number(data.registrosBancoDadosEncontrados || 0);
+  const registrosTotais = Number(data.registrosEncontrados || 0);
+  const origemPartes = [];
+  if (registrosCriminais > 0)
+    origemPartes.push(`${registrosCriminais} ficha criminal`);
+  if (registrosBancoDados > 0)
+    origemPartes.push(`${registrosBancoDados} banco de dados`);
+  const resumoOrigens =
+    origemPartes.length > 0
+      ? origemPartes.join(" | ")
+      : `${registrosTotais} registro(s)`;
+  const tituloAlerta =
+    registrosBancoDados > 0
+      ? "⚠️ REVOGAR (PASSAPORTE)"
+      : "⚠️ FICHA SUJA";
+
   // Estilo visual de perigo
   linha.style.background = "rgba(255, 0, 0, 0.2)";
   linha.style.borderLeft = "5px solid #ff4d4d";
 
   // Atualiza a coluna de Status/Alerta (Coluna 4 no seu index.html)
-  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Status/Alerta, 4: Ação
-  const celulaAlerta = linha.cells[3];
+  // Coluna 0: Nome, 1: ID, 2: Arma, 3: Telefone, 4: Status/Alerta, 5: Ação
+  const celulaAlerta = linha.cells[4] || linha.cells[3];
   if (celulaAlerta) {
     celulaAlerta.innerHTML = `
       <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">⚠️ FICHA SUJA</span>
-         <small style="font-size:9px; color: #ff9999;">${data.registrosEncontrados} novos registros</small>
+         <span style="background:#ff4d4d; color:white; font-size:10px; padding:2px 6px; border-radius:3px; font-weight:bold;">${tituloAlerta}</span>
+         <small style="font-size:9px; color: #ff9999;">${resumoOrigens}</small>
+         <small style="font-size:9px; color: #ffb3b3;">Ação recomendada: revogar porte.</small>
       </div>
     `;
   }
 
   // Move o infrator para o topo da tabela
-  linha.parentNode.prepend(linha);
+  if (linha.parentNode) linha.parentNode.prepend(linha);
 }
 // ==========================================
 // 🛠️ SISTEMA DE RECOMPRA (COMPLETO)

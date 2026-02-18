@@ -15,7 +15,11 @@ module.exports = async (req, res) => {
     CHANNEL_FIANCAS_ID,
     CHANNEL_LIMPEZA_ID,
     EXONERACAO_CHANNEL_ID,
+    CHANNEL_BANCO_DADOS_ID,
+    BANCO_DADOS_CHANNEL_ID,
   } = process.env;
+  const canalBancoDadosId =
+    CHANNEL_BANCO_DADOS_ID || BANCO_DADOS_CHANNEL_ID || "";
 
   if (!idCidadao) return res.status(400).json({ error: "ID não fornecido" });
 
@@ -100,7 +104,16 @@ module.exports = async (req, res) => {
       dataCorteFinal,
       2000
     );
+    const registrosBancoDados = await buscarRegistrosBancoDadosDiscord(
+      canalBancoDadosId,
+      idCidadao,
+      Discord_Bot_Token,
+      null,
+      2000
+    );
     const todosRegistros = [...prisoes, ...fiancas];
+    const totalRegistrosEncontrados =
+      todosRegistros.length + registrosBancoDados.length;
 
     // =================================================================================
     // 4. CÁLCULOS
@@ -178,7 +191,10 @@ module.exports = async (req, res) => {
       origemCorte,
       totalLimpezasAnteriores, // <--- ADICIONADO AQUI PARA O FRONT NÃO DAR UNDEFINED
       dataCorte: dataCorteFinal.toLocaleString("pt-BR"),
-      registrosEncontrados: todosRegistros.length,
+      registrosCriminaisEncontrados: todosRegistros.length,
+      registrosBancoDadosEncontrados: registrosBancoDados.length,
+      registrosEncontrados: totalRegistrosEncontrados,
+      precisaRevogar: totalRegistrosEncontrados > 0,
     });
   } catch (error) {
     console.error("Erro API:", error);
@@ -245,6 +261,96 @@ async function buscarMensagensDiscord(channelId, token, limite) {
     }
   }
   return filtradas;
+}
+
+function extrairPassaportesDoTexto(texto) {
+  const textoLimpo = String(texto || "")
+    .replace(/[\*_`]/g, "")
+    .replace(/\r/g, "\n");
+
+  const encontrados = new Set();
+  const padroes = [
+    /PASSAPORTE\s*[:#-]?\s*(\d{1,12})/gi,
+    /PASSAPORTE\s*[:#-]?\s*\n+\s*(\d{1,12})/gi,
+  ];
+
+  for (const regex of padroes) {
+    regex.lastIndex = 0;
+    let match;
+    while ((match = regex.exec(textoLimpo)) !== null) {
+      if (match[1]) encontrados.add(match[1]);
+    }
+  }
+
+  return [...encontrados];
+}
+
+function extrairPassaportesDaMensagem(msg) {
+  const passaportes = new Set();
+
+  if (msg.embeds && msg.embeds.length > 0) {
+    msg.embeds.forEach((embed) => {
+      const fields = embed.fields || [];
+      fields.forEach((field) => {
+        const nome = normalizarTexto(field.name || "");
+        const valor = String(field.value || "");
+        if (!nome.includes("PASSAPORTE")) return;
+
+        const valorNumerico = valor.replace(/\D/g, "");
+        if (valorNumerico) passaportes.add(valorNumerico);
+
+        extrairPassaportesDoTexto(valor).forEach((id) => passaportes.add(id));
+      });
+    });
+  }
+
+  const textoCompleto = extrairTextoCompleto(msg);
+  extrairPassaportesDoTexto(textoCompleto).forEach((id) => passaportes.add(id));
+
+  return [...passaportes];
+}
+
+async function buscarRegistrosBancoDadosDiscord(
+  channelId,
+  idCidadao,
+  token,
+  dataCorte,
+  limite
+) {
+  if (!channelId) return [];
+
+  const registros = [];
+  const idNormalizado = String(idCidadao || "").replace(/\D/g, "");
+  let ultimoId = null;
+  let processadas = 0;
+
+  while (processadas < limite) {
+    let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
+    if (ultimoId) url += `&before=${ultimoId}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bot ${token}` },
+    });
+    if (!res.ok) break;
+
+    const mensagens = await res.json();
+    if (!Array.isArray(mensagens) || mensagens.length === 0) break;
+
+    for (const msg of mensagens) {
+      processadas++;
+      ultimoId = msg.id;
+      if (dataCorte && new Date(msg.timestamp) <= dataCorte) continue;
+
+      const passaportes = extrairPassaportesDaMensagem(msg).map((id) =>
+        String(id).replace(/\D/g, ""),
+      );
+      if (passaportes.includes(idNormalizado)) registros.push(msg);
+    }
+
+    if (mensagens.length < 100) break;
+  }
+
+  return registros;
 }
 
 async function buscarCrimesDiscord(
