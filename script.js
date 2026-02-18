@@ -523,6 +523,7 @@ async function processarEmissao() {
         arma,
         validade,
         expedicao,
+        imagem_url: resultado?.attachments?.[0]?.url || "",
         message_id: resultado.id, // 🔑 O ID que o Discord retornou
         oficial: sessao.username,
         oficial_id: sessao.id, // 👮 ID para o relatório
@@ -1464,16 +1465,91 @@ function renderRevogadosHistorico() {
   });
 }
 
+function obterImagemModeloPorte(arma) {
+  const nomeArma = String(arma || "").toUpperCase();
+  if (nomeArma.includes("GLOCK")) return "assets/porte_glock.png";
+  if (nomeArma.includes("MP5")) return "assets/porte_mp5.png";
+  return "assets/porte_taser.png";
+}
+
+function carregarImagemDocumento(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    if (/^https?:\/\//i.test(src)) img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () =>
+      reject(new Error(`Falha ao carregar imagem base: ${src}`));
+    img.src = src;
+  });
+}
+
+async function gerarBlobRenovacaoPorte(porte, novaExpedicao, novaValidade) {
+  const fontes = [porte.imagem_url, obterImagemModeloPorte(porte.arma)].filter(
+    Boolean,
+  );
+
+  let imgBase = null;
+  for (const fonte of fontes) {
+    try {
+      imgBase = await carregarImagemDocumento(fonte);
+      break;
+    } catch (erro) {
+      console.warn("[RENOVACAO] Falha ao usar imagem base:", erro.message);
+    }
+  }
+
+  if (!imgBase) throw new Error("Imagem do porte não encontrada para renovação");
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = imgBase.width;
+  canvas.height = imgBase.height;
+  ctx.drawImage(imgBase, 0, 0);
+
+  // Limpa os campos de data antes de desenhar os novos valores.
+  const larguraCampoData = 165;
+  const alturaCampoData = 34;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(
+    POSICOES.expedicao.x - 6,
+    POSICOES.expedicao.y - 27,
+    larguraCampoData,
+    alturaCampoData,
+  );
+  ctx.fillRect(
+    POSICOES.validade.x - 6,
+    POSICOES.validade.y - 27,
+    larguraCampoData,
+    alturaCampoData,
+  );
+
+  ctx.font = POSICOES.fonte;
+  ctx.fillStyle = POSICOES.corTexto;
+  ctx.fillText(novaExpedicao, POSICOES.expedicao.x, POSICOES.expedicao.y);
+  ctx.fillText(novaValidade, POSICOES.validade.x, POSICOES.validade.y);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error("Falha ao gerar imagem da renovação"));
+      resolve(blob);
+    }, "image/png");
+  });
+}
+
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
 window.renovarPorte = async function (idPorte) {
-  const porte = dbPortes.find((p) => String(p.id) === String(idPorte));
+  const idNormalizado = normalizarIdNumerico(idPorte);
+  const porte = dbPortes.find(
+    (p) => normalizarIdNumerico(p.id) === idNormalizado,
+  );
   if (!porte) return;
 
   const hoje = new Date();
   const novaValidade = new Date();
   novaValidade.setDate(hoje.getDate() + 30);
+  const novaExpedicaoStr = hoje.toLocaleDateString("pt-BR");
   const novaValidadeStr = novaValidade.toLocaleDateString("pt-BR");
   const validadeAtual = porte.validade || "N/A";
 
@@ -1493,28 +1569,56 @@ window.renovarPorte = async function (idPorte) {
   const mencaoOficial = sessao.id
     ? `<@${sessao.id}>`
     : `**${sessao.username}**`;
+  const nomeArquivo = `renovacao_${normalizarIdNumerico(porte.id) || porte.id}.png`;
+
+  let blobRenovacao = null;
+  try {
+    blobRenovacao = await gerarBlobRenovacaoPorte(
+      porte,
+      novaExpedicaoStr,
+      novaValidadeStr,
+    );
+  } catch (erro) {
+    console.error("[RENOVACAO] Erro ao gerar imagem:", erro);
+    return mostrarAlerta(
+      "Erro",
+      "Não foi possível gerar a imagem do porte renovado.",
+      "error",
+    );
+  }
 
   const embedData = {
     title: `🔄 RENOVAÇÃO DE PORTE`,
-    description: `Renovação de Documentação.`,
+    description: `Renovação de documentação com cartão atualizado.`,
     color: 16776960, // Amarelo
     fields: [
       { name: "👤 Cidadão", value: `**${porte.nome}**`, inline: true },
       { name: "🆔 Passaporte", value: `\`${porte.id}\``, inline: true },
+      {
+        name: "📞 Telefone",
+        value: `\`${porte.telefone || porte.rg || "N/A"}\``,
+        inline: true,
+      },
       { name: "👮 Renovado por", value: mencaoOficial, inline: true },
       { name: "🔫 Arma", value: porte.arma, inline: true },
+      {
+        name: "📅 Nova Expedição",
+        value: `\`${novaExpedicaoStr}\``,
+        inline: true,
+      },
       {
         name: "📅 Nova Validade",
         value: `\`${novaValidadeStr}\``,
         inline: true,
       },
     ],
+    image: { url: `attachment://${nomeArquivo}` },
     footer: FOOTER_PADRAO, // <-- RODAPÉ PADRÃO DO SISTEMA
   };
 
   const sucesso = await enviarParaAPI(
-    null,
-    null,
+    blobRenovacao,
+    nomeArquivo,
     "porte",
     embedData,
     `🔄 **PORTE RENOVADO:** ${porte.id}`,
@@ -1522,7 +1626,8 @@ window.renovarPorte = async function (idPorte) {
 
   if (sucesso) {
     porte.validade = novaValidadeStr;
-    porte.expedicao = new Date().toLocaleDateString("pt-BR");
+    porte.expedicao = novaExpedicaoStr;
+    porte.imagem_url = sucesso?.attachments?.[0]?.url || porte.imagem_url;
     renderTables();
     mostrarAlerta("Sucesso", "Porte renovado!", "success");
   } else {

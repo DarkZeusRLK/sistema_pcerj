@@ -69,12 +69,18 @@ module.exports = async (req, res) => {
         const id = find("Passaporte") || find("ID");
         const telefone = find("Telefone");
         const rg = find("RG");
+        const imagemUrl =
+          m.attachments?.[0]?.url ||
+          e.image?.url ||
+          e.image?.proxy_url ||
+          "";
 
         if (nome && id) {
           return {
             message_id: m.id,
             nome,
             id,
+            imagem_url: imagemUrl,
             oficial:
               find("Oficial") || find("Responsavel") || "Oficial Desconhecido",
             expedicao: find("Expedicao") || find("Data") || "N/A",
