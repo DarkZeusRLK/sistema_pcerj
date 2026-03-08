@@ -1355,11 +1355,12 @@ window.renderTables = function () {
         tr.innerHTML = `
               <td>${porte.nome}</td>
               <td>${porte.id}</td>
+              <td>${porte.arma}</td>
               <td>${telefone}</td>
               <td>${porte.expedicao}</td>
               <td><span class="badge-warning">${diasCorridos} dias (Prazo Final)</span></td>
               <td>
-                  <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.id}')">
+                  <button class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" onclick="renovarPorte('${porte.message_id || ""}', '${porte.id}')">
                       <i class="fa-solid fa-arrows-rotate"></i> Renovar
                   </button>
               </td>
@@ -1412,7 +1413,7 @@ window.renderTables = function () {
           <td>${telefone}</td>
           <td>${validadeHTML}</td>
           <td>
-              <button class="btn-danger" onclick="revogar('${porte.id}')">
+              <button class="btn-danger" onclick="revogar('${porte.message_id || ""}', '${porte.id}')">
                   <i class="fa-solid fa-ban"></i>
               </button>
           </td>
@@ -1498,7 +1499,8 @@ async function gerarBlobRenovacaoPorte(porte, novaExpedicao, novaValidade) {
     }
   }
 
-  if (!imgBase) throw new Error("Imagem do porte não encontrada para renovação");
+  if (!imgBase)
+    throw new Error("Imagem do porte não encontrada para renovação");
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -1539,11 +1541,23 @@ async function gerarBlobRenovacaoPorte(porte, novaExpedicao, novaValidade) {
 // ==========================================
 // 🔄 AÇÃO DE RENOVAR
 // ==========================================
-window.renovarPorte = async function (idPorte) {
-  const idNormalizado = normalizarIdNumerico(idPorte);
-  const porte = dbPortes.find(
-    (p) => normalizarIdNumerico(p.id) === idNormalizado,
-  );
+window.renovarPorte = async function (identificadorPorte, idPorteFallback) {
+  const identificadorNormalizado = String(identificadorPorte || "").trim();
+  let porte = null;
+
+  if (identificadorNormalizado) {
+    porte = dbPortes.find(
+      (p) => String(p.message_id || "").trim() === identificadorNormalizado,
+    );
+  }
+
+  if (!porte) {
+    const idNormalizado = normalizarIdNumerico(
+      idPorteFallback || identificadorPorte,
+    );
+    porte = dbPortes.find((p) => normalizarIdNumerico(p.id) === idNormalizado);
+  }
+
   if (!porte) return;
 
   const hoje = new Date();
@@ -1556,7 +1570,7 @@ window.renovarPorte = async function (idPorte) {
   if (
     !(await confirmarAcao(
       "Renovar porte?",
-      `Tem certeza que deseja renovar o porte do cidadão ${porte.nome}?\n\nValidade atual: ${validadeAtual}\nNova validade: ${novaValidadeStr}`,
+      `Tem certeza que deseja renovar o porte do cidadão ${porte.nome} (${porte.arma})?\n\nValidade atual: ${validadeAtual}\nNova validade: ${novaValidadeStr}`,
       "renovacao",
       "Sim, Renovar",
     ))
@@ -1569,7 +1583,8 @@ window.renovarPorte = async function (idPorte) {
   const mencaoOficial = sessao.id
     ? `<@${sessao.id}>`
     : `**${sessao.username}**`;
-  const nomeArquivo = `renovacao_${normalizarIdNumerico(porte.id) || porte.id}.png`;
+  const idArquivo = porte.message_id || normalizarIdNumerico(porte.id) || porte.id;
+  const nomeArquivo = `renovacao_${idArquivo}.png`;
 
   let blobRenovacao = null;
   try {
@@ -1638,12 +1653,26 @@ window.renovarPorte = async function (idPorte) {
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
-window.revogar = async function (idPassaporte) {
-  const idNormalizado = normalizarIdNumerico(idPassaporte);
-  const p = dbPortes.find(
-    (x) => normalizarIdNumerico(x.id) === idNormalizado,
-  );
+window.revogar = async function (identificadorPorte, idPassaporteFallback) {
+  const identificadorNormalizado = String(identificadorPorte || "").trim();
+  let p = null;
+
+  if (identificadorNormalizado) {
+    p = dbPortes.find(
+      (x) => String(x.message_id || "").trim() === identificadorNormalizado,
+    );
+  }
+
+  if (!p) {
+    const idNormalizado = normalizarIdNumerico(
+      idPassaporteFallback || identificadorPorte,
+    );
+    p = dbPortes.find((x) => normalizarIdNumerico(x.id) === idNormalizado);
+  }
+
   if (!p) return mostrarAlerta("Erro", "Registro não encontrado.", "error");
+  const idNormalizado = normalizarIdNumerico(p.id);
+  const idPassaporte = p.id;
 
   // IMPORTANTE: Se não tiver message_id, o sistema não vai conseguir apagar do Discord
   if (!p.message_id) {
@@ -1726,8 +1755,10 @@ window.revogar = async function (idPassaporte) {
       }
 
       // Atualiza a interface local
-      dbPortes = dbPortes.filter(
-        (item) => normalizarIdNumerico(item.id) !== idNormalizado,
+      dbPortes = dbPortes.filter((item) =>
+        p.message_id
+          ? item.message_id !== p.message_id
+          : normalizarIdNumerico(item.id) !== idNormalizado,
       );
       alertasPortesPendentesRevogacao.delete(idNormalizado);
       dbRevogados.unshift({
@@ -2318,9 +2349,7 @@ function marcarLinhaComoInfrator(linha, data) {
       ? origemPartes.join(" | ")
       : `${registrosTotais} registro(s)`;
   const tituloAlerta =
-    registrosBancoDados > 0
-      ? "⚠️ REVOGAR (PASSAPORTE)"
-      : "⚠️ FICHA SUJA";
+    registrosBancoDados > 0 ? "⚠️ REVOGAR (PASSAPORTE)" : "⚠️ FICHA SUJA";
 
   // Estilo visual de perigo
   linha.style.background = "rgba(255, 0, 0, 0.2)";
@@ -2352,7 +2381,7 @@ const PRECOS_RECOMPRA = {
   ARMAS: {
     GLOCK: 1200000,
     MP5: 1600000,
-    TASER: 1400000,
+    TASER: 3600000,
   },
 };
 
