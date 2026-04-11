@@ -62,6 +62,17 @@
       background: #4752c4;
       transform: translateY(-2px);
     }
+
+    .login-feedback {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(229, 46, 77, 0.12);
+      border: 1px solid rgba(229, 46, 77, 0.28);
+      color: #ffd4db;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
   </style>
 </head>
 
@@ -75,6 +86,8 @@
     <a href="https://discord.com/oauth2/authorize?client_id=1451342682487259319&response_type=token&redirect_uri=https%3A%2F%2Fsistema-emissao.vercel.app%2F&scope=identify+guilds" class="btn-discord">
       <i class="fa-brands fa-discord"></i> Entrar com Discord
     </a>
+
+    <p id="login-feedback" class="login-feedback hidden"></p>
   </div>
 
   <div id="custom-modal" class="modal-overlay hidden">

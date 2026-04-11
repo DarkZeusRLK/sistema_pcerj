@@ -25,14 +25,188 @@ const CONFIG = {
   },
 };
 
+const SESSION_STORAGE_KEY = "pc_session";
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_REVALIDATION_MS = 5 * 60 * 1000;
+
 let CURRENT_ORG_KEY = "PCERJ";
 let CURRENT_ORG = CONFIG.ORG_CONFIGS.PCERJ;
 let CURRENT_BRASAO_URL = CONFIG.ORG_CONFIGS.PCERJ.brasaoUrl;
+let sessionValidationInterval = null;
+let USER_IS_ADMIN = false;
+let logsPaginationState = {
+  page: 1,
+  totalPages: 1,
+  totalItems: 0,
+};
 
 let FOOTER_PADRAO = {
   text: "Sistema Policial",
   icon_url: CURRENT_BRASAO_URL,
 };
+
+function lerSessao() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const sessao = JSON.parse(raw);
+    return sessao && typeof sessao === "object" ? sessao : null;
+  } catch (error) {
+    console.warn("Nao foi possivel ler a sessao salva:", error);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function salvarSessao(data, baseAtual = null) {
+  const agora = Date.now();
+  const criadoEm = baseAtual?.createdAt || data?.createdAt || new Date(agora).toISOString();
+  const expiraEm =
+    baseAtual?.expiresAt ||
+    data?.expiresAt ||
+    new Date(new Date(criadoEm).getTime() + SESSION_DURATION_MS).toISOString();
+
+  const sessaoNormalizada = {
+    ...(baseAtual || {}),
+    ...(data || {}),
+    createdAt: criadoEm,
+    expiresAt: expiraEm,
+    lastValidatedAt:
+      data?.lastValidatedAt || data?.checkedAt || new Date(agora).toISOString(),
+  };
+
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessaoNormalizada));
+  return sessaoNormalizada;
+}
+
+function sessaoExpirada(sessao) {
+  if (!sessao?.expiresAt) return true;
+  const expiresAt = new Date(sessao.expiresAt).getTime();
+  return Number.isNaN(expiresAt) || Date.now() >= expiresAt;
+}
+
+function redirecionarParaLogin(motivo = "") {
+  const destino = motivo ? `login.html?error=${encodeURIComponent(motivo)}` : "login.html";
+  if (!window.location.pathname.includes("login.html")) {
+    window.location.href = destino;
+    return;
+  }
+  if (motivo) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("error", motivo);
+    window.history.replaceState({}, document.title, url.toString());
+  }
+}
+
+function encerrarSessao(motivo = "session_invalid") {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  if (sessionValidationInterval) {
+    clearInterval(sessionValidationInterval);
+    sessionValidationInterval = null;
+  }
+  redirecionarParaLogin(motivo);
+}
+
+async function revalidarSessaoAtual({ force = false } = {}) {
+  const sessao = lerSessao();
+  if (!sessao) return false;
+
+  if (sessaoExpirada(sessao)) {
+    encerrarSessao("session_expired");
+    return false;
+  }
+
+  const lastValidatedAt = new Date(sessao.lastValidatedAt || 0).getTime();
+  const precisaRevalidar =
+    force ||
+    Number.isNaN(lastValidatedAt) ||
+    Date.now() - lastValidatedAt >= SESSION_REVALIDATION_MS;
+
+  if (!precisaRevalidar) return true;
+
+  try {
+    const res = await fetch("/api/auth", {
+      headers: {
+        "X-Session-User-Id": sessao.id || "",
+      },
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.authorized) {
+      salvarSessao(
+        {
+          ...data,
+          token: sessao.token,
+          lastValidatedAt: new Date().toISOString(),
+        },
+        sessao
+      );
+      return true;
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      console.warn("Sessao revogada:", data?.error || "Sem detalhes");
+      encerrarSessao("access_revoked");
+      return false;
+    }
+
+    console.warn("Falha ao revalidar sessao:", data?.error || res.statusText);
+    return true;
+  } catch (error) {
+    console.warn("Nao foi possivel revalidar a sessao agora:", error);
+    return true;
+  }
+}
+
+function iniciarMonitoramentoSessao() {
+  if (window.location.pathname.includes("login.html")) return;
+
+  if (sessionValidationInterval) clearInterval(sessionValidationInterval);
+
+  sessionValidationInterval = setInterval(() => {
+    revalidarSessaoAtual();
+  }, SESSION_REVALIDATION_MS);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") revalidarSessaoAtual({ force: true });
+  });
+
+  window.addEventListener("focus", () => {
+    revalidarSessaoAtual({ force: true });
+  });
+}
+
+function exibirFeedbackLogin() {
+  const feedback = document.getElementById("login-feedback");
+  if (!feedback) return;
+
+  const error = new URLSearchParams(window.location.search).get("error");
+  const mensagens = {
+    missing_token: "Falha ao receber o login do Discord. Tente novamente.",
+    unauthorized:
+      "Seu usuario nao possui permissao para acessar este sistema.",
+    auth_failed: "Nao foi possivel autenticar no momento. Tente novamente.",
+    access_revoked:
+      "Seu acesso foi revogado porque voce saiu do servidor ou perdeu o cargo permitido.",
+    session_expired:
+      "Sua sessao expirou apos 7 dias. Faca login novamente.",
+    session_invalid: "Sua sessao ficou invalida. Faca login novamente.",
+  };
+
+  if (!error || !mensagens[error]) {
+    feedback.classList.add("hidden");
+    feedback.textContent = "";
+    return;
+  }
+
+  feedback.textContent = mensagens[error];
+  feedback.classList.remove("hidden");
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("error");
+  window.history.replaceState({}, document.title, url.toString());
+}
 
 function resolverUrlAbsoluta(path) {
   if (!path) return "";
@@ -83,6 +257,7 @@ const MENUS_PF_RESTRITOS = [
   "menu-revogacao",
   "menu-recompra",
   "menu-relatorios",
+  "menu-logs",
   "menu-admin",
 ];
 const SECOES_PF_RESTRITAS = [
@@ -91,6 +266,7 @@ const SECOES_PF_RESTRITAS = [
   "sec-revogacao",
   "sec-recompra",
   "sec-relatorios",
+  "sec-logs",
 ];
 
 function aplicarRestricoesPorOrgao() {
@@ -99,7 +275,7 @@ function aplicarRestricoesPorOrgao() {
     const el = document.getElementById(id);
     if (!el) return;
     if (isPF) el.classList.add("hidden");
-    else el.classList.remove("hidden");
+    else if (id !== "menu-logs") el.classList.remove("hidden");
   });
 
   SECOES_PF_RESTRITAS.forEach((id) => {
@@ -117,8 +293,11 @@ function aplicarRestricoesPorOrgao() {
 }
 
 function podeAcessarTela(tela) {
-  if (CURRENT_ORG_KEY !== "PF") return true;
-  return TELAS_PERMITIDAS_PF.has(tela);
+  if (CURRENT_ORG_KEY === "PF") return TELAS_PERMITIDAS_PF.has(tela);
+  if ((tela === "relatorios" || tela === "logs") && !USER_IS_ADMIN) {
+    return false;
+  }
+  return true;
 }
 
 const POSICOES = {
@@ -221,8 +400,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   const hash = window.location.hash;
   const isLoginPage = window.location.pathname.includes("login.html");
-  const sessao = localStorage.getItem("pc_session");
+  const sessao = lerSessao();
   definirOrgao("PCERJ");
+  if (isLoginPage) exibirFeedbackLogin();
 
   // 1. Retorno do Discord (Callback)
   if (hash.includes("access_token")) {
@@ -240,29 +420,35 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   // 2. Verificação de Sessão
   if (sessao) {
+    const sessaoValida = await revalidarSessaoAtual({ force: true });
+    if (!sessaoValida) return;
+
+    const user = lerSessao();
+    if (!user) {
+      encerrarSessao("session_invalid");
+      return;
+    }
+
     if (isLoginPage) {
       window.location.href = "index.html";
     } else {
       document.body.style.display = "block";
       try {
-        const user = JSON.parse(sessao);
         definirOrgao(user.org);
         aplicarRestricoesPorOrgao();
         iniciarSistema(user);
-        verificarPermissaoRelatorio();
+        await verificarPermissoesAdmin();
 
-        // Carrega os dados do Discord
         await Promise.all([
           carregarPortesDoDiscord(),
           carregarRevogacoesDoDiscord(),
         ]);
 
-        // Inicia o agendamento da meia-noite
         agendarAuditoriaMeiaNoite();
+        iniciarMonitoramentoSessao();
       } catch (err) {
-        console.error("Sessão inválida:", err);
-        localStorage.removeItem("pc_session");
-        window.location.href = "login.html";
+        console.error("Sessao invalida:", err);
+        encerrarSessao("session_invalid");
       }
     }
   } else {
@@ -1853,21 +2039,21 @@ async function enviarParaAPI(blob, filename, tipo, embed, content) {
 async function validarLoginNaAPI(token) {
   try {
     if (!token) {
-      window.location.href = "login.html?error=missing_token";
+      redirecionarParaLogin("missing_token");
       return;
     }
     const res = await fetch("/api/auth", { headers: { Authorization: token } });
     const data = await res.json();
     if (res.ok && data.authorized) {
-      localStorage.setItem("pc_session", JSON.stringify({ ...data, token }));
+      salvarSessao({ ...data, token });
       window.location.href = "index.html";
     } else {
       console.warn("Login negado:", data?.error || "Sem detalhes");
-      window.location.href = "login.html?error=unauthorized";
+      redirecionarParaLogin("unauthorized");
     }
   } catch (e) {
     console.error(e);
-    window.location.href = "login.html?error=auth_failed";
+    redirecionarParaLogin("auth_failed");
   }
 }
 
@@ -1906,8 +2092,7 @@ function iniciarSistema(user) {
 }
 
 window.logout = () => {
-  localStorage.removeItem("pc_session");
-  window.location.href = "login.html";
+  encerrarSessao();
 };
 
 window.navegar = (tela) => {
@@ -1936,6 +2121,7 @@ window.navegar = (tela) => {
 
   // Recarrega datas se for emissão, etc.
   if (tela === "emissao") configurarDatasAutomaticas();
+  if (tela === "logs" && USER_IS_ADMIN) carregarLogsAuditoria(logsPaginationState.page || 1);
 };
 
 // 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
@@ -2036,33 +2222,136 @@ window.mostrarAlerta = (titulo, mensagem, type) => {
     };
   });
 };
-async function verificarPermissaoRelatorio() {
-  if (CURRENT_ORG_KEY === "PF") return;
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
+async function verificarPermissoesAdmin() {
+  if (CURRENT_ORG_KEY === "PF") {
+    USER_IS_ADMIN = false;
+    return false;
+  }
 
-  // Se não tiver roles, não faz nada (continua hidden)
-  if (!sessao.roles) return;
+  const sessao = lerSessao();
+  if (!sessao?.id) {
+    USER_IS_ADMIN = false;
+    return false;
+  }
 
   try {
     const res = await fetch("/api/verificar-admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: sessao.roles }),
+      headers: {
+        "X-Session-User-Id": sessao.id,
+      },
     });
 
     const data = await res.json();
+    USER_IS_ADMIN = Boolean(res.ok && data.isAdmin);
 
-    if (data.isAdmin) {
-      const btnRelatorio = document.getElementById("menu-relatorios");
-      if (btnRelatorio) {
-        // Apenas removemos a classe que esconde.
-        // O estilo visual virá do seu style.css padrão.
-        btnRelatorio.classList.remove("hidden");
-        console.log("🔓 Aba Relatórios liberada.");
-      }
-    }
+    const btnRelatorio = document.getElementById("menu-relatorios");
+    const btnLogs = document.getElementById("menu-logs");
+
+    if (btnRelatorio) btnRelatorio.classList.toggle("visible", USER_IS_ADMIN);
+    if (btnLogs) btnLogs.classList.toggle("hidden", !USER_IS_ADMIN);
+
+    return USER_IS_ADMIN;
   } catch (erro) {
-    console.error("Erro permissão:", erro);
+    USER_IS_ADMIN = false;
+    console.error("Erro ao verificar permissao admin:", erro);
+    return false;
+  }
+}
+
+function renderizarLogsAuditoria(items = []) {
+  const corpo = document.getElementById("corpo-logs");
+  if (!corpo) return;
+
+  if (!items.length) {
+    corpo.innerHTML = `
+      <tr>
+        <td colspan="6" align="center" style="padding: 32px; color: var(--text-secondary);">
+          Nenhum log encontrado.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  corpo.innerHTML = items
+    .map(
+      (item) => `
+        <tr>
+          <td>${item.data || "N/A"}</td>
+          <td>${item.horario || "N/A"}</td>
+          <td>${item.tipo || "N/A"}</td>
+          <td>${item.itemEmitido || "N/A"}</td>
+          <td>${item.emitidoPor || "N/A"}</td>
+          <td><code>${item.emitidoPorIdDiscord || "N/A"}</code></td>
+        </tr>`
+    )
+    .join("");
+}
+
+function atualizarPaginacaoLogs(pagination) {
+  logsPaginationState = {
+    page: pagination?.page || 1,
+    totalPages: pagination?.totalPages || 1,
+    totalItems: pagination?.totalItems || 0,
+  };
+
+  const info = document.getElementById("logs-pagination-info");
+  const btnPrev = document.getElementById("btn-logs-prev");
+  const btnNext = document.getElementById("btn-logs-next");
+
+  if (info) {
+    info.textContent = `Pagina ${logsPaginationState.page} de ${logsPaginationState.totalPages} (${logsPaginationState.totalItems} registros)`;
+  }
+
+  if (btnPrev) btnPrev.disabled = logsPaginationState.page <= 1;
+  if (btnNext) {
+    btnNext.disabled = logsPaginationState.page >= logsPaginationState.totalPages;
+  }
+}
+
+async function carregarLogsAuditoria(page = 1) {
+  const corpo = document.getElementById("corpo-logs");
+  const sessao = lerSessao();
+
+  if (!corpo || !sessao?.id) return;
+
+  corpo.innerHTML = `
+    <tr>
+      <td colspan="6" align="center" style="padding: 32px; color: var(--text-secondary);">
+        <i class="fa-solid fa-spinner fa-spin"></i> Carregando logs...
+      </td>
+    </tr>`;
+
+  try {
+    const response = await fetch(`/api/logs-portes?page=${page}`, {
+      headers: {
+        "X-Session-User-Id": sessao.id,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        USER_IS_ADMIN = false;
+        const btnLogs = document.getElementById("menu-logs");
+        const btnRelatorio = document.getElementById("menu-relatorios");
+        if (btnLogs) btnLogs.classList.add("hidden");
+        if (btnRelatorio) btnRelatorio.classList.remove("visible");
+        window.navegar("dashboard");
+      }
+      throw new Error(data?.error || "Falha ao carregar logs.");
+    }
+
+    renderizarLogsAuditoria(data.items || []);
+    atualizarPaginacaoLogs(data.pagination || {});
+  } catch (error) {
+    console.error(error);
+    corpo.innerHTML = `
+      <tr>
+        <td colspan="6" align="center" style="padding: 32px; color: #ff8f8f;">
+          Erro ao carregar logs de auditoria.
+        </td>
+      </tr>`;
   }
 }
 
@@ -2168,53 +2457,37 @@ window.gerarRelatorio = async function () {
 // ===============================================
 document.addEventListener("DOMContentLoaded", () => {
   const btnFiltrar = document.getElementById("btn-filtrar-relatorio");
+  const btnLogsPrev = document.getElementById("btn-logs-prev");
+  const btnLogsNext = document.getElementById("btn-logs-next");
 
   if (btnFiltrar) {
-    // Remove listeners antigos (cloneNode é um hack eficiente para isso)
     const novoBtn = btnFiltrar.cloneNode(true);
     btnFiltrar.parentNode.replaceChild(novoBtn, btnFiltrar);
 
     novoBtn.addEventListener("click", (e) => {
-      e.preventDefault(); // Previne reload se estiver dentro de um form
+      e.preventDefault();
       window.gerarRelatorio();
     });
 
     console.log("Botão de Relatório ativado.");
   }
-});
-// ==========================================
-// 🛡️ SISTEMA DE PERMISSÃO (RELATÓRIOS)
-// ==========================================
-async function verificarPermissaoRelatorio() {
-  if (CURRENT_ORG_KEY === "PF") return;
-  // 1. Pega a sessão salva
-  const sessao = JSON.parse(localStorage.getItem("pc_session") || "{}");
 
-  // Se não tiver roles salvos, nem tenta
-  if (!sessao.roles || sessao.roles.length === 0) return;
-
-  try {
-    // 2. Pergunta para a API se esses cargos podem ver o relatório
-    const res = await fetch("/api/verificar-admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roles: sessao.roles }),
-    });
-
-    const data = await res.json();
-
-    // 3. Se a API disser "true", mostra o botão
-    if (data.isAdmin) {
-      const btnRelatorio = document.getElementById("menu-relatorios");
-      if (btnRelatorio) {
-        btnRelatorio.classList.add("visible"); // Usa a classe do CSS novo
-        console.log("🔓 Acesso a Relatórios LIBERADO.");
+  if (btnLogsPrev) {
+    btnLogsPrev.addEventListener("click", () => {
+      if (logsPaginationState.page > 1) {
+        carregarLogsAuditoria(logsPaginationState.page - 1);
       }
-    }
-  } catch (erro) {
-    console.error("Erro ao verificar permissão:", erro);
+    });
   }
-}
+
+  if (btnLogsNext) {
+    btnLogsNext.addEventListener("click", () => {
+      if (logsPaginationState.page < logsPaginationState.totalPages) {
+        carregarLogsAuditoria(logsPaginationState.page + 1);
+      }
+    });
+  }
+});
 
 // protecao contra cliques aqui
 // =========================================================

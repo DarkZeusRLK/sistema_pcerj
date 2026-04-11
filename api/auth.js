@@ -1,30 +1,64 @@
+const parseRoles = (value) =>
+  (value || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+async function resolveUserData(userToken, userId) {
+  if (userToken) {
+    const userRes = await fetch("https://discord.com/api/users/@me", {
+      headers: { Authorization: userToken },
+    });
+
+    if (!userRes.ok) {
+      const error = new Error("Token do usuario invalido/expirado.");
+      error.status = 401;
+      throw error;
+    }
+
+    return userRes.json();
+  }
+
+  if (!userId) {
+    const error = new Error("Sessao sem identificacao do usuario.");
+    error.status = 401;
+    throw error;
+  }
+
+  return {
+    id: userId,
+    username: "Usuario Discord",
+    avatar: null,
+  };
+}
+
 export default async function handler(req, res) {
-  // Configurações padrão
   res.setHeader("Access-Control-Allow-Credentials", true);
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Session-User-Id"
+  );
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const userToken = req.headers.authorization;
+  const sessionUserId =
+    req.headers["x-session-user-id"] || req.query?.userId || null;
 
-  // Variáveis da Vercel
   const botToken = process.env.Discord_Bot_Token;
   const guildId = process.env.Discord_Guild_ID;
-  const roleIdEnv = process.env.Discord_Role_ID; // PCERJ
-  const pfRolesEnv = process.env.PF_ROLES_IDS; // PF
+  const roleIdEnv = process.env.Discord_Role_ID;
+  const pfRolesEnv = process.env.PF_ROLES_IDS;
 
-  // 1. CHECAGEM DE VARIÁVEIS
-  if (!botToken)
+  if (!botToken) {
     return res.status(500).json({ error: "DEBUG: Faltando Discord_Bot_Token" });
-  if (!guildId)
+  }
+
+  if (!guildId) {
     return res.status(500).json({ error: "DEBUG: Faltando Discord_Guild_ID" });
-  const parseRoles = (value) =>
-    (value || "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
+  }
 
   const cargosPermitidosPC = parseRoles(roleIdEnv);
   const cargosPermitidosPF = parseRoles(pfRolesEnv);
@@ -35,22 +69,15 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!userToken)
-    return res.status(401).json({ error: "Token do usuário não chegou." });
+  if (!userToken && !sessionUserId) {
+    return res
+      .status(401)
+      .json({ error: "Token do usuario ou ID da sessao nao chegou." });
+  }
 
   try {
-    // 2. DESCOBRIR QUEM É O USUÁRIO
-    const userRes = await fetch("https://discord.com/api/users/@me", {
-      headers: { Authorization: userToken },
-    });
+    const userData = await resolveUserData(userToken, sessionUserId);
 
-    if (!userRes.ok)
-      return res
-        .status(401)
-        .json({ error: "Token do usuário inválido/expirado." });
-    const userData = await userRes.json();
-
-    // 3. PERGUNTAR PRO DISCORD QUAIS CARGOS ELE TEM
     const memberUrl = `https://discord.com/api/v10/guilds/${guildId}/members/${userData.id}`;
     const memberRes = await fetch(memberUrl, {
       headers: { Authorization: `Bot ${botToken}` },
@@ -58,7 +85,7 @@ export default async function handler(req, res) {
 
     if (memberRes.status === 404) {
       return res.status(403).json({
-        error: `DEBUG: O usuário ${userData.username} NÃO está no servidor (ID: ${guildId}). O Bot está no servidor correto?`,
+        error: `DEBUG: O usuario ${userData.username} nao esta no servidor (ID: ${guildId}).`,
       });
     }
 
@@ -72,39 +99,35 @@ export default async function handler(req, res) {
     const memberData = await memberRes.json();
     const userRoles = memberData.roles || [];
 
-    // -----------------------------------------------------------
-    // 4. A HORA DA VERDADE (ADAPTADO PARA MÚLTIPLOS CARGOS)
-    // -----------------------------------------------------------
-
     const temAcessoPC = userRoles.some((roleDoUsuario) =>
       cargosPermitidosPC.includes(roleDoUsuario)
     );
     const temAcessoPF = userRoles.some((roleDoUsuario) =>
       cargosPermitidosPF.includes(roleDoUsuario)
     );
-    const temAcesso = temAcessoPC || temAcessoPF;
 
-    if (temAcesso) {
-      // SUCESSO
+    if (temAcessoPC || temAcessoPF) {
       return res.status(200).json({
         authorized: true,
-        username: userData.username,
-        avatar: userData.avatar,
+        username: memberData.user?.username || userData.username,
+        avatar: memberData.user?.avatar ?? userData.avatar ?? null,
         id: userData.id,
-        roles: userRoles, // Envia lista de cargos para o frontend (Importante para o relatório)
+        roles: userRoles,
         org: temAcessoPF ? "PF" : "PCERJ",
-      });
-    } else {
-      // FALHA
-      return res.status(403).json({
-        error: `DEBUG (Acesso Negado): O usuário não possui nenhum dos cargos permitidos. \nCargos Permitidos (PCERJ): [${cargosPermitidosPC.join(
-          ", "
-        )}] \nCargos Permitidos (PF): [${cargosPermitidosPF.join(
-          ", "
-        )}] \nCargos do Usuário: [${userRoles.join(", ")}]`,
+        checkedAt: new Date().toISOString(),
       });
     }
+
+    return res.status(403).json({
+      error: `DEBUG (Acesso Negado): O usuario nao possui nenhum dos cargos permitidos. \nCargos Permitidos (PCERJ): [${cargosPermitidosPC.join(
+        ", "
+      )}] \nCargos Permitidos (PF): [${cargosPermitidosPF.join(
+        ", "
+      )}] \nCargos do Usuario: [${userRoles.join(", ")}]`,
+    });
   } catch (error) {
-    return res.status(500).json({ error: "Erro interno: " + error.message });
+    return res.status(error.status || 500).json({
+      error: "Erro interno: " + error.message,
+    });
   }
 }
