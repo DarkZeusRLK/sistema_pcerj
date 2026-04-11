@@ -1,6 +1,20 @@
 {
+  "rewrites": [
+    { "source": "/api/verificar-admin", "destination": "/api/auth?route=verificar-admin" },
+    { "source": "/api/listar", "destination": "/api/data?route=listar" },
+    { "source": "/api/listar-revogacoes", "destination": "/api/data?route=listar-revogacoes" },
+    { "source": "/api/listar-membros", "destination": "/api/data?route=listar-membros" },
+    { "source": "/api/buscar-membros", "destination": "/api/data?route=buscar-membros" },
+    { "source": "/api/consultar-portes", "destination": "/api/data?route=consultar-portes" },
+    { "source": "/api/enviar", "destination": "/api/actions?route=enviar" },
+    { "source": "/api/enviar-cat", "destination": "/api/actions?route=enviar-cat" },
+    { "source": "/api/deletar", "destination": "/api/actions?route=deletar" },
+    { "source": "/api/consultar-ficha", "destination": "/api/reports?route=consultar-ficha" },
+    { "source": "/api/relatorio", "destination": "/api/reports?route=relatorio" },
+    { "source": "/api/logs-portes", "destination": "/api/reports?route=logs-portes" }
+  ],
   "functions": {
-    "api/consultar-ficha.js": {
+    "api/reports.js": {
       "maxDuration": 60
     }
   }
