@@ -178,6 +178,13 @@
                   <span class="opt-desc">Desconto de 15% (Taser: 50%)</span>
                 </div>
               </div>
+              <div class="option-card" onclick="document.getElementById('check-desconto-mec').click()">
+                <input type="checkbox" id="check-desconto-mec" onchange="atualizarValoresPorte(); event.stopPropagation();">
+                <div class="option-info">
+                  <span class="opt-title" style="color: #66b2ff;">Mecânico</span>
+                  <span class="opt-desc">Desconto de 20% em todos os Armamentos</span>
+                </div>
+              </div>
             </div>
 
             <div id="painel-valores" class="price-box hidden">
@@ -197,6 +204,9 @@
                 </div>
                 <div class="price-row discount" id="row-desconto" style="display: none;">
                   <span>Desconto Policial</span> <span id="val-desconto">- R$ 0</span>
+                </div>
+                <div class="price-row discount" id="row-desconto-mec" style="display: none;">
+                  <span>Desconto Mecânico</span> <span id="val-desconto-mec">- R$ 0</span>
                 </div>
               </div>
 

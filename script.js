@@ -504,6 +504,7 @@ window.atualizarValoresPorte = function () {
   const selectArma = document.getElementById("porte-arma");
   const checkMunicao = document.getElementById("check-municao");
   const checkDesconto = document.getElementById("check-desconto");
+  const checkDescontoMec = document.getElementById("check-desconto-mec");
   const painel = document.getElementById("painel-valores");
 
   if (!selectArma || !painel) return;
@@ -526,13 +527,20 @@ window.atualizarValoresPorte = function () {
 
   const subtotal = valorArma + valorLaudo + valorMunicao;
 
-  let valorDesconto = 0;
-  let descontoPercent = 0;
+  let valorDescontoPolicial = 0;
+  let percentualPolicial = 0;
   if (checkDesconto && checkDesconto.checked) {
-    descontoPercent = armaSelecionada === "TASER" ? 50 : 15;
-    valorDesconto = subtotal * (descontoPercent / 100);
+    percentualPolicial = armaSelecionada === "TASER" ? 50 : 15;
+    valorDescontoPolicial = subtotal * (percentualPolicial / 100);
   }
 
+  let valorDescontoMecanico = 0;
+  const percentualMecanico = 20;
+  if (checkDescontoMec && checkDescontoMec.checked) {
+    valorDescontoMecanico = subtotal * (percentualMecanico / 100);
+  }
+
+  const valorDesconto = valorDescontoPolicial + valorDescontoMecanico;
   const totalFinal = subtotal - valorDesconto;
   const fmt = (v) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -543,17 +551,25 @@ window.atualizarValoresPorte = function () {
 
   const rowDesconto = document.getElementById("row-desconto");
   const elDesconto = document.getElementById("val-desconto");
+  const rowDescontoMec = document.getElementById("row-desconto-mec");
+  const elDescontoMec = document.getElementById("val-desconto-mec");
 
-  if (valorDesconto > 0) {
+  if (valorDescontoPolicial > 0) {
     rowDesconto.style.display = "flex";
-    elDesconto.innerText = "- " + fmt(valorDesconto);
+    elDesconto.innerText = "- " + fmt(valorDescontoPolicial);
   } else {
     rowDesconto.style.display = "none";
   }
 
+  if (valorDescontoMecanico > 0) {
+    rowDescontoMec.style.display = "flex";
+    elDescontoMec.innerText = "- " + fmt(valorDescontoMecanico);
+  } else {
+    rowDescontoMec.style.display = "none";
+  }
+
   document.getElementById("val-total").innerText = fmt(totalFinal);
 
-  // --- ADICIONE ESTE BLOCO ---
   const portePainel = totalFinal * 0.6;
   const porteOficial = totalFinal * 0.4;
 
@@ -565,9 +581,14 @@ window.atualizarValoresPorte = function () {
 
   painel.dataset.total = totalFinal;
   painel.dataset.desconto = valorDesconto;
-  painel.dataset.descontoPercent = descontoPercent;
+  painel.dataset.descontoPolicial = valorDescontoPolicial;
+  painel.dataset.descontoMecanico = valorDescontoMecanico;
+  painel.dataset.descontoPercent = percentualPolicial;
+  painel.dataset.descontoPolicialPercent = percentualPolicial;
+  painel.dataset.descontoMecanicoPercent = percentualMecanico;
   painel.dataset.municaoIncluded = valorMunicao > 0 ? "Sim" : "Não";
-  painel.dataset.ehPolicial = valorDesconto > 0 ? "Sim" : "Não";
+  painel.dataset.ehPolicial = valorDescontoPolicial > 0 ? "Sim" : "Não";
+  painel.dataset.ehMecanico = checkDescontoMec && checkDescontoMec.checked ? "Sim" : "Não";
 };
 
 // ==========================================
@@ -618,9 +639,13 @@ async function processarEmissao() {
   const painel = document.getElementById("painel-valores");
   const total = painel ? painel.dataset.total || "0" : "0";
   const desconto = painel ? painel.dataset.desconto || "0" : "0";
-  const descontoPercent = painel ? painel.dataset.descontoPercent || "0" : "0";
+  const descontoPolicial = painel ? painel.dataset.descontoPolicial || "0" : "0";
+  const descontoMecanico = painel ? painel.dataset.descontoMecanico || "0" : "0";
+  const descontoPolicialPercent = painel ? painel.dataset.descontoPolicialPercent || "0" : "0";
+  const descontoMecanicoPercent = painel ? painel.dataset.descontoMecanicoPercent || "0" : "0";
   const temMunicao = painel ? painel.dataset.municaoIncluded || "Não" : "Não";
   const ehPolicial = painel ? painel.dataset.ehPolicial || "Não" : "Não";
+  const ehMecanico = painel ? painel.dataset.ehMecanico || "Não" : "Não";
 
   const regras = PRECOS[arma];
   const fmt = (v) =>
@@ -653,9 +678,14 @@ async function processarEmissao() {
       temMunicao === "Sim" ? fmt(regras.municao) : "R$ 0,00"
     }\``;
 
-    if (ehPolicial === "Sim" && parseFloat(desconto) > 0) {
-      textoValores += `\nDesconto Policial (${descontoPercent}%): \`-${fmt(
-        parseFloat(desconto),
+    if (ehPolicial === "Sim" && parseFloat(descontoPolicial) > 0) {
+      textoValores += `\nDesconto Policial (${descontoPolicialPercent}%): \`-${fmt(
+        parseFloat(descontoPolicial),
+      )}\``;
+    }
+    if (ehMecanico === "Sim" && parseFloat(descontoMecanico) > 0) {
+      textoValores += `\nDesconto Mecânico (${descontoMecanicoPercent}%): \`-${fmt(
+        parseFloat(descontoMecanico),
       )}\``;
     }
     textoValores += `\n**TOTAL: \`${parseInt(total).toLocaleString("pt-BR", {
