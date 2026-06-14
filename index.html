@@ -141,12 +141,30 @@
             </div>
 
             <div class="input-group">
-              <label><i class="fa-solid fa-gun"></i> Armamento</label>
-              <select id="porte-arma" onchange="atualizarValoresPorte()">
-                <option value="GLOCK">Glock (9mm)</option>
-                <option value="MP5">MP5 (Submetralhadora)</option>
-                <option value="TASER">Taser (Não letal)</option>
-              </select>
+              <label><i class="fa-solid fa-gun"></i> Armamentos (selecione um ou mais)</label>
+              <div class="armamentos-grid" id="armamentos-grid">
+                <label class="arma-checkbox-card" data-arma="GLOCK">
+                  <input type="checkbox" value="GLOCK" onchange="atualizarValoresPorte()">
+                  <div class="arma-checkbox-content">
+                    <span class="arma-checkbox-nome">🔫 Glock (9mm)</span>
+                    <span class="arma-checkbox-precos">Arma: R$ 1.200.000 | Laudo: R$ 600.000</span>
+                  </div>
+                </label>
+                <label class="arma-checkbox-card" data-arma="MP5">
+                  <input type="checkbox" value="MP5" onchange="atualizarValoresPorte()">
+                  <div class="arma-checkbox-content">
+                    <span class="arma-checkbox-nome">🔫 MP5 (Submetralhadora)</span>
+                    <span class="arma-checkbox-precos">Arma: R$ 1.600.000 | Laudo: R$ 600.000</span>
+                  </div>
+                </label>
+                <label class="arma-checkbox-card" data-arma="TASER">
+                  <input type="checkbox" value="TASER" onchange="atualizarValoresPorte()">
+                  <div class="arma-checkbox-content">
+                    <span class="arma-checkbox-nome">⚡ Taser (Não letal)</span>
+                    <span class="arma-checkbox-precos">Arma: R$ 3.600.000 | Laudo: R$ 1.400.000</span>
+                  </div>
+                </label>
+              </div>
             </div>
 
             <div class="row">
@@ -167,7 +185,7 @@
                 <input type="checkbox" id="check-municao" checked onchange="atualizarValoresPorte(); event.stopPropagation();">
                 <div class="option-info">
                   <span class="opt-title">Incluir Munição</span>
-                  <span class="opt-desc">+ R$ 100.000</span>
+                  <span class="opt-desc">+ R$ 100.000 por arma (exceto Taser)</span>
                 </div>
               </div>
 
@@ -192,22 +210,18 @@
                 <i class="fa-solid fa-receipt"></i> Resumo Financeiro
               </div>
 
-              <div class="price-content">
-                <div class="price-row">
-                  <span>Valor da Arma</span> <span id="val-arma">R$ 0</span>
+              <div class="price-content" id="price-content-dinamico">
+                <!-- Itens individuais gerados dinamicamente -->
+                <div style="padding: 10px 0; text-align: center; color: var(--text-secondary); font-size:0.9rem;">
+                  Selecione um ou mais armamentos acima para ver o resumo.
                 </div>
-                <div class="price-row">
-                  <span>Laudo Técnico</span> <span id="val-laudo">R$ 0</span>
-                </div>
-                <div class="price-row">
-                  <span>Kit Munição</span> <span id="val-municao">R$ 0</span>
-                </div>
-                <div class="price-row discount" id="row-desconto" style="display: none;">
-                  <span>Desconto Policial</span> <span id="val-desconto">- R$ 0</span>
-                </div>
-                <div class="price-row discount" id="row-desconto-mec" style="display: none;">
-                  <span>Desconto Mecânico</span> <span id="val-desconto-mec">- R$ 0</span>
-                </div>
+              </div>
+
+              <div class="price-row discount" id="row-desconto" style="display: none;">
+                <span>Desconto Policial</span> <span id="val-desconto">- R$ 0</span>
+              </div>
+              <div class="price-row discount" id="row-desconto-mec" style="display: none;">
+                <span>Desconto Mecânico</span> <span id="val-desconto-mec">- R$ 0</span>
               </div>
 
               <div class="price-footer">
@@ -234,16 +248,14 @@
           </div>
 
           <div class="preview-section hidden" id="preview-porte-container" style="display: none; margin-top: 20px;">
-            <h3>Prévia do Documento</h3>
-            <div class="preview-box">
-              <canvas id="canvas-porte" style="display: none;"></canvas> <img id="img-porte-final" src="" alt="Prévia" style="max-width: 100%; border-radius: 8px; border: 1px solid #444;">
+              <h3>Prévia dos Documentos</h3>
+              <div id="multipreview-box" class="multipreview-box"></div>
+              <div class="form-actions" style="margin-top: 15px;">
+                <button id="btn-emitir-final" class="btn-primary">
+                  <i class="fa-solid fa-check"></i> Confirmar e Emitir Todos
+                </button>
+              </div>
             </div>
-            <div class="form-actions" style="margin-top: 15px;">
-              <button id="btn-emitir-final" class="btn-primary">
-                <i class="fa-solid fa-check"></i> Confirmar e Emitir
-              </button>
-            </div>
-          </div>
         </div>
       </section>
       <section id="sec-renovacao" class="screen hidden">

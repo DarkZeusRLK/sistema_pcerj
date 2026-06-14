@@ -357,6 +357,138 @@ input[readonly] {
 }
 
 /* ============================
+   CHECKBOXES DE ARMAMENTO (MULTI-SELECAO)
+   ============================ */
+.armamentos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .armamentos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .armamentos-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.arma-checkbox-card {
+  background: var(--bg-panel);
+  border: 2px solid var(--border-light);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.arma-checkbox-card:hover {
+  border-color: var(--gold-accent);
+  background: rgba(212, 175, 55, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.arma-checkbox-card input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.arma-checkbox-card:has(input:checked) {
+  border-color: var(--gold-accent);
+  background: rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 0 1px var(--gold-accent), 0 4px 20px rgba(212, 175, 55, 0.15);
+}
+
+.arma-checkbox-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.arma-checkbox-nome {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.arma-checkbox-precos {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* ============================
+   GRADE MULTI-PREVIEW
+   ============================ */
+.multipreview-box {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+  margin-top: 15px;
+}
+
+@media (max-width: 480px) {
+  .multipreview-box {
+    grid-template-columns: 1fr;
+  }
+}
+
+.preview-item {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-item-header {
+  background: rgba(212, 175, 55, 0.1);
+  border-bottom: 1px solid var(--border-light);
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--gold-accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-item-body {
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.preview-item-body img {
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid #444;
+  display: block;
+}
+
+.preview-item-body canvas {
+  display: none;
+}
+
+/* ============================
    BOTÕES GERAIS
    ============================ */
 .form-actions {
