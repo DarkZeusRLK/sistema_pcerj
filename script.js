@@ -2244,7 +2244,37 @@ window.navegar = (tela) => {
   // Recarrega datas se for emissão, etc.
   if (tela === "emissao") configurarDatasAutomaticas();
   if (tela === "logs" && USER_IS_ADMIN) carregarLogsAuditoria(logsPaginationState.page || 1);
+
+  // Fecha sidebar mobile após navegar
+  if (window.innerWidth <= 768) {
+    document.querySelector(".sidebar")?.classList.remove("open");
+    document.querySelector(".sidebar-overlay")?.classList.remove("active");
+    document.body.style.overflow = "";
+  }
 };
+
+// 👇 HAMBURGER - Sidebar toggle para mobile
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.querySelector(".sidebar");
+  const hamburger = document.getElementById("hamburger-btn");
+
+  // Criar overlay
+  const overlay = document.createElement("div");
+  overlay.className = "sidebar-overlay";
+  document.body.appendChild(overlay);
+
+  hamburger?.addEventListener("click", () => {
+    sidebar?.classList.toggle("open");
+    overlay.classList.toggle("active");
+    document.body.style.overflow = sidebar?.classList.contains("open") ? "hidden" : "";
+  });
+
+  overlay.addEventListener("click", () => {
+    sidebar?.classList.remove("open");
+    overlay.classList.remove("active");
+    document.body.style.overflow = "";
+  });
+});
 
 // 👇 MODAL PERSONALIZADO (NÃO USA ALERT/CONFIRM NATIVO) 👇
 window.confirmarAcao = (

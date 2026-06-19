@@ -88,6 +88,10 @@
       </div>
     </aside>
 
+    <button class="hamburger" id="hamburger-btn" aria-label="Abrir menu">
+      <span></span><span></span><span></span>
+    </button>
+
     <main class="content-area">
 
       <section id="sec-dashboard" class="screen">
@@ -607,149 +611,164 @@
       <section id="sec-cat" class="screen hidden">
         <div class="top-bar">
           <h1><i class="fa-solid fa-clipboard"></i> Registrar C.A.T</h1>
-          <span class="date-display">Registro de Operação</span>
+          <span class="date-display">Comando de Ações Táticas</span>
         </div>
 
         <div class="cat-form">
-          <div class="form-grid cat-grid">
-            <div class="input-group cat-span-12">
-              <label>Nome da Operação</label>
-              <input type="text" id="cat-operacao" placeholder="Informe o nome da operação">
+          <div class="cat-section-card">
+            <div class="cat-section-header">
+              <i class="fa-solid fa-crosshairs"></i>
+              <span>Informações da Operação</span>
             </div>
+            <div class="form-grid cat-grid">
+              <div class="input-group cat-span-12">
+                <label>Nome da Operação</label>
+                <input type="text" id="cat-operacao" placeholder="Informe o nome da operação">
+              </div>
 
-            <div class="input-group cat-span-6">
-              <label>Investigador(a) responsável</label>
-              <div class="envolvidos-controls">
-                <input type="text" id="cat-investigador-search" placeholder="Pesquisar oficial">
-                <div class="envolvidos-row">
-                  <select id="cat-investigador-select">
-                    <option value="">Carregando membros...</option>
-                  </select>
-                  <button type="button" class="btn-add" id="cat-investigador-add" aria-label="Adicionar investigador">
-                    +
+              <div class="input-group cat-span-4">
+                <label>Organização Criminosa</label>
+                <input type="text" id="cat-organizacao" placeholder="Nome da organização">
+              </div>
+
+              <div class="input-group cat-span-4">
+                <label>Suspeito</label>
+                <input type="text" id="cat-suspeito" placeholder="Nome do suspeito">
+              </div>
+
+              <div class="input-group cat-span-4">
+                <label>RG</label>
+                <input type="text" id="cat-rg" placeholder="RG do suspeito">
+              </div>
+
+              <div class="input-group cat-span-6">
+                <label>Link da Prisão / Fiança</label>
+                <input type="text" id="cat-link-prisao" placeholder="Cole o link aqui">
+              </div>
+
+              <div class="input-group cat-span-6">
+                <label>Link da Perícia</label>
+                <input type="text" id="cat-link-pericia" placeholder="Cole o link aqui">
+              </div>
+
+              <div class="input-group cat-span-12">
+                <label>Itens Apreendidos</label>
+                <textarea id="cat-itens" rows="3" placeholder="Descreva os itens apreendidos"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="cat-section-card">
+            <div class="cat-section-header">
+              <i class="fa-solid fa-user-shield"></i>
+              <span>Equipe Envolvida</span>
+            </div>
+            <div class="form-grid cat-grid">
+              <div class="input-group cat-span-4">
+                <label>Investigador(a) Responsável</label>
+                <div class="envolvidos-controls">
+                  <input type="text" id="cat-investigador-search" placeholder="Pesquisar oficial">
+                  <div class="envolvidos-row">
+                    <select id="cat-investigador-select">
+                      <option value="">Carregando membros...</option>
+                    </select>
+                    <button type="button" class="btn-add" id="cat-investigador-add" aria-label="Adicionar investigador">
+                      +
+                    </button>
+                  </div>
+                </div>
+                <span class="hint-text">Selecione um nome e clique no +</span>
+                <div class="envolvidos-list" id="cat-investigador-list"></div>
+              </div>
+
+              <div class="input-group cat-span-4">
+                <label>Quem Autorizou</label>
+                <div class="envolvidos-controls">
+                  <input type="text" id="cat-autorizou-search" placeholder="Pesquisar oficial">
+                  <div class="envolvidos-row">
+                    <select id="cat-autorizou-select">
+                      <option value="">Carregando membros...</option>
+                    </select>
+                    <button type="button" class="btn-add" id="cat-autorizou-add" aria-label="Adicionar autorizadores">
+                      +
+                    </button>
+                  </div>
+                </div>
+                <span class="hint-text">Selecione um nome e clique no +</span>
+                <div class="envolvidos-list" id="cat-autorizou-list"></div>
+              </div>
+
+              <div class="input-group cat-span-4">
+                <label>Participantes</label>
+                <div class="envolvidos-controls">
+                  <input type="text" id="cat-envolvidos-search" placeholder="Pesquisar oficial">
+                  <div class="envolvidos-row">
+                    <select id="cat-envolvidos-select">
+                      <option value="">Carregando membros...</option>
+                    </select>
+                    <button type="button" class="btn-add" id="cat-envolvidos-add" aria-label="Adicionar participantes">
+                      +
+                    </button>
+                  </div>
+                </div>
+                <span class="hint-text">Selecione um nome e clique no +</span>
+                <div class="envolvidos-list" id="cat-envolvidos-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cat-section-card">
+            <div class="cat-section-header">
+              <i class="fa-solid fa-folder-open"></i>
+              <span>Evidências e Anexos</span>
+            </div>
+            <div class="form-grid cat-grid">
+              <div class="input-group cat-attachment-group cat-span-4">
+                <label>Print da Transferência</label>
+                <div class="cat-attachment" id="cat-anexo-transferencia-drop" tabindex="0">
+                  <div class="cat-attachment-preview" id="cat-anexo-transferencia-preview">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Nenhuma imagem</span>
+                  </div>
+                  <button type="button" class="btn-attachment" id="cat-anexo-transferencia-btn">
+                    <i class="fa-solid fa-upload"></i> Selecionar
                   </button>
                 </div>
+                <input type="file" id="cat-anexo-transferencia" accept="image/*" hidden>
               </div>
-              <span class="hint-text">Selecione um nome e clique no +. Repita para adicionar mais.</span>
-              <div class="envolvidos-list" id="cat-investigador-list"></div>
-            </div>
 
-            <div class="input-group cat-span-6">
-              <label>Quem Autorizou</label>
-              <div class="envolvidos-controls">
-                <input type="text" id="cat-autorizou-search" placeholder="Pesquisar oficial">
-                <div class="envolvidos-row">
-                  <select id="cat-autorizou-select">
-                    <option value="">Carregando membros...</option>
-                  </select>
-                  <button type="button" class="btn-add" id="cat-autorizou-add" aria-label="Adicionar autorizadores">
-                    +
+              <div class="input-group cat-attachment-group cat-span-4">
+                <label>Print do Anúncio OLX</label>
+                <div class="cat-attachment" id="cat-anexo-olx-drop" tabindex="0">
+                  <div class="cat-attachment-preview" id="cat-anexo-olx-preview">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Nenhuma imagem</span>
+                  </div>
+                  <button type="button" class="btn-attachment" id="cat-anexo-olx-btn">
+                    <i class="fa-solid fa-upload"></i> Selecionar
                   </button>
                 </div>
+                <input type="file" id="cat-anexo-olx" accept="image/*" hidden>
               </div>
-              <span class="hint-text">Selecione um nome e clique no +. Repita para adicionar mais.</span>
-              <div class="envolvidos-list" id="cat-autorizou-list"></div>
-            </div>
 
-            <div class="input-group cat-span-12">
-              <label>Participantes envolvidos</label>
-              <div class="envolvidos-controls">
-                <input type="text" id="cat-envolvidos-search" placeholder="Pesquisar oficial">
-                <div class="envolvidos-row">
-                  <select id="cat-envolvidos-select">
-                    <option value="">Carregando membros...</option>
-                  </select>
-                  <button type="button" class="btn-add" id="cat-envolvidos-add" aria-label="Adicionar participantes">
-                    +
+              <div class="input-group cat-attachment-group cat-span-4">
+                <label>Prints WhatsApp (até 2)</label>
+                <div class="cat-attachment" id="cat-anexo-whatsapp-drop" tabindex="0">
+                  <div class="cat-attachment-preview" id="cat-anexo-whatsapp-preview">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Nenhuma imagem</span>
+                  </div>
+                  <button type="button" class="btn-attachment" id="cat-anexo-whatsapp-btn">
+                    <i class="fa-solid fa-upload"></i> Selecionar
                   </button>
                 </div>
+                <input type="file" id="cat-anexo-whatsapp" accept="image/*" multiple hidden>
               </div>
-              <span class="hint-text">Selecione um nome e clique no +. Repita para adicionar mais.</span>
-              <div class="envolvidos-list" id="cat-envolvidos-list"></div>
-            </div>
 
-            <div class="input-group cat-span-4">
-              <label>Organização</label>
-              <input type="text" id="cat-organizacao" placeholder="Informe a organização">
-            </div>
-
-            <div class="input-group cat-span-4">
-              <label>Suspeito</label>
-              <input type="text" id="cat-suspeito" placeholder="Nome do suspeito">
-            </div>
-
-            <div class="input-group cat-span-4">
-              <label>RG</label>
-              <input type="text" id="cat-rg" placeholder="RG do suspeito">
-            </div>
-
-            <div class="input-group cat-span-12">
-              <label>Itens apreendidos</label>
-              <textarea id="cat-itens" rows="3" placeholder="Descreva os itens apreendidos"></textarea>
-            </div>
-
-            <div class="input-group cat-span-6">
-              <label>Link da prisão/fiança</label>
-              <input type="text" id="cat-link-prisao" placeholder="Cole o link">
-            </div>
-
-            <div class="input-group cat-span-6">
-              <label>Link da perícia</label>
-              <input type="text" id="cat-link-pericia" placeholder="Cole o link">
-            </div>
-
-            <div class="input-group cat-attachment-group cat-span-12">
-              <label>Print da transferência + Apreensão realizada</label>
-              <div class="cat-attachment" id="cat-anexo-transferencia-drop" tabindex="0">
-                <div class="cat-attachment-header">
-                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
-                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
-                </div>
-                <div class="cat-attachment-preview" id="cat-anexo-transferencia-preview">
-                  <i class="fa-solid fa-image"></i>
-                  <span>Nenhuma imagem selecionada</span>
-                </div>
-                <button type="button" class="btn-attachment" id="cat-anexo-transferencia-btn">
-                  Escolher imagem
-                </button>
+              <div class="cat-anexos-hint cat-span-12">
+                <i class="fa-solid fa-circle-info"></i>
+                Cole imagens com Ctrl+V clicando na area, ou use duplo clique para selecionar. Minimo 2 imagens no total.
               </div>
-              <input type="file" id="cat-anexo-transferencia" accept="image/*" hidden>
-            </div>
-
-            <div class="input-group cat-attachment-group cat-span-12">
-              <label>Print do anúncio OLX</label>
-              <div class="cat-attachment" id="cat-anexo-olx-drop" tabindex="0">
-                <div class="cat-attachment-header">
-                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
-                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
-                </div>
-                <div class="cat-attachment-preview" id="cat-anexo-olx-preview">
-                  <i class="fa-solid fa-image"></i>
-                  <span>Nenhuma imagem selecionada</span>
-                </div>
-                <button type="button" class="btn-attachment" id="cat-anexo-olx-btn">
-                  Escolher imagem
-                </button>
-              </div>
-              <input type="file" id="cat-anexo-olx" accept="image/*" hidden>
-            </div>
-
-            <div class="input-group cat-attachment-group cat-span-12">
-              <label>Prints do WhatsApp (até 2)</label>
-              <div class="cat-attachment" id="cat-anexo-whatsapp-drop" tabindex="0">
-                <div class="cat-attachment-header">
-                  <span class="cat-attachment-title">Clique uma vez e cole (Ctrl+V). Duplo clique para selecionar.</span>
-                  <span class="cat-attachment-sub">Aceita apenas imagens. Envie pelo menos 2 imagens no total.</span>
-                </div>
-                <div class="cat-attachment-preview" id="cat-anexo-whatsapp-preview">
-                  <i class="fa-solid fa-image"></i>
-                  <span>Nenhuma imagem selecionada</span>
-                </div>
-                <button type="button" class="btn-attachment" id="cat-anexo-whatsapp-btn">
-                  Escolher imagens
-                </button>
-              </div>
-              <input type="file" id="cat-anexo-whatsapp" accept="image/*" multiple hidden>
             </div>
           </div>
 
