@@ -615,49 +615,55 @@
         </div>
 
         <div class="cat-form">
+          <!-- SEÇÃO 1: Operação -->
           <div class="cat-section-card">
             <div class="cat-section-header">
               <i class="fa-solid fa-crosshairs"></i>
               <span>Informações da Operação</span>
             </div>
             <div class="form-grid cat-grid">
-              <div class="input-group cat-span-12">
+              <div class="input-group cat-span-6">
                 <label>Nome da Operação</label>
-                <input type="text" id="cat-operacao" placeholder="Informe o nome da operação">
+                <input type="text" id="cat-operacao" placeholder="Ex: Operação Saturação">
               </div>
-
-              <div class="input-group cat-span-4">
+              <div class="input-group cat-span-6">
                 <label>Organização Criminosa</label>
-                <input type="text" id="cat-organizacao" placeholder="Nome da organização">
+                <input type="text" id="cat-organizacao" placeholder="Nome da facção/grupo">
               </div>
-
               <div class="input-group cat-span-4">
                 <label>Suspeito</label>
-                <input type="text" id="cat-suspeito" placeholder="Nome do suspeito">
+                <input type="text" id="cat-suspeito" placeholder="Nome completo">
               </div>
-
               <div class="input-group cat-span-4">
-                <label>RG</label>
-                <input type="text" id="cat-rg" placeholder="RG do suspeito">
+                <label>RG do Suspeito</label>
+                <input type="text" id="cat-rg" placeholder="Ex: 123456">
               </div>
-
-              <div class="input-group cat-span-6">
-                <label>Link da Prisão / Fiança</label>
-                <input type="text" id="cat-link-prisao" placeholder="Cole o link aqui">
-              </div>
-
-              <div class="input-group cat-span-6">
-                <label>Link da Perícia</label>
-                <input type="text" id="cat-link-pericia" placeholder="Cole o link aqui">
-              </div>
-
-              <div class="input-group cat-span-12">
+              <div class="input-group cat-span-4">
                 <label>Itens Apreendidos</label>
-                <textarea id="cat-itens" rows="3" placeholder="Descreva os itens apreendidos"></textarea>
+                <input type="text" id="cat-itens" placeholder="Ex: 2kg cocaína, 1 arma">
               </div>
             </div>
           </div>
 
+          <!-- SEÇÃO 2: Vínculos -->
+          <div class="cat-section-card">
+            <div class="cat-section-header">
+              <i class="fa-solid fa-link"></i>
+              <span>Vínculos da Operação</span>
+            </div>
+            <div class="form-grid cat-grid">
+              <div class="input-group cat-span-6">
+                <label>Link da Prisão / Fiança</label>
+                <input type="text" id="cat-link-prisao" placeholder="Cole o link do registro">
+              </div>
+              <div class="input-group cat-span-6">
+                <label>Link da Perícia</label>
+                <input type="text" id="cat-link-pericia" placeholder="Cole o link do laudo">
+              </div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO 3: Equipe -->
           <div class="cat-section-card">
             <div class="cat-section-header">
               <i class="fa-solid fa-user-shield"></i>
@@ -665,58 +671,59 @@
             </div>
             <div class="form-grid cat-grid">
               <div class="input-group cat-span-4">
-                <label>Investigador(a) Responsável</label>
+                <label><i class="fa-solid fa-star"></i> Investigador(a) Responsável</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-investigador-search" placeholder="Pesquisar oficial">
+                  <input type="text" id="cat-investigador-search" placeholder="Pesquisar oficial...">
                   <div class="envolvidos-row">
                     <select id="cat-investigador-select">
                       <option value="">Carregando membros...</option>
                     </select>
                     <button type="button" class="btn-add" id="cat-investigador-add" aria-label="Adicionar investigador">
-                      +
+                      <i class="fa-solid fa-plus"></i>
                     </button>
                   </div>
                 </div>
-                <span class="hint-text">Selecione um nome e clique no +</span>
+                <span class="hint-text">Selecione e clique em +</span>
                 <div class="envolvidos-list" id="cat-investigador-list"></div>
               </div>
 
               <div class="input-group cat-span-4">
-                <label>Quem Autorizou</label>
+                <label><i class="fa-solid fa-check-circle"></i> Quem Autorizou</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-autorizou-search" placeholder="Pesquisar oficial">
+                  <input type="text" id="cat-autorizou-search" placeholder="Pesquisar oficial...">
                   <div class="envolvidos-row">
                     <select id="cat-autorizou-select">
                       <option value="">Carregando membros...</option>
                     </select>
                     <button type="button" class="btn-add" id="cat-autorizou-add" aria-label="Adicionar autorizadores">
-                      +
+                      <i class="fa-solid fa-plus"></i>
                     </button>
                   </div>
                 </div>
-                <span class="hint-text">Selecione um nome e clique no +</span>
+                <span class="hint-text">Selecione e clique em +</span>
                 <div class="envolvidos-list" id="cat-autorizou-list"></div>
               </div>
 
               <div class="input-group cat-span-4">
-                <label>Participantes</label>
+                <label><i class="fa-solid fa-users"></i> Participantes</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-envolvidos-search" placeholder="Pesquisar oficial">
+                  <input type="text" id="cat-envolvidos-search" placeholder="Pesquisar oficial...">
                   <div class="envolvidos-row">
                     <select id="cat-envolvidos-select">
                       <option value="">Carregando membros...</option>
                     </select>
                     <button type="button" class="btn-add" id="cat-envolvidos-add" aria-label="Adicionar participantes">
-                      +
+                      <i class="fa-solid fa-plus"></i>
                     </button>
                   </div>
                 </div>
-                <span class="hint-text">Selecione um nome e clique no +</span>
+                <span class="hint-text">Selecione e clique em +</span>
                 <div class="envolvidos-list" id="cat-envolvidos-list"></div>
               </div>
             </div>
           </div>
 
+          <!-- SEÇÃO 4: Anexos -->
           <div class="cat-section-card">
             <div class="cat-section-header">
               <i class="fa-solid fa-folder-open"></i>
@@ -724,7 +731,7 @@
             </div>
             <div class="form-grid cat-grid">
               <div class="input-group cat-attachment-group cat-span-4">
-                <label>Print da Transferência</label>
+                <label><i class="fa-solid fa-money-bill-transfer"></i> Print da Transferência</label>
                 <div class="cat-attachment" id="cat-anexo-transferencia-drop" tabindex="0">
                   <div class="cat-attachment-preview" id="cat-anexo-transferencia-preview">
                     <i class="fa-solid fa-image"></i>
@@ -738,7 +745,7 @@
               </div>
 
               <div class="input-group cat-attachment-group cat-span-4">
-                <label>Print do Anúncio OLX</label>
+                <label><i class="fa-solid fa-tag"></i> Print do Anúncio OLX</label>
                 <div class="cat-attachment" id="cat-anexo-olx-drop" tabindex="0">
                   <div class="cat-attachment-preview" id="cat-anexo-olx-preview">
                     <i class="fa-solid fa-image"></i>
@@ -752,7 +759,7 @@
               </div>
 
               <div class="input-group cat-attachment-group cat-span-4">
-                <label>Prints WhatsApp (até 2)</label>
+                <label><i class="fa-solid fa-comments"></i> Prints WhatsApp</label>
                 <div class="cat-attachment" id="cat-anexo-whatsapp-drop" tabindex="0">
                   <div class="cat-attachment-preview" id="cat-anexo-whatsapp-preview">
                     <i class="fa-solid fa-image"></i>
@@ -767,7 +774,7 @@
 
               <div class="cat-anexos-hint cat-span-12">
                 <i class="fa-solid fa-circle-info"></i>
-                Cole imagens com Ctrl+V clicando na area, ou use duplo clique para selecionar. Minimo 2 imagens no total.
+                Cole imagens com Ctrl+V ou clique em "Selecionar". Mínimo de <strong>2 imagens</strong> no total.
               </div>
             </div>
           </div>

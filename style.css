@@ -998,82 +998,101 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #fba94c;
   border: 1px solid #fba94c;
 }
+/* ============================
+   CAT FORM - DESIGN HARMÔNICO
+   ============================ */
 #sec-cat .cat-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
   max-width: 960px;
 }
 
+/* Card de seção com identidade visual forte */
 .cat-section-card {
-  background: var(--bg-panel);
+  background: linear-gradient(135deg, rgba(32,32,36,1) 0%, rgba(26,26,30,1) 100%);
   border: 1px solid var(--border-light);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
 }
 
 .cat-section-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid var(--border-light);
+  padding: 12px 20px;
+  background: rgba(212, 175, 55, 0.06);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
   color: var(--gold-accent);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .cat-section-header i {
-  font-size: 1rem;
-  opacity: 0.85;
+  font-size: 0.95rem;
 }
 
+/* Grid interno unificado */
 .cat-section-card .form-grid.cat-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 16px;
-  padding: 20px;
+  padding: 20px 20px 24px;
 }
 
-.cat-span-12 {
-  grid-column: span 12;
-}
+.cat-span-12 { grid-column: span 12; }
+.cat-span-6  { grid-column: span 6; }
+.cat-span-4  { grid-column: span 4; }
 
-.cat-span-6 {
-  grid-column: span 6;
-}
-
-.cat-span-4 {
-  grid-column: span 4;
-}
-
-#sec-cat .input-group textarea,
-#sec-cat .input-group input,
-#sec-cat .input-group select {
-  width: 100%;
+/* Inputs com altura fixa e visual limpo */
+#sec-cat .input-group {
+  margin-bottom: 0;
 }
 
 #sec-cat .input-group label {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-weight: 500;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#sec-cat .input-group label i {
+  font-size: 0.75rem;
+  opacity: 0.7;
 }
 
 #sec-cat .input-group input,
 #sec-cat .input-group textarea,
 #sec-cat .input-group select {
-  background: var(--bg-dark);
-  border: 1px solid var(--border-light);
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.07);
   border-radius: 8px;
   color: var(--text-primary);
-  padding: 10px 12px;
-  font-size: 0.92rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  height: 42px;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+#sec-cat .input-group textarea {
+  height: auto;
+  min-height: 42px;
+  padding: 10px 14px;
+}
+
+#sec-cat .input-group input::placeholder,
+#sec-cat .input-group textarea::placeholder {
+  color: rgba(255,255,255,0.2);
+  font-size: 0.85rem;
 }
 
 #sec-cat .input-group input:focus,
@@ -1081,13 +1100,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 #sec-cat .input-group select:focus {
   outline: none;
   border-color: var(--gold-accent);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  background: rgba(0,0,0,0.45);
+}
+
+/* Inputs tipo select com altura fixa */
+#sec-cat .input-group select {
+  height: 42px;
+  padding: 8px 12px;
+  cursor: pointer;
 }
 
 #sec-cat .input-group select[multiple] {
-  min-height: 160px;
-  max-height: 220px;
-  padding: 8px;
+  min-height: 140px;
+  max-height: 200px;
+  padding: 6px;
+  height: auto;
 }
 
 .envolvidos-controls {
@@ -1107,29 +1135,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .btn-add {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border-radius: 8px;
-  border: 1px solid rgba(212, 175, 55, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.3);
   background: rgba(212, 175, 55, 0.08);
   color: var(--gold-accent);
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-add:hover {
   background: rgba(212, 175, 55, 0.18);
+  border-color: var(--gold-accent);
 }
 
 .envolvidos-list {
   margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .envolvido-item {
@@ -1137,12 +1168,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-light);
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.05);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
 }
 
 .envolvido-item button {
@@ -1154,7 +1185,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .envolvido-item button:hover {
@@ -1163,53 +1197,61 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 #sec-cat .hint-text {
   color: var(--text-secondary);
-  font-size: 0.7rem;
-  opacity: 0.7;
-  margin-top: 4px;
+  font-size: 0.68rem;
+  opacity: 0.55;
+  margin-top: 3px;
+  display: block;
 }
 
-/* Attachment boxes */
+/* Anexos */
 .cat-attachment-group .cat-attachment {
   width: 100%;
 }
 
 .cat-attachment {
-  border: 1px dashed rgba(212, 175, 55, 0.4);
+  border: 1px dashed rgba(212, 175, 55, 0.3);
   border-radius: 10px;
-  padding: 14px;
-  background: rgba(10, 10, 12, 0.6);
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  cursor: pointer;
+}
+
+.cat-attachment:hover {
+  background: rgba(212, 175, 55, 0.04);
+  border-color: rgba(212, 175, 55, 0.5);
 }
 
 .cat-attachment:focus-within {
   border-color: var(--gold-accent);
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .cat-attachment-preview {
   width: 100%;
-  height: 120px;
+  height: 100px;
   border-radius: 8px;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-light);
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.04);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  color: #555;
-  font-size: 0.78rem;
+  gap: 5px;
+  color: rgba(255,255,255,0.25);
+  font-size: 0.75rem;
   text-align: center;
   overflow: hidden;
+  transition: border-color 0.2s;
 }
 
 .cat-attachment-preview i {
-  font-size: 1.5rem;
-  opacity: 0.5;
+  font-size: 1.3rem;
+  opacity: 0.4;
 }
 
 .cat-attachment-preview img {
@@ -1228,28 +1270,29 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .cat-attachment-preview.multi img {
-  max-width: 48%;
-  max-height: 55px;
+  max-width: 46%;
+  max-height: 48px;
   object-fit: cover;
 }
 
 .btn-attachment {
   flex: 0 0 auto;
-  background: transparent;
-  border: 1px solid rgba(212, 175, 55, 0.5);
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.25);
   color: var(--gold-accent);
-  padding: 6px 14px;
+  padding: 5px 14px;
   border-radius: 6px;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-attachment:hover {
-  background: rgba(212, 175, 55, 0.1);
+  background: rgba(212, 175, 55, 0.15);
+  border-color: var(--gold-accent);
 }
 
 .cat-anexos-hint {
@@ -1258,22 +1301,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 8px;
   color: var(--text-secondary);
-  font-size: 0.75rem;
-  opacity: 0.7;
-  padding: 0 4px;
+  font-size: 0.72rem;
+  opacity: 0.6;
+  padding: 2px 4px 0;
 }
 
 .cat-anexos-hint i {
   color: var(--blue-accent);
-  opacity: 0.6;
+  opacity: 0.5;
+  font-size: 0.8rem;
 }
 
+/* Botão de envio no final */
 #sec-cat #btn-registrar-cat {
-  align-self: flex-end;
-  padding: 12px 28px;
+  align-self: flex-start;
+  padding: 14px 36px;
   font-weight: 700;
-  border-radius: 8px;
-  font-size: 0.95rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  transition: all 0.25s;
+  gap: 10px;
+}
+
+#sec-cat #btn-registrar-cat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.25);
 }
 
 /* ============================
@@ -1325,6 +1378,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .cat-span-6 {
     grid-column: span 6;
   }
+
+  .cat-span-12 { grid-column: span 6; }
 
   .cleaning-container {
     flex-direction: column;
@@ -1462,28 +1517,32 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   /* CAT */
   #sec-cat .form-grid.cat-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .cat-span-4,
   .cat-span-6,
   .cat-span-12 {
-    grid-column: 1 / -1;
+    grid-column: 1 / -1 !important;
   }
 
   .cat-section-card .form-grid.cat-grid {
-    padding: 12px;
+    padding: 14px;
   }
 
   .cat-section-header {
     padding: 10px 14px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
 
-  /* CAT buttons */
   #sec-cat #btn-registrar-cat {
     width: 100%;
     align-self: stretch;
+    justify-content: center;
+  }
+
+  .cat-attachment-preview {
+    height: 85px;
   }
 
   /* Limpeza */
