@@ -673,52 +673,34 @@
               <div class="input-group cat-span-4">
                 <label><i class="fa-solid fa-star"></i> Investigador(a) Responsável</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-investigador-search" placeholder="Pesquisar oficial...">
-                  <div class="envolvidos-row">
-                    <select id="cat-investigador-select">
-                      <option value="">Carregando membros...</option>
-                    </select>
-                    <button type="button" class="btn-add" id="cat-investigador-add" aria-label="Adicionar investigador">
-                      <i class="fa-solid fa-plus"></i>
-                    </button>
+                  <div class="autocomplete-wrapper">
+                    <input type="text" class="cat-autocomplete-input" id="cat-investigador-input" placeholder="Digite o nome...">
+                    <ul class="cat-autocomplete-list" id="cat-investigador-autocomplete"></ul>
                   </div>
+                  <div class="envolvidos-list" id="cat-investigador-list"></div>
                 </div>
-                <span class="hint-text">Selecione e clique em +</span>
-                <div class="envolvidos-list" id="cat-investigador-list"></div>
               </div>
 
               <div class="input-group cat-span-4">
                 <label><i class="fa-solid fa-check-circle"></i> Quem Autorizou</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-autorizou-search" placeholder="Pesquisar oficial...">
-                  <div class="envolvidos-row">
-                    <select id="cat-autorizou-select">
-                      <option value="">Carregando membros...</option>
-                    </select>
-                    <button type="button" class="btn-add" id="cat-autorizou-add" aria-label="Adicionar autorizadores">
-                      <i class="fa-solid fa-plus"></i>
-                    </button>
+                  <div class="autocomplete-wrapper">
+                    <input type="text" class="cat-autocomplete-input" id="cat-autorizou-input" placeholder="Digite o nome...">
+                    <ul class="cat-autocomplete-list" id="cat-autorizou-autocomplete"></ul>
                   </div>
+                  <div class="envolvidos-list" id="cat-autorizou-list"></div>
                 </div>
-                <span class="hint-text">Selecione e clique em +</span>
-                <div class="envolvidos-list" id="cat-autorizou-list"></div>
               </div>
 
               <div class="input-group cat-span-4">
                 <label><i class="fa-solid fa-users"></i> Participantes</label>
                 <div class="envolvidos-controls">
-                  <input type="text" id="cat-envolvidos-search" placeholder="Pesquisar oficial...">
-                  <div class="envolvidos-row">
-                    <select id="cat-envolvidos-select">
-                      <option value="">Carregando membros...</option>
-                    </select>
-                    <button type="button" class="btn-add" id="cat-envolvidos-add" aria-label="Adicionar participantes">
-                      <i class="fa-solid fa-plus"></i>
-                    </button>
+                  <div class="autocomplete-wrapper">
+                    <input type="text" class="cat-autocomplete-input" id="cat-envolvidos-input" placeholder="Digite o nome...">
+                    <ul class="cat-autocomplete-list" id="cat-envolvidos-autocomplete"></ul>
                   </div>
+                  <div class="envolvidos-list" id="cat-envolvidos-list"></div>
                 </div>
-                <span class="hint-text">Selecione e clique em +</span>
-                <div class="envolvidos-list" id="cat-envolvidos-list"></div>
               </div>
             </div>
           </div>

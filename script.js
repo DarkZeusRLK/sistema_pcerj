@@ -1018,7 +1018,6 @@ function formatMemberLabel(member) {
 
 let catMembersCache = null;
 let catMembersLoading = false;
-let catMembersError = null;
 let catMembersSorted = null;
 
 async function carregarMembrosDiscord() {
@@ -1028,7 +1027,6 @@ async function carregarMembrosDiscord() {
   try {
     const response = await fetch("/api/listar-membros");
     if (!response.ok) {
-      catMembersError = "Falha ao carregar membros.";
       return [];
     }
     const data = await response.json();
@@ -1039,38 +1037,6 @@ async function carregarMembrosDiscord() {
   }
 }
 
-function preencherSelect(selectId, members, placeholder) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const isMultiple = select.hasAttribute("multiple");
-  select.innerHTML = "";
-  if (catMembersError) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = catMembersError;
-    select.appendChild(opt);
-    return;
-  }
-  if (isMultiple && members.length === 0 && placeholder) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = placeholder;
-    select.appendChild(opt);
-  } else if (!isMultiple) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = placeholder || "Selecione um oficial";
-    select.appendChild(opt);
-  }
-  members.forEach((member) => {
-    if (!member.id) return;
-    const opt = document.createElement("option");
-    opt.value = member.id;
-    opt.textContent = formatMemberLabel(member);
-    select.appendChild(opt);
-  });
-}
-
 function obterMembrosOrdenados() {
   if (catMembersSorted) return catMembersSorted;
   if (!catMembersCache || catMembersCache.length === 0) return [];
@@ -1078,25 +1044,6 @@ function obterMembrosOrdenados() {
     .slice()
     .sort((a, b) => formatMemberLabel(a).localeCompare(formatMemberLabel(b)));
   return catMembersSorted;
-}
-
-function filtrarSelectPorTexto(selectId, texto) {
-  const termo = (texto || "").trim().toLowerCase();
-  const membros = obterMembrosOrdenados();
-  const filtrados = termo
-    ? membros.filter((member) => {
-        const label = formatMemberLabel(member).toLowerCase();
-        const id = String(member.id || "").toLowerCase();
-        return label.includes(termo) || id.includes(termo);
-      })
-    : membros;
-
-  preencherSelect(selectId, filtrados, "Selecione um oficial");
-
-  if (termo && filtrados.length > 0) {
-    const select = document.getElementById(selectId);
-    if (select) select.value = filtrados[0].id;
-  }
 }
 
 function renderCatAnexoPreview(preview, files, emptyLabel, multiple) {
@@ -1224,25 +1171,23 @@ function configurarCatAnexo({
 async function prepararSelectsCAT() {
   if (catMembersCache) return;
   if (!catMembersLoading) {
-    preencherSelect("cat-investigador-select", [], "Carregando membros...");
-    preencherSelect("cat-autorizou-select", [], "Carregando membros...");
-    preencherSelect("cat-envolvidos-select", [], "Carregando membros...");
+    const placeholders = [
+      "cat-investigador-input",
+      "cat-autorizou-input",
+      "cat-envolvidos-input",
+    ];
+    placeholders.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.placeholder = "Carregando membros...";
+    });
   }
   const members = await carregarMembrosDiscord();
   if (!members || members.length === 0) return;
   catMembersSorted = null;
-  const ordenados = obterMembrosOrdenados();
-  preencherSelect("cat-investigador-select", ordenados, "Selecione um oficial");
-  preencherSelect("cat-autorizou-select", ordenados, "Selecione um oficial");
-  preencherSelect("cat-envolvidos-select", ordenados, "Selecione um oficial");
-}
-
-function coletarSelecionados(selectId) {
-  const select = document.getElementById(selectId);
-  if (!select) return [];
-  return Array.from(select.selectedOptions)
-    .map((opt) => opt.value)
-    .filter(Boolean);
+  obterMembrosOrdenados();
+  configurarAutocomplete("cat-investigador-input", "cat-investigador-list", "cat-investigador-autocomplete");
+  configurarAutocomplete("cat-autorizou-input", "cat-autorizou-list", "cat-autorizou-autocomplete");
+  configurarAutocomplete("cat-envolvidos-input", "cat-envolvidos-list", "cat-envolvidos-autocomplete");
 }
 
 function coletarListaIds(listId) {
@@ -1253,34 +1198,107 @@ function coletarListaIds(listId) {
   );
 }
 
-function adicionarNaLista(selectId, listId) {
-  const picker = document.getElementById(selectId);
+function adicionarMembroNaLista(listId, memberId, memberLabel) {
   const list = document.getElementById(listId);
-  if (!picker || !list) return;
-
-  const selectedOptions = Array.from(picker.selectedOptions).filter(
-    (option) => option.value,
+  if (!list) return;
+  const exists = Array.from(list.querySelectorAll("[data-id]")).some(
+    (el) => el.getAttribute("data-id") === memberId,
   );
-  if (selectedOptions.length === 0) return;
+  if (exists) return;
+  const row = document.createElement("div");
+  row.className = "envolvido-item";
+  row.setAttribute("data-id", memberId);
+  row.innerHTML = `<span><i class="fa-solid fa-user"></i> ${memberLabel}</span><button type="button" aria-label="Remover">×</button>`;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  list.appendChild(row);
+}
 
-  selectedOptions.forEach((option) => {
-    const selected = option.value;
-    const exists = Array.from(list.querySelectorAll("[data-id]")).some(
-      (el) => el.getAttribute("data-id") === selected,
-    );
-    if (exists) return;
+function configurarAutocomplete(inputId, listId, autocompleteId) {
+  const input = document.getElementById(inputId);
+  const autocompleteList = document.getElementById(autocompleteId);
+  if (!input || !autocompleteList) return;
 
-    const label = option.textContent || "Oficial";
-    const row = document.createElement("div");
-    row.className = "envolvido-item";
-    row.setAttribute("data-id", selected);
-    row.innerHTML = `<span>${label}</span><button type="button" aria-label="Remover">×</button>`;
-    row.querySelector("button").addEventListener("click", () => row.remove());
-    list.appendChild(row);
+  let selectedIndex = -1;
+
+  function getMembers() {
+    return obterMembrosOrdenados();
+  }
+
+  function renderDropdown(members, termo) {
+    autocompleteList.innerHTML = "";
+    if (!termo || members.length === 0) {
+      autocompleteList.classList.remove("open");
+      return;
+    }
+    selectedIndex = -1;
+    const termoLower = termo.toLowerCase();
+    members.forEach((member, idx) => {
+      const label = formatMemberLabel(member);
+      const li = document.createElement("li");
+      li.dataset.id = member.id;
+      li.dataset.label = label;
+      li.innerHTML = `${label} <span class="member-id">#${member.id}</span>`;
+      if (termoLower && label.toLowerCase().startsWith(termoLower)) {
+        li.classList.add("selected");
+        selectedIndex = idx;
+      }
+      li.addEventListener("click", () => {
+        adicionarMembroNaLista(listId, member.id, label);
+        input.value = "";
+        autocompleteList.classList.remove("open");
+        input.focus();
+      });
+      autocompleteList.appendChild(li);
+    });
+    autocompleteList.classList.add("open");
+  }
+
+  function filtrar(texto) {
+    const termo = (texto || "").trim().toLowerCase();
+    const membros = getMembers();
+    const filtrados = termo
+      ? membros.filter((member) => {
+          const label = formatMemberLabel(member).toLowerCase();
+          const id = String(member.id || "").toLowerCase();
+          return label.includes(termo) || id.includes(termo);
+        })
+      : [];
+    renderDropdown(filtrados, termo);
+  }
+
+  input.addEventListener("input", () => {
+    filtrar(input.value);
   });
 
-  Array.from(picker.options).forEach((option) => {
-    option.selected = false;
+  input.addEventListener("keydown", (e) => {
+    const items = autocompleteList.querySelectorAll("li");
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+      items.forEach((li, i) => li.classList.toggle("selected", i === selectedIndex));
+      if (items[selectedIndex]) items[selectedIndex].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      selectedIndex = Math.max(selectedIndex - 1, -1);
+      items.forEach((li, i) => li.classList.toggle("selected", i === selectedIndex));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      if (autocompleteList.classList.contains("open") && selectedIndex >= 0 && items[selectedIndex]) {
+        e.preventDefault();
+        items[selectedIndex].click();
+      }
+    } else if (e.key === "Escape") {
+      autocompleteList.classList.remove("open");
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    setTimeout(() => autocompleteList.classList.remove("open"), 200);
+  });
+
+  input.addEventListener("focus", () => {
+    if (input.value.trim()) {
+      filtrar(input.value);
+    }
   });
 }
 
@@ -1437,24 +1455,12 @@ window.registrarCAT = async function () {
     );
     document.getElementById("cat-itens").value = "";
 
-    const selectInvestigador = document.getElementById(
-      "cat-investigador-select",
-    );
-    const selectAutorizou = document.getElementById("cat-autorizou-select");
-    const listInvestigadorReset = document.getElementById(
-      "cat-investigador-list",
-    );
+    document.getElementById("cat-investigador-input").value = "";
+    document.getElementById("cat-autorizou-input").value = "";
+    document.getElementById("cat-envolvidos-input").value = "";
+    const listInvestigadorReset = document.getElementById("cat-investigador-list");
     const listAutorizouReset = document.getElementById("cat-autorizou-list");
     const listEnvolvidosReset = document.getElementById("cat-envolvidos-list");
-    const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
-    [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach(
-      (select) => {
-        if (!select) return;
-        Array.from(select.options).forEach((option) => {
-          option.selected = false;
-        });
-      },
-    );
     if (listInvestigadorReset) listInvestigadorReset.innerHTML = "";
     if (listAutorizouReset) listAutorizouReset.innerHTML = "";
     if (listEnvolvidosReset) listEnvolvidosReset.innerHTML = "";
@@ -2209,9 +2215,80 @@ function iniciarSistema(user) {
     const avatar = user.avatar
       ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
       : CURRENT_ORG.logoPath;
-    div.innerHTML = `<div class="avatar-circle"><img src="${avatar}" style="width:100%"></div><div class="user-info"><p>${user.username}</p><small>● Online</small></div><button onclick="logout()" style="color:#e52e4d;background:none;border:none;margin-left:auto"><i class="fa-solid fa-right-from-bracket"></i></button>`;
+    div.innerHTML = `
+      <div class="user-card">
+        <div class="avatar-circle"><img src="${avatar}" style="width:100%"></div>
+        <div class="user-info"><p>${user.username}</p><small>● Online</small></div>
+        <div class="user-actions">
+          <button class="btn-user-config" id="btn-config-usuario" onclick="abrirPopupConfig()" title="Configurações">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+          <button class="btn-user-logout" onclick="logout()" title="Desconectar">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+      <div class="user-config-overlay hidden" id="user-config-overlay" onclick="fecharPopupConfig()"></div>
+      <div class="user-config-popup hidden" id="user-config-popup">
+        <div class="popup-header">
+          <i class="fa-solid fa-palette"></i>
+          <span>Personalizar</span>
+          <button class="popup-close" onclick="fecharPopupConfig()">&times;</button>
+        </div>
+        <div class="popup-body">
+          <div class="config-item">
+            <div class="config-item-icon"><i class="fa-solid fa-sun"></i></div>
+            <div class="config-item-content">
+              <span class="config-item-label">Modo Claro</span>
+              <span class="config-item-desc">Alternar entre claro e escuro</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-modo-claro" onchange="alternarModoClaro(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>`;
+  }
+  aplicarModoSalvo();
+}
+
+window.alternarModoClaro = function (ativo) {
+  if (ativo) {
+    document.documentElement.setAttribute("data-theme", "light");
+    localStorage.setItem("pc-theme", "light");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    localStorage.setItem("pc-theme", "dark");
+  }
+};
+
+function aplicarModoSalvo() {
+  const tema = localStorage.getItem("pc-theme");
+  const toggle = document.getElementById("toggle-modo-claro");
+  if (tema === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+    if (toggle) toggle.checked = true;
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    if (toggle) toggle.checked = false;
   }
 }
+
+window.abrirPopupConfig = function () {
+  const overlay = document.getElementById("user-config-overlay");
+  const popup = document.getElementById("user-config-popup");
+  if (overlay) overlay.classList.remove("hidden");
+  if (popup) popup.classList.remove("hidden");
+  aplicarModoSalvo();
+};
+
+window.fecharPopupConfig = function () {
+  const overlay = document.getElementById("user-config-overlay");
+  const popup = document.getElementById("user-config-popup");
+  if (overlay) overlay.classList.add("hidden");
+  if (popup) popup.classList.add("hidden");
+};
 
 window.logout = () => {
   encerrarSessao();
@@ -2410,6 +2487,21 @@ async function verificarPermissoesAdmin() {
   }
 }
 
+function resolverEmitidoPor(item) {
+  if (item.emitidoPor && !item.emitidoPor.startsWith("<@")) {
+    return item.emitidoPor;
+  }
+  const id = item.emitidoPorIdDiscord;
+  if (!id || id === "N/A") return item.emitidoPor || "N/A";
+  if (typeof catMembersCache !== "undefined" && catMembersCache) {
+    const member = catMembersCache.find((m) => m.id === id);
+    if (member) {
+      return member.nick || member.global_name || member.username || id;
+    }
+  }
+  return `ID: ${id}`;
+}
+
 function renderizarLogsAuditoria(items = []) {
   const corpo = document.getElementById("corpo-logs");
   if (!corpo) return;
@@ -2432,7 +2524,7 @@ function renderizarLogsAuditoria(items = []) {
           <td>${item.horario || "N/A"}</td>
           <td>${item.tipo || "N/A"}</td>
           <td>${item.itemEmitido || "N/A"}</td>
-          <td>${item.emitidoPor || "N/A"}</td>
+          <td>${resolverEmitidoPor(item)}</td>
           <td><code>${item.emitidoPorIdDiscord || "N/A"}</code></td>
         </tr>`
     )
@@ -2472,6 +2564,10 @@ async function carregarLogsAuditoria(page = 1) {
         <i class="fa-solid fa-spinner fa-spin"></i> Carregando logs...
       </td>
     </tr>`;
+
+  if (!catMembersCache) {
+    carregarMembrosDiscord();
+  }
 
   try {
     const response = await fetch(`/api/logs-portes?page=${page}`, {
@@ -3174,84 +3270,7 @@ window.mostrarCarregando = (ativar) => {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  const selectInvestigador = document.getElementById("cat-investigador-select");
-  const selectAutorizou = document.getElementById("cat-autorizou-select");
-  const selectEnvolvidos = document.getElementById("cat-envolvidos-select");
-  const listInvestigador = document.getElementById("cat-investigador-list");
-  const listAutorizou = document.getElementById("cat-autorizou-list");
-  const listEnvolvidos = document.getElementById("cat-envolvidos-list");
-  const btnAddInvestigador = document.getElementById("cat-investigador-add");
-  const btnAddAutorizou = document.getElementById("cat-autorizou-add");
-  const btnAddEnvolvido = document.getElementById("cat-envolvidos-add");
-  const searchInvestigador = document.getElementById("cat-investigador-search");
-  const searchAutorizou = document.getElementById("cat-autorizou-search");
-  const searchEnvolvidos = document.getElementById("cat-envolvidos-search");
-
-  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
-    if (!select) return;
-    select.addEventListener("focus", prepararSelectsCAT);
-    select.addEventListener("click", prepararSelectsCAT);
-  });
-
   prepararSelectsCAT();
-
-  if (btnAddInvestigador) {
-    btnAddInvestigador.addEventListener("click", () =>
-      adicionarNaLista("cat-investigador-select", "cat-investigador-list"),
-    );
-  }
-
-  if (btnAddAutorizou) {
-    btnAddAutorizou.addEventListener("click", () =>
-      adicionarNaLista("cat-autorizou-select", "cat-autorizou-list"),
-    );
-  }
-
-  if (btnAddEnvolvido) {
-    btnAddEnvolvido.addEventListener("click", () =>
-      adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list"),
-    );
-  }
-
-  [selectInvestigador, selectAutorizou, selectEnvolvidos].forEach((select) => {
-    if (!select) return;
-    select.addEventListener("dblclick", () => {
-      if (select === selectInvestigador) {
-        adicionarNaLista("cat-investigador-select", "cat-investigador-list");
-      } else if (select === selectAutorizou) {
-        adicionarNaLista("cat-autorizou-select", "cat-autorizou-list");
-      } else {
-        adicionarNaLista("cat-envolvidos-select", "cat-envolvidos-list");
-      }
-    });
-  });
-
-  if (listInvestigador) listInvestigador.innerHTML = "";
-  if (listAutorizou) listAutorizou.innerHTML = "";
-  if (listEnvolvidos) listEnvolvidos.innerHTML = "";
-
-  const vincularPesquisa = (input, selectId) => {
-    if (!input) return;
-    input.addEventListener("input", async () => {
-      if (!catMembersCache) {
-        await prepararSelectsCAT();
-      }
-      filtrarSelectPorTexto(selectId, input.value);
-    });
-
-    input.addEventListener("blur", async () => {
-      if (!input.value.trim()) {
-        if (!catMembersCache) {
-          await prepararSelectsCAT();
-        }
-        filtrarSelectPorTexto(selectId, "");
-      }
-    });
-  };
-
-  vincularPesquisa(searchInvestigador, "cat-investigador-select");
-  vincularPesquisa(searchAutorizou, "cat-autorizou-select");
-  vincularPesquisa(searchEnvolvidos, "cat-envolvidos-select");
 
   configurarCatAnexo({
     key: "transferencia",
