@@ -1,5 +1,6 @@
 :root {
   --bg-dark: #121214;
+  --bg-primary: #121214;
   --bg-panel: #202024;
   --text-primary: #e1e1e6;
   --text-secondary: #a8a8b3;
@@ -8,6 +9,8 @@
   --green-accent: #04d361;
   --blue-accent: #66b2ff;
   --border-light: rgba(255, 255, 255, 0.08);
+  --surface-sunken: rgba(0, 0, 0, 0.2);
+  --row-hover: rgba(255, 255, 255, 0.03);
 }
 
 body.theme-pcerj {
@@ -30,7 +33,7 @@ body.theme-pf {
 }
 
 body {
-  background-color: var(--bg-dark);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
@@ -245,7 +248,7 @@ input[readonly] {
 
 .option-card:hover {
   border-color: var(--gold-accent);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--row-hover);
 }
 
 .option-card input[type="checkbox"] {
@@ -283,7 +286,7 @@ input[readonly] {
 }
 
 .price-header {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--row-hover);
   padding: 10px 20px;
   font-size: 0.8rem;
   font-weight: bold;
@@ -598,7 +601,7 @@ td {
 }
 
 th {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-sunken);
   color: var(--text-secondary);
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -1799,7 +1802,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .data-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--row-hover);
 }
 
 .data-table tbody tr:last-child td {
@@ -1926,7 +1929,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .relatorio-card:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--row-hover);
 }
 
 .relatorio-card-ok {
@@ -2006,7 +2009,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   align-items: center;
   gap: 4px;
   padding: 10px 6px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-sunken);
   border-radius: 6px;
 }
 
@@ -2363,7 +2366,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   position: relative;
   padding: 12px 15px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--row-hover);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   transition: all 0.2s;
@@ -2749,36 +2752,127 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transform: translateX(20px);
 }
 
-/* Tema claro */
+/* =========================================================
+   TEMA CLARO
+   ========================================================= */
 [data-theme="light"] {
-  --bg-primary: #f5f5f7;
+  --bg-primary: #f4f5f7;
   --bg-panel: #ffffff;
-  --border-light: #e0e0e0;
-  --text-primary: #1a1a2e;
-  --text-secondary: #666;
-  --gold-accent: #b8860b;
+  --border-light: #e2e2e6;
+  --text-primary: #1f2430;
+  --text-secondary: #5b5f6b;
+  --gold-accent: #a8760a;
+  --blue-accent: #1d6fd6;
+  --surface-sunken: #eef0f3;
+  --row-hover: rgba(0, 0, 0, 0.035);
 }
 
+/* Sidebar e navegação */
 [data-theme="light"] .sidebar {
   background: #ffffff;
-  border-right: 1px solid #e0e0e0;
+  border-right: 1px solid var(--border-light);
 }
 
 [data-theme="light"] .user-card {
-  background: #f0f0f2;
-  border-color: #e0e0e0;
+  background: #f0f1f4;
+  border-color: var(--border-light);
 }
 
 [data-theme="light"] .user-card:hover {
-  background: #e8e8ec;
+  background: #e7e9ee;
 }
 
 [data-theme="light"] .nav-links li:hover {
-  background-color: rgba(184, 134, 11, 0.08);
+  background-color: rgba(168, 118, 10, 0.08);
 }
 
 [data-theme="light"] .nav-links li.active {
-  background: rgba(184, 134, 11, 0.1);
+  background: rgba(168, 118, 10, 0.12);
+  color: var(--gold-accent);
+}
+
+/* Inputs de data (antes fixos em cor escura, sumiam no tema claro) */
+[data-theme="light"] input[type="date"] {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none; /* volta o ícone pra cor original (escura) no fundo claro */
+}
+
+/* Inputs e selects em geral */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #9a9da6;
+}
+
+/* Cards e superfícies que usavam preto fixo (ficavam escuras/duras no fundo claro) */
+[data-theme="light"] .price-box,
+[data-theme="light"] .invoice-card,
+[data-theme="light"] .cat-autocomplete-list,
+[data-theme="light"] .cat-section-card {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .recompra-summary-box {
+  background: var(--surface-sunken);
+}
+
+[data-theme="light"] .search-box {
+  background: #ffffff;
+  border-color: var(--border-light);
+}
+
+/* Tabelas: cabeçalho e hover, e cards do relatório */
+[data-theme="light"] th {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .table-container,
+[data-theme="light"] .relatorio-resultados-container,
+[data-theme="light"] .filter-bar {
+  background: #ffffff;
+  border-color: var(--border-light);
+}
+
+[data-theme="light"] .relatorio-card {
+  background: #fbfbfc;
+}
+
+[data-theme="light"] .relatorio-progresso-barra {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Banner informativo dourado - clareia o fundo, mantém o texto legível */
+[data-theme="light"] .info-banner-gold {
+  background: rgba(168, 118, 10, 0.06);
+}
+
+/* Modais e overlays continuam escuros de propósito (destacam sobre qualquer tema) */
+
+/* Badges de status: cores de fundo um pouco mais fortes no claro pra manter contraste */
+[data-theme="light"] .meta-success {
+  background: rgba(4, 179, 82, 0.14);
+  color: #12793f;
+  border-color: #12793f;
+}
+
+[data-theme="light"] .meta-warning {
+  background: rgba(214, 138, 21, 0.14);
+  color: #a05a00;
+  border-color: #a05a00;
 }
 
 /* 2. Ajuste de Espaçamento do Formulário de Busca */
