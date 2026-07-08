@@ -2668,16 +2668,16 @@ window.gerarRelatorio = async function () {
     listaOrdenada.sort((a, b) => b.total - a.total);
 
     // 3. Renderiza na tabela
-    const meta = 15;
+    const meta = 10;
 
     listaOrdenada.forEach((d) => {
       // Definicao do Badge de Status
       let statusHtml = "";
       if (d.total >= meta) {
-        statusHtml = `<span class="badge badge-success" style="background-color: #28a745; color: white; padding: 4px 8px; border-radius: 4px;">Meta Batida</span>`;
+        statusHtml = `<span class="meta-badge meta-success"><i class="fa-solid fa-circle-check"></i> Meta Batida</span>`;
       } else {
         const falta = meta - d.total;
-        statusHtml = `<span class="badge badge-warning" style="background-color: #ffc107; color: black; padding: 4px 8px; border-radius: 4px;">Faltam ${falta}</span>`;
+        statusHtml = `<span class="meta-badge meta-warning"><i class="fa-solid fa-triangle-exclamation"></i> Faltam ${falta}</span>`;
       }
 
       corpo.innerHTML += `
