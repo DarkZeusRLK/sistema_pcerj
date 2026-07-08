@@ -2607,10 +2607,13 @@ async function carregarLogsAuditoria(page = 1) {
 // 📊 LÓGICA DE RELATÓRIOS (Atualizada e Ordenada)
 // ===============================================
 
+let _ultimoRelatorioGerado = null;
+
 window.gerarRelatorio = async function () {
   const corpo = document.getElementById("corpo-relatorio");
   const inicioInput = document.getElementById("rel-inicio");
   const fimInput = document.getElementById("rel-fim");
+  const btnCopiar = document.getElementById("btn-copiar-relatorio");
 
   if (!inicioInput.value || !fimInput.value) {
     // Certifique-se de que a função mostrarAlerta existe ou use alert()
@@ -2625,7 +2628,13 @@ window.gerarRelatorio = async function () {
     }
   }
 
-  corpo.innerHTML = `<tr><td colspan="8" align="center"><i class="fa-solid fa-magnifying-glass"></i> Analisando registros...</td></tr>`;
+  corpo.innerHTML = `
+    <div class="relatorio-vazio">
+      <i class="fa-solid fa-magnifying-glass fa-spin"></i>
+      <p>Analisando registros...</p>
+    </div>`;
+  if (btnCopiar) btnCopiar.disabled = true;
+  _ultimoRelatorioGerado = null;
 
   try {
     const user = JSON.parse(localStorage.getItem("pc_session") || "{}");
@@ -2641,15 +2650,19 @@ window.gerarRelatorio = async function () {
     });
 
     const dados = await response.json();
-    corpo.innerHTML = "";
 
     if (!dados || Object.keys(dados).length === 0) {
-      corpo.innerHTML = `<tr><td colspan="8" align="center">Nenhum registro encontrado neste período.</td></tr>`;
+      corpo.innerHTML = `
+        <div class="relatorio-vazio">
+          <i class="fa-solid fa-circle-info"></i>
+          <p>Nenhum registro encontrado neste período.</p>
+        </div>`;
+      _ultimoRelatorioGerado = null;
+      if (btnCopiar) btnCopiar.disabled = true;
       return;
     }
 
-    // --- NOVA LÓGICA DE ORDENAÇÃO ---
-    // 1. Converte o objeto { "Nome": {stats} } em um Array para poder ordenar
+    // --- Converte o objeto { "Nome": {stats} } em um Array pra poder ordenar ---
     const listaOrdenada = Object.entries(dados).map(([nome, stats]) => {
       const total =
         (stats.emissao || 0) +
@@ -2664,41 +2677,138 @@ window.gerarRelatorio = async function () {
       };
     });
 
-    // 2. Ordena do Maior Total para o Menor (Decrescente)
+    // Ordena do Maior Total para o Menor (Decrescente)
     listaOrdenada.sort((a, b) => b.total - a.total);
 
-    // 3. Renderiza na tabela
     const meta = 10;
 
-    listaOrdenada.forEach((d) => {
-      // Definicao do Badge de Status
-      let statusHtml = "";
-      if (d.total >= meta) {
-        statusHtml = `<span class="meta-badge meta-success"><i class="fa-solid fa-circle-check"></i> Meta Batida</span>`;
-      } else {
-        const falta = meta - d.total;
-        statusHtml = `<span class="meta-badge meta-warning"><i class="fa-solid fa-triangle-exclamation"></i> Faltam ${falta}</span>`;
-      }
+    const itens = [
+      { chave: "emissao", label: "Portes", icon: "fa-passport" },
+      { chave: "renovacao", label: "Renov.", icon: "fa-arrows-rotate" },
+      { chave: "limpeza", label: "Limp.", icon: "fa-eraser" },
+      { chave: "revogacao", label: "Revog.", icon: "fa-ban" },
+      { chave: "cat", label: "C.A.T", icon: "fa-clipboard" },
+    ];
 
-      corpo.innerHTML += `
-        <tr>
-          <td style="font-weight: 500;">${d.nome}</td>
-          <td align="center">${d.emissao || 0}</td>
-          <td align="center">${d.renovacao || 0}</td>
-          <td align="center">${d.limpeza || 0}</td>
-          <td align="center">${d.revogacao || 0}</td>
-          <td align="center">${d.cat || 0}</td>
-          <td align="center"><strong style="font-size: 1.1em;">${
-            d.total
-          }</strong></td>
-          <td align="center">${statusHtml}</td>
-        </tr>`;
-    });
+    corpo.innerHTML = listaOrdenada
+      .map((d) => {
+        const bateuMeta = d.total >= meta;
+        const percentual = Math.min(100, Math.round((d.total / meta) * 100));
+
+        const statsHtml = itens
+          .map(
+            (item) => `
+              <div class="relatorio-stat">
+                <i class="fa-solid ${item.icon}"></i>
+                <span class="relatorio-stat-valor">${d[item.chave] || 0}</span>
+                <span class="relatorio-stat-label">${item.label}</span>
+              </div>`
+          )
+          .join("");
+
+        const statusHtml = bateuMeta
+          ? `<span class="meta-badge meta-success"><i class="fa-solid fa-circle-check"></i> Meta Batida</span>`
+          : `<span class="meta-badge meta-warning"><i class="fa-solid fa-triangle-exclamation"></i> Faltam ${meta - d.total}</span>`;
+
+        return `
+          <div class="relatorio-card ${bateuMeta ? "relatorio-card-ok" : ""}">
+            <div class="relatorio-card-topo">
+              <div class="relatorio-card-nome">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>${d.nome}</span>
+              </div>
+              ${statusHtml}
+            </div>
+
+            <div class="relatorio-progresso">
+              <div class="relatorio-progresso-barra">
+                <div class="relatorio-progresso-preenchido ${bateuMeta ? "cheio" : ""}" style="width: ${percentual}%;"></div>
+              </div>
+              <span class="relatorio-progresso-texto">${d.total} / ${meta}</span>
+            </div>
+
+            <div class="relatorio-stats-grid">
+              ${statsHtml}
+            </div>
+          </div>`;
+      })
+      .join("");
+
+    _ultimoRelatorioGerado = {
+      lista: listaOrdenada,
+      meta,
+      dataInicio: inicioInput.value,
+      dataFim: fimInput.value,
+    };
+    if (btnCopiar) btnCopiar.disabled = false;
   } catch (error) {
     console.error(error);
-    corpo.innerHTML = `<tr><td colspan="8" align="center" style="color:red">Erro ao carregar relatório. Tente novamente.</td></tr>`;
+    corpo.innerHTML = `
+      <div class="relatorio-vazio relatorio-erro">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <p>Erro ao carregar relatório. Tente novamente.</p>
+      </div>`;
+    _ultimoRelatorioGerado = null;
+    if (btnCopiar) btnCopiar.disabled = true;
   }
 };
+
+// ===============================================
+// 📋 Copiar relatório em Markdown (formatado pro Discord)
+// ===============================================
+function formatarDataBR(isoDate) {
+  const [ano, mes, dia] = isoDate.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function montarTextoRelatorioDiscord({ lista, meta, dataInicio, dataFim }) {
+  const totalGeral = lista.reduce((soma, d) => soma + d.total, 0);
+  const bateram = lista.filter((d) => d.total >= meta).length;
+
+  let texto = `📊 **RELATÓRIO DE PRODUTIVIDADE**\n`;
+  texto += `🗓️ Período: **${formatarDataBR(dataInicio)}** a **${formatarDataBR(dataFim)}**\n`;
+  texto += `🎯 Meta: **${meta}** ações + C.A.T\n`;
+  texto += `✅ ${bateram}/${lista.length} bateram a meta • 📈 Total geral: **${totalGeral}**\n`;
+  texto += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  lista.forEach((d, i) => {
+    const bateuMeta = d.total >= meta;
+    const medalha = i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : "";
+    const statusEmoji = bateuMeta ? "✅ **Meta Batida**" : `⚠️ Faltam **${meta - d.total}**`;
+
+    texto += `${medalha}👮 **${d.nome}**\n`;
+    texto += `> 🔫 Portes: **${d.emissao || 0}** • 🔄 Renov.: **${d.renovacao || 0}** • 🧹 Limp.: **${d.limpeza || 0}** • 🚫 Revog.: **${d.revogacao || 0}** • 📋 C.A.T: **${d.cat || 0}**\n`;
+    texto += `> 📌 Total: **${d.total}** — ${statusEmoji}\n\n`;
+  });
+
+  texto += `━━━━━━━━━━━━━━━━━━━━\n`;
+  texto += `_Relatório gerado automaticamente pelo Sistema de Emissão._`;
+
+  return texto;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btnCopiar = document.getElementById("btn-copiar-relatorio");
+  if (!btnCopiar) return;
+
+  btnCopiar.addEventListener("click", async () => {
+    if (!_ultimoRelatorioGerado) return;
+
+    const texto = montarTextoRelatorioDiscord(_ultimoRelatorioGerado);
+
+    try {
+      await navigator.clipboard.writeText(texto);
+      if (typeof mostrarAlerta === "function") {
+        mostrarAlerta("Copiado!", "Relatório copiado - já é só colar no Discord.", "success");
+      }
+    } catch (err) {
+      console.error("Falha ao copiar:", err);
+      if (typeof mostrarAlerta === "function") {
+        mostrarAlerta("Erro", "Não foi possível copiar automaticamente. Tente novamente.", "error");
+      }
+    }
+  });
+});
 
 // ===============================================
 // 2. Event Listener (Seguro)

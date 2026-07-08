@@ -551,30 +551,19 @@
           </button>
         </div>
 
-        <div class="table-container">
-          <h3><i class="fa-solid fa-list"></i> Resultados da Equipe</h3>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Oficial</th>
-                <th style="text-align: center;">Portes</th>
-                <th style="text-align: center;">Renov.</th>
-                <th style="text-align: center;">Limp.</th>
-                <th style="text-align: center;">Revog.</th>
-                <th style="text-align: center;">C.A.T</th>
-                <th style="text-align: center; background: rgba(255,255,255,0.05); color: var(--gold-accent);">TOTAL</th>
-                <th style="text-align: center;">Status (Meta: 10 + C.A.T)</th>
-              </tr>
-            </thead>
-            <tbody id="corpo-relatorio">
-              <tr>
-                <td colspan="8" align="center" style="padding: 40px; color: var(--text-secondary);">
-                  <i class="fa-solid fa-arrow-up" style="font-size: 20px; margin-bottom: 10px;"></i><br>
-                  Selecione o período acima e clique em <strong>GERAR RELATÓRIO</strong>.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="relatorio-resultados-container">
+          <div class="relatorio-resultados-header">
+            <h3><i class="fa-solid fa-list"></i> Resultados da Equipe</h3>
+            <button id="btn-copiar-relatorio" class="btn-copiar-relatorio" type="button" disabled>
+              <i class="fa-solid fa-copy"></i> Copiar Relatório
+            </button>
+          </div>
+          <div class="relatorio-cards" id="corpo-relatorio">
+            <div class="relatorio-vazio">
+              <i class="fa-solid fa-arrow-up"></i>
+              <p>Selecione o período acima e clique em <strong>GERAR RELATÓRIO</strong>.</p>
+            </div>
+          </div>
         </div>
       </section>
       <section id="sec-logs" class="screen hidden">
