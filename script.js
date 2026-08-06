@@ -1964,6 +1964,32 @@ window.renovarPorte = async function (identificadorPorte, idPorteFallback) {
   }
 };
 
+// Tenta apagar a mensagem original de emissão no Discord (com 1 retentativa).
+// Retorna true só quando a API confirma o sucesso - nunca assume que deu certo.
+async function apagarMensagemOriginal(messageId, tentativas = 2) {
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      const resp = await fetch("/api/deletar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.success) return true;
+      console.error(
+        `Falha ao apagar mensagem ${messageId} (tentativa ${i + 1}/${tentativas}):`,
+        data,
+      );
+    } catch (err) {
+      console.error(
+        `Erro de rede ao apagar mensagem ${messageId} (tentativa ${i + 1}/${tentativas}):`,
+        err,
+      );
+    }
+  }
+  return false;
+}
+
 // ==========================================
 // 🚫 AÇÃO DE REVOGAR (CORRIGIDA)
 // ==========================================
@@ -2059,13 +2085,21 @@ window.revogar = async function (identificadorPorte, idPassaporteFallback) {
     );
 
     if (sucessoLog) {
-      // 2. Apaga a mensagem original do canal de Portes para sumir do sistema
-      if (p.message_id) {
-        await fetch("/api/deletar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message_id: p.message_id }),
-        });
+      // 2. Apaga a mensagem original do canal de Portes para sumir do sistema.
+      // Se isso falhar silenciosamente, a mensagem original continua no canal
+      // e é contada de novo pelo bônus "Emissor Original" da revogação,
+      // duplicando a meta do oficial no relatorio.js - por isso o resultado
+      // precisa ser checado (com 1 retentativa) e o usuário avisado se falhar.
+      const exclusaoOk = p.message_id
+        ? await apagarMensagemOriginal(p.message_id)
+        : false;
+
+      if (!exclusaoOk) {
+        await mostrarAlerta(
+          "Atenção",
+          `Não foi possível apagar a mensagem original do porte de ${p.nome} no Discord${p.message_id ? "" : " (message_id ausente)"}. Apague-a manualmente no canal de portes para evitar contagem duplicada no Relatório de Produtividade.`,
+          "warning",
+        );
       }
 
       // Atualiza a interface local
