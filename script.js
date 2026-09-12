@@ -1302,6 +1302,52 @@ function configurarAutocomplete(inputId, listId, autocompleteId) {
   });
 }
 
+// Reduz o tamanho das fotos do C.A.T. antes do envio. Fotos de celular sem
+// compressão facilmente somam mais de 4.5MB (limite de payload da Vercel),
+// e o POST para /api/enviar-cat falha sem nenhum erro claro para o usuário.
+async function comprimirImagemAnexo(file, maxDim = 1600, qualidade = 0.75) {
+  if (!(file instanceof Blob) || !file.type || !file.type.startsWith("image/")) {
+    return file;
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () =>
+        reject(new Error("Falha ao carregar imagem para compressão"));
+      el.src = url;
+    });
+
+    const escala = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const width = Math.round(img.width * escala);
+    const height = Math.round(img.height * escala);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", qualidade),
+    );
+
+    if (!blob || blob.size >= file.size) return file;
+
+    const nomeBase = (file.name || "anexo").replace(/\.[^.]+$/, "");
+    return new File([blob], `${nomeBase}.jpg`, { type: "image/jpeg" });
+  } catch (erro) {
+    console.warn(
+      "[CAT] Falha ao comprimir anexo, enviando original:",
+      erro.message,
+    );
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 window.registrarCAT = async function () {
   const operacao = document.getElementById("cat-operacao")?.value.trim();
   const organizacao = document.getElementById("cat-organizacao")?.value.trim();
@@ -1408,7 +1454,10 @@ window.registrarCAT = async function () {
     if (typeof mostrarCarregando === "function") mostrarCarregando(true);
     const formData = new FormData();
     formData.append("content", mensagem);
-    anexos.forEach((file) => {
+    const anexosComprimidos = await Promise.all(
+      anexos.map((file) => comprimirImagemAnexo(file)),
+    );
+    anexosComprimidos.forEach((file) => {
       formData.append("file", file, file.name);
     });
     const response = await fetch("/api/enviar-cat", {
@@ -1954,9 +2003,36 @@ window.renovarPorte = async function (identificadorPorte, idPorteFallback) {
   );
 
   if (sucesso) {
+    // Apaga a mensagem de emissão original no canal de portes. Sem isso, o
+    // /api/listar continua lendo o registro antigo do Discord e o cidadão
+    // reaparece na aba Renovações a cada refresh/login, mesmo com o doc novo emitido.
+    const messageIdOriginal = porte.message_id;
+    const exclusaoOk = messageIdOriginal
+      ? await apagarMensagemOriginal(messageIdOriginal)
+      : false;
+
+    if (!exclusaoOk) {
+      await mostrarAlerta(
+        "Atenção",
+        `Renovação registrada, mas não foi possível apagar a mensagem original do porte de ${porte.nome} no Discord${messageIdOriginal ? "" : " (message_id ausente)"}. Apague-a manualmente no canal de portes, senão ele continuará aparecendo em Renovações.`,
+        "warning",
+      );
+    }
+
+    // Passa a apontar para a mensagem de renovação recém-criada.
+    porte.message_id = sucesso?.id || porte.message_id;
     porte.validade = novaValidadeStr;
     porte.expedicao = novaExpedicaoStr;
     porte.imagem_url = sucesso?.attachments?.[0]?.url || porte.imagem_url;
+
+    // Remove eventuais duplicatas locais do mesmo cidadão que ainda apontem
+    // para a mensagem antiga já apagada.
+    if (messageIdOriginal && messageIdOriginal !== porte.message_id) {
+      dbPortes = dbPortes.filter(
+        (item) => item === porte || item.message_id !== messageIdOriginal,
+      );
+    }
+
     renderTables();
     mostrarAlerta("Sucesso", "Porte renovado!", "success");
   } else {
